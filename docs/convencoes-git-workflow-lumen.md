@@ -142,7 +142,7 @@ git config commit.template .gitmessage
 
 ## 4. Template de Pull Request
 
-Crie o arquivo `.github/PULL_REQUEST_TEMPLATE.md` no repositório com o conteúdo abaixo para que o GitHub carregue automaticamente a estrutura:
+O arquivo está configurado em [`.github/pull_request_template.md`](../.github/pull_request_template.md) no repositório para que o GitHub carregue automaticamente a estrutura ao abrir um PR:
 
 ```markdown
 ## Descrição
