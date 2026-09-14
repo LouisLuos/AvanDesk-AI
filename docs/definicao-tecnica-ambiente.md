@@ -107,7 +107,7 @@ Adoção do padrão **Conventional Commits** com tipos padronizados em inglês e
   * *Screenshots / Evidências:* Capturas visuais ou logs comprovatórios.
 
 📖 **Documento de Referência Completo:**  
-👉 [Convenções de Git Flow, Branches, Commits e PR — AvanDesk-AI](https://github.com/LouisLuos/AvanDesk-AI/blob/main/docs/convencoes-git-workflow-lumen.md)
+👉 [Convenções de Git Flow, Branches, Commits e PR — AvanDesk-AI](https://github.com/LouisLuos/AvanDesk-AI/blob/main/.github/convencoes-git-workflow-lumen.md)
 
 ---
 

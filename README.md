@@ -61,7 +61,7 @@ O **AvanDesk-AI** atua como o hub central inteligente de atendimento da Rede Lú
 
 ## 📚 Documentação e Padrões de Engenharia
 
-* 📑 [Convenções de Git Flow, Branches e Commits](./docs/convencoes-git-workflow-lumen.md)
+* 📑 [Convenções de Git Flow, Branches e Commits](./.github/convencoes-git-workflow-lumen.md)
 * 📋 [Template Oficial de Pull Request](./.github/pull_request_template.md)
 * 📊 [Análise de Domínio](./docs/01-analise-de-dominio.md)
 * ⚙️ [Requisitos Funcionais](./docs/02-requisitos-funcionais.md)
