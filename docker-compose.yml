@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: avandesk-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: avandesk_db
+      POSTGRES_USER: avandesk
+      POSTGRES_PASSWORD: avandesk_dev
+    volumes:
+      - avandesk_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U avandesk -d avandesk_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  avandesk_pgdata:
+    driver: local
