@@ -10,7 +10,7 @@
 
 | Camada | Tecnologia | Versão |
 |--------|-----------|--------|
-| **Frontend** | Angular + TypeScript + SCSS | Angular 21 (LTS até mai/2027) |
+| **Frontend** | Angular + TypeScript + Tailwind CSS v4 | Angular 21 (LTS até mai/2027) |
 | **Backend** | Java + Spring Boot (Maven) | Java 21 + Spring Boot 4.1.x |
 | **Banco de Dados** | PostgreSQL | 16+ |
 | **Migrations** | Flyway | 11.x (`spring-boot-starter-flyway`) |
@@ -311,17 +311,43 @@ Na raiz do repositório, rodar:
 cd frontend
 
 # Gerar o projeto Angular dentro da pasta frontend/
-npx -p @angular/cli@21 ng new avandesk-frontend --directory ./ --routing --style scss --skip-git --skip-tests=false --ssr=false
+npx -p @angular/cli@21 ng new avandesk-frontend --directory ./ --routing --style css --skip-git --skip-tests=false --ssr=false
 ```
 
 | Flag | Motivo |
 |---|---|
 | `--directory ./` | Gera dentro de `frontend/` (pasta já existente) |
 | `--routing` | Habilita módulo de rotas desde o início |
-| `--style scss` | SCSS para estilização avançada |
+| `--style css` | CSS puro como base — Tailwind CSS v4 será instalado separadamente |
 | `--skip-git` | Não inicializa novo `.git` (já estamos no monorepositório) |
 | `--skip-tests=false` | Mantém scaffolding de testes (Jasmine/Karma) |
 | `--ssr=false` | Sem Server-Side Rendering (é uma SPA corporativa interna) |
+
+### 5.1.1 Instalar e configurar Tailwind CSS v4
+
+Após o scaffolding do Angular, instalar o Tailwind CSS v4:
+
+```bash
+npm install tailwindcss @tailwindcss/postcss postcss --save-dev
+```
+
+Criar o arquivo `frontend/postcss.config.js`:
+
+```js
+module.exports = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+```
+
+Atualizar o arquivo `frontend/src/styles.css` (ponto de entrada global):
+
+```css
+@import "tailwindcss";
+```
+
+> **Nota:** O Tailwind CSS v4 usa `@import "tailwindcss"` ao invés das diretivas `@tailwind base/components/utilities` das versões anteriores.
 
 ### 5.2 Organizar estrutura modular de pastas
 
@@ -444,7 +470,7 @@ Substituir a seção "Tecnologias & Arquitetura" (atualmente com placeholder `�
 
 | Camada | Tecnologia |
 |--------|-----------|
-| Frontend | Angular 21 · TypeScript · SCSS |
+| Frontend | Angular 21 · TypeScript · Tailwind CSS v4 |
 | Backend | Java 21 · Spring Boot 4.1 · Spring Security |
 | Banco de Dados | PostgreSQL 16 · Flyway (migrations) |
 | ORM | Spring Data JPA / Hibernate |
