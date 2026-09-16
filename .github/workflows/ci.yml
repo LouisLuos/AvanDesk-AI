@@ -66,4 +66,4 @@ jobs:
 
       - name: Executar testes
         working-directory: frontend
-        run: npx ng test --watch=false --browsers=ChromeHeadless
+        run: npm test -- --watch=false
