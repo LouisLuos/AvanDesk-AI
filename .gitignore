@@ -79,3 +79,15 @@ env/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Maven Wrapper (jar baixado localmente)
+.mvn/wrapper/maven-wrapper.jar
+
+# Docker override local
+docker-compose.override.yml
+
+# Spring Boot
+*.pid
+
+# Tailwind CSS
+.tailwindcss/
