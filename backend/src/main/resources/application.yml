@@ -3,7 +3,7 @@ spring:
     name: avandesk-api
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/avandesk_db
+    url: jdbc:postgresql://localhost:5433/avandesk_db
     username: avandesk
     password: avandesk_dev
     driver-class-name: org.postgresql.Driver
