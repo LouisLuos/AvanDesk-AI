@@ -56,13 +56,13 @@ O **AvanDesk-AI** atua como o hub central inteligente de atendimento da Rede Lú
 
 | Camada | Tecnologia | Versão |
 |--------|-----------|--------|
-| **Frontend** | Angular + TypeScript + Tailwind CSS | Angular 21 · Tailwind CSS v4 |
-| **Backend** | Java + Spring Boot (Maven) | Java 21 · Spring Boot 4.1.x |
+| **Frontend** | Angular + TypeScript + Tailwind CSS | Angular 22 · Tailwind CSS v4 |
+| **Backend** | Java + Spring Boot (Maven) | Java 21 · Spring Boot 4.0.2 |
 | **Banco de Dados** | PostgreSQL | 16+ |
 | **Migrations** | Flyway | 11.x (`spring-boot-starter-flyway`) |
 | **ORM** | Spring Data JPA / Hibernate | Gerenciado pelo Spring Boot BOM |
 | **Auth** | JWT + Spring Security | Gerenciado pelo Spring Boot BOM |
-| **Docs API** | SpringDoc OpenAPI / Swagger | 2.8.x |
+| **Docs API** | SpringDoc OpenAPI / Swagger | 3.1.0 |
 | **Containers** | Docker + Docker Compose | Ambiente local |
 | **CI/CD** | GitHub Actions | — |
 | **Deploy** | Vercel (front) · Render (back) · Supabase (DB) | Produção / Staging |
@@ -75,7 +75,7 @@ O **AvanDesk-AI** atua como o hub central inteligente de atendimento da Rede Lú
 | **Backend (Java + Spring Boot)** | Base sólida da equipe em Java/OOP, ecossistema maduro e alinhado à Avanade, produtividade com Spring Data JPA e Bean Validation |
 | **Banco (PostgreSQL)** | Familiaridade da equipe, integridade relacional ACID essencial para SLAs e auditoria de chamados |
 | **Auth (JWT + Spring Security)** | Solução stateless, simples e direta para plataforma interna, sem overhead de auth social |
-| **Testes** | JUnit 5 + Mockito (backend), Jasmine + Karma (frontend) — abordagem didática e progressiva |
+| **Testes** | JUnit 5 + Mockito (backend), Vitest (frontend) — abordagem didática e progressiva |
 | **Deploy** | Custo zero para MVP — experiência prévia do Tech Lead com Vercel/Render |
 
 ---
@@ -183,7 +183,7 @@ Todas as variáveis estão documentadas no arquivo [`.env.example`](./.env.examp
 | `POSTGRES_DB` | Nome do banco de dados | `avandesk_db` |
 | `POSTGRES_USER` | Usuário do PostgreSQL | `avandesk` |
 | `POSTGRES_PASSWORD` | Senha do PostgreSQL | `avandesk_dev` |
-| `DATABASE_URL` | URL JDBC de conexão | `jdbc:postgresql://localhost:5432/avandesk_db` |
+| `DATABASE_URL` | URL JDBC de conexão | `jdbc:postgresql://localhost:5433/avandesk_db` |
 | `SPRING_PROFILES_ACTIVE` | Perfil ativo do Spring Boot | `dev` |
 | `SERVER_PORT` | Porta da API backend | `8080` |
 | `JWT_SECRET` | Chave secreta para assinatura JWT | *(definir em produção)* |
@@ -227,7 +227,7 @@ AvanDesk-AI/
 │   │   │   └── models/                    ← Interfaces TypeScript e DTOs
 │   │   ├── environments/
 │   │   └── styles.css                     ← Tailwind CSS entry point
-│   ├── postcss.config.js
+│   ├── .postcssrc.json
 │   ├── proxy.conf.json
 │   └── package.json
 ├── docs/
