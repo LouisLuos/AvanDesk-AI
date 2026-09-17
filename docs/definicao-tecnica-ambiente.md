@@ -107,7 +107,7 @@ Adoção do padrão **Conventional Commits** com tipos padronizados em inglês e
   * *Screenshots / Evidências:* Capturas visuais ou logs comprovatórios.
 
 📖 **Documento de Referência Completo:**  
-👉 [Convenções de Git Flow, Branches, Commits e PR — AvanDesk-AI](https://github.com/LouisLuos/AvanDesk-AI/blob/main/docs/convencoes-git-workflow-lumen.md)
+👉 [Convenções de Git Flow, Branches, Commits e PR — AvanDesk-AI](https://github.com/LouisLuos/AvanDesk-AI/blob/main/.github/convencoes-git-workflow-lumen.md)
 
 ---
 
@@ -115,7 +115,7 @@ Adoção do padrão **Conventional Commits** com tipos padronizados em inglês e
 
 ### 3.1 Frontend
 
-* **Tecnologia selecionada:** **Angular (v17+) com TypeScript**
+* **Tecnologia selecionada:** **Angular 21 com TypeScript + Tailwind CSS v4**
 * **Alternativas consideradas:** Angular e React
 
 #### Justificativas:
@@ -128,7 +128,7 @@ Adoção do padrão **Conventional Commits** com tipos padronizados em inglês e
 
 ### 3.2 Backend
 
-* **Tecnologia / Linguagem / Framework:** **Java 17/21 com Spring Boot 3**
+* **Tecnologia / Linguagem / Framework:** **Java 21 com Spring Boot 4.1**
 * **Alternativas consideradas:** C# com ASP.NET Core, Node.js com NestJS, Python com FastAPI
 
 #### Justificativas:

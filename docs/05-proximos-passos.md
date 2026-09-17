@@ -9,7 +9,7 @@
 | Requisitos Funcionais | ✅ Refinar |
 | Requisitos Não Funcionais | ✅ Refinar |
 | User Stories & Tasks | ✅ Refinar |
-| Definição de Stack Backend | ⏳ Aguardando definição |
+| Definição de Stack Backend | ✅ Java 21 + Spring Boot 4.1 |
 | Definição de Serviço de IA | ⏳ Aguardando definição |
 | Início do Desenvolvimento | ⏳ Pendente |
 
