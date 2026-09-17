@@ -19,7 +19,7 @@ jobs:
           POSTGRES_USER: avandesk
           POSTGRES_PASSWORD: avandesk_dev
         ports:
-          - 5432:5432
+          - 5433:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -39,7 +39,11 @@ jobs:
 
       - name: Build e Testes
         working-directory: backend
-        run: ./mvnw clean verify
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5433/avandesk_db
+        run: |
+          chmod +x mvnw
+          ./mvnw clean verify
 
   frontend:
     name: Frontend — Build & Test
