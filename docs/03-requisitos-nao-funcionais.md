@@ -11,9 +11,9 @@ Os requisitos não funcionais estão organizados segundo as características de 
 | ID | Requisito | Métrica / Critério de Aceite | Prioridade |
 |----|-----------|------------------------------|:----------:|
 | RNF-001 | O tempo de resposta para operações CRUD de tickets deve ser inferior a **500ms** sob carga normal. | p95 < 500ms com até 100 usuários simultâneos. | **M** |
-| RNF-002 | A triagem por IA deve retornar o resultado em no máximo **10 segundos** após a submissão do ticket. | p95 < 10s; feedback de progresso exibido ao usuário. | **M** |
-| RNF-003 | O dashboard deve carregar em no máximo **2 segundos**. | Tempo até First Contentful Paint (FCP) < 2s. | **S** |
-| RNF-004 | O sistema deve suportar no mínimo **100 usuários simultâneos** sem degradação perceptível. | Validado por teste de carga (ex.: k6, JMeter). | **S** |
+| RNF-002 | O painel de visão operacional (dashboard) deve carregar em no máximo **2 segundos**. | Tempo até First Contentful Paint (FCP) < 2s. | **S** |
+| RNF-003 | O sistema deve suportar no mínimo **100 usuários simultâneos** sem degradação perceptível. | Validado por teste de carga (ex.: k6, JMeter). | **S** |
+| RNF-004 | O sistema deve executar consultas agregadas (filtros combinados) em no máximo **1 segundo**. | p95 < 1s nas consultas de listagem e painel operacional. | **S** |
 
 ---
 
@@ -25,8 +25,9 @@ Os requisitos não funcionais estão organizados segundo as características de 
 | RNF-006 | Toda comunicação entre cliente e servidor deve usar **HTTPS/TLS 1.2+**. | Certificado SSL válido em todos os ambientes. | **M** |
 | RNF-007 | Tokens de autenticação (JWT) devem ter expiração configurável (default: 1 hora) com refresh token. | Validação de expiração em todas as requisições autenticadas. | **M** |
 | RNF-008 | O sistema deve implementar proteção contra os **OWASP Top 10**: SQL Injection, XSS, CSRF, etc. | Scan de vulnerabilidades (OWASP ZAP ou equivalente) sem achados críticos. | **M** |
-| RNF-009 | O sistema deve implementar rate limiting em endpoints públicos e de autenticação. | Máx. 10 tentativas de login por minuto por IP. | **S** |
-| RNF-010 | Dados sensíveis em logs devem ser mascarados (e-mail, tokens, senhas). | Auditoria de logs confirma ausência de dados expostos. | **S** |
+| RNF-009 | O sistema deve garantir a restrição de armazenamento e visualização para evitar vazamento de informações clínicas. | Sanitização de inputs para dados sensíveis. | **M** |
+| RNF-010 | O sistema deve implementar rate limiting em endpoints públicos e de autenticação. | Máx. 10 tentativas de login por minuto por IP. | **S** |
+| RNF-011 | Dados sensíveis em logs devem ser mascarados (e-mail, tokens, senhas). | Auditoria de logs confirma ausência de dados expostos. | **S** |
 
 ---
 
@@ -34,8 +35,7 @@ Os requisitos não funcionais estão organizados segundo as características de 
 
 | ID | Requisito | Métrica / Critério de Aceite | Prioridade |
 |----|-----------|------------------------------|:----------:|
-| RNF-011 | O sistema deve ter disponibilidade mínima de **99,5%** (excluindo janelas de manutenção programada). | Monitoramento com alertas automáticos. | **S** |
-| RNF-012 | Em caso de falha na API de IA, o ticket deve ser criado normalmente e a triagem enfileirada para retry. | Mecanismo de fila com retry exponencial (máx. 3 tentativas). | **M** |
+| RNF-012 | O sistema deve ter disponibilidade mínima de **99,5%** (excluindo janelas de manutenção programada). | Monitoramento com alertas automáticos. | **S** |
 | RNF-013 | O sistema deve realizar backup automático do banco de dados a cada **24 horas**. | Restore testado e documentado trimestralmente. | **S** |
 
 ---
@@ -67,7 +67,7 @@ Os requisitos não funcionais estão organizados segundo as características de 
 | ID | Requisito | Métrica / Critério de Aceite | Prioridade |
 |----|-----------|------------------------------|:----------:|
 | RNF-022 | O sistema deve ser containerizado com **Docker** e orquestrado com **Docker Compose**. | `docker-compose up` deve subir o ambiente completo em < 5 minutos. | **M** |
-| RNF-023 | O sistema deve ser agnóstico a provedor de cloud, evitando vendor lock-in desnecessário. | Exceção: serviço de IA (Azure OpenAI) isolado em adapter pattern. | **S** |
+| RNF-023 | O sistema deve ser agnóstico a provedor de cloud, evitando vendor lock-in desnecessário. | Deploy em contêineres padrão (ex: App Service ou Container Apps). | **S** |
 
 ---
 
@@ -75,7 +75,7 @@ Os requisitos não funcionais estão organizados segundo as características de 
 
 | ID | Requisito | Métrica / Critério de Aceite | Prioridade |
 |----|-----------|------------------------------|:----------:|
-| RNF-024 | O sistema deve expor health checks em endpoint padronizado (`/health`). | Retorna status dos serviços dependentes (DB, IA). | **M** |
+| RNF-024 | O sistema deve expor health checks em endpoint padronizado (`/health`). | Retorna status dos serviços dependentes (DB). | **M** |
 | RNF-025 | O sistema deve gerar logs estruturados (JSON) com correlation ID por requisição. | Rastreabilidade de requisição end-to-end. | **S** |
 | RNF-026 | O sistema deve expor métricas para monitoramento (ex.: Prometheus-compatible). | Tempo de resposta, taxa de erros, uso de recursos. | **C** |
 
@@ -86,6 +86,7 @@ Os requisitos não funcionais estão organizados segundo as características de 
 | Prioridade | Quantidade |
 |:----------:|:----------:|
 | **Must Have** | 13 |
-| **Should Have** | 10 |
-| **Could Have** | 3 |
+| **Should Have** | 11 |
+| **Could Have** | 2 |
 | **Total** | **26** |
+
