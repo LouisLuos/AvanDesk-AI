@@ -136,6 +136,16 @@ Adoção do padrão **Conventional Commits** com tipos padronizados em inglês e
 * **Produtividade e ecossistema:** `Spring Data JPA` (simplificação de persistência), `Jakarta Bean Validation` (validação de payloads) e `SpringDoc OpenAPI / Swagger` (documentação interativa automática).
 * **Aderência ao produto:** Facilidade na modelagem do ciclo de vida dos chamados (máquina de estados), agendamento de tarefas (`@Scheduled`) para monitoramento de SLA e integração simples com serviços de IA via clientes HTTP tipados.
 
+#### Padrão Arquitetural Adotado: Arquitetura em Camadas (N-Tier / MVC)
+A arquitetura selecionada para o backend é o monólito estruturado na clássica **Arquitetura em Camadas** do Spring:
+* **Controllers (Camada Web):** Responsáveis apenas por receber requisições HTTP, validar o payload de entrada (via `@Valid`) e formatar a resposta. **Zero regra de negócio**.
+* **Services (Camada de Negócio):** Concentram todo o "cérebro" da aplicação e regras do AvanDesk. Todas as operações críticas e controle transacional (`@Transactional`) ocorrem aqui.
+* **Repositories (Camada de Persistência):** Interfaces do Spring Data JPA que gerenciam o acesso aos dados no PostgreSQL.
+* **Entities & DTOs (Isolamento):** Entidades (`@Entity`) mapeiam diretamente a estrutura do banco (Flyway). Para comunicação web, utilizamos estritamente **DTOs (Data Transfer Objects)** ou `Records`, impedindo que estruturas internas do banco ou dados sensíveis (LGPD) vazem inadvertidamente para o frontend.
+
+**Justificativa de Arquitetura (Por que não Clean Architecture?):**
+O projeto é um MVP com prazo curto (5 meses), executado por uma equipe de residentes em curva de aprendizado. A Arquitetura em Camadas é o padrão "ouro" do Spring Boot e proporciona uma curva de aprendizado fluida. Adotar padrões como Clean Architecture ou Arquitetura Hexagonal neste momento exigiria um esforço excessivo na criação de abstrações (ports e adapters), gerando um *overengineering* perigoso que atrasaria as entregas sem agregar valor perceptível nesta fase.
+
 ---
 
 ### 3.3 Banco de Dados

@@ -91,3 +91,6 @@ docker-compose.override.yml
 
 # Tailwind CSS
 .tailwindcss/
+
+# Custom Agents (Local only)
+.agents/
