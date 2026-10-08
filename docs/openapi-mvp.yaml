@@ -1,0 +1,403 @@
+openapi: 3.0.0
+info:
+  title: AvanDesk-AI (Nexo) MVP API
+  version: 1.0.0
+  description: API RESTful do MVP do sistema de gerenciamento de chamados da Rede Lúmen Diagnósticos.
+servers:
+  - url: /api/v1
+    description: Servidor Local
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        status_code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Operação realizada com sucesso"
+        data:
+          type: object
+          nullable: true
+          description: "O payload principal da resposta (varia conforme o endpoint)"
+        errors:
+          type: array
+          nullable: true
+          items:
+            type: string
+          example: null
+    ApiResponseError:
+      type: object
+      properties:
+        status_code:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: "Erro de validação"
+        data:
+          type: object
+          nullable: true
+          example: null
+        errors:
+          type: array
+          items:
+            type: string
+          example:
+            - "Campo 'unidade_id' é obrigatório."
+    ChamadoResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        codigo:
+          type: string
+          example: LUM-2026-000123
+        status:
+          type: string
+          example: ABERTO
+        data_criacao:
+          type: string
+          format: date-time
+    UsuarioResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+        email:
+          type: string
+        perfil:
+          type: string
+          example: ANALISTA_SUPORTE
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      summary: Autenticar no sistema
+      tags:
+        - Autenticação
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: analista@lumendiagnosticos.com.br
+                senha:
+                  type: string
+                  example: senha-segura-aqui
+      responses:
+        '200':
+          description: Login com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      access_token:
+                        type: string
+                      usuario:
+                        $ref: '#/components/schemas/UsuarioResponse'
+        '401':
+          description: Credenciais inválidas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+  /analistas:
+    post:
+      summary: Cadastrar Novo Analista
+      tags:
+        - Analistas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nome:
+                  type: string
+                  example: Carlos Silva
+                email:
+                  type: string
+                  example: carlos.silva@lumendiagnosticos.com.br
+                senha:
+                  type: string
+                  example: senha-inicial-segura
+                perfil:
+                  type: string
+                  example: ANALISTA_SUPORTE
+      responses:
+        '201':
+          description: Analista criado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UsuarioResponse'
+        '400':
+          description: Erro de validação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+  /chamados:
+    post:
+      summary: Registrar um Chamado
+      tags:
+        - Chamados
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                unidade_id:
+                  type: string
+                  format: uuid
+                canal_origem:
+                  type: string
+                  enum: [LIGACAO, PRESENCIAL, WHATSAPP, EMAIL]
+                solicitante:
+                  type: object
+                  properties:
+                    nome:
+                      type: string
+                    contato:
+                      type: string
+                descricao:
+                  type: string
+      responses:
+        '201':
+          description: Chamado criado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChamadoResponse'
+        '400':
+          description: Erro de validação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+  /chamados/{id}:
+    get:
+      summary: Consultar o Chamado e Histórico
+      tags:
+        - Chamados
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalhes do chamado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      codigo:
+                        type: string
+                      status:
+                        type: string
+                      unidade:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          nome:
+                            type: string
+                      historico:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id_evento:
+                              type: string
+                            tipo:
+                              type: string
+                            data:
+                              type: string
+                              format: date-time
+                            autor:
+                              type: string
+  /chamados/{id}/atualizacoes:
+    post:
+      summary: Adicionar Atualização ao Histórico
+      tags:
+        - Chamados
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                descricao:
+                  type: string
+                visibilidade:
+                  type: string
+                  enum: [INTERNA, PUBLICA]
+      responses:
+        '201':
+          description: Atualização adicionada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id_evento:
+                        type: string
+                        format: uuid
+                      tipo:
+                        type: string
+                      data:
+                        type: string
+                        format: date-time
+  /chamados/{id}/vinculos:
+    post:
+      summary: Vincular Relato Duplicado
+      tags:
+        - Chamados
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                registro_contato_id:
+                  type: string
+                  format: uuid
+                motivo:
+                  type: string
+      responses:
+        '200':
+          description: Relato vinculado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id_evento:
+                        type: string
+                        format: uuid
+  /chamados/{id}/prioridade:
+    patch:
+      summary: Definir a Prioridade do Chamado
+      tags:
+        - Chamados
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                severidade:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+                urgencia:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+                impacto_operacional:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+      responses:
+        '200':
+          description: Prioridade calculada e definida
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                      prioridade_calculada:
+                        type: string
+                      id_evento:
+                        type: string
+                        format: uuid
