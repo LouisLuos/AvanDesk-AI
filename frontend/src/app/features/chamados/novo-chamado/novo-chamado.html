@@ -1,0 +1,238 @@
+<div class="mx-auto max-w-3xl">
+ @if (chamadoCriado(); as chamado) {
+ <!-- Sucesso: exibe o identificador único (T01.5) -->
+ <section class="card animate-fade-in-up p-8 text-center" aria-labelledby="titulo-sucesso">
+ <div
+ class="mx-auto mb-5 flex h-14 w-14 items-center justify-center"
+>
+ <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+ <path d="M20 6 9 17l-5-5" />
+ </svg>
+ </div>
+ <h1 id="titulo-sucesso" class="text-2xl font-bold">Chamado registrado</h1>
+ <p class="mt-2 text-sm">
+ Informe o código abaixo ao solicitante para acompanhamento.
+ </p>
+
+ <div class="mx-auto mt-6 flex max-w-sm items-center justify-between gap-3 border px-4 py-3">
+ <span class="font-mono text-xl font-semibold tracking-wide" id="codigo-chamado">
+ {{ chamado.codigo }}
+ </span>
+ <button type="button" class="btn btn-ghost text-xs" id="btn-copiar-codigo" (click)="copiarCodigo(chamado.codigo)">
+ Copiar
+ </button>
+ </div>
+
+ <dl class="mx-auto mt-6 grid max-w-sm grid-cols-2 gap-4 text-left text-sm">
+ <div>
+ <dt >Status</dt>
+ <dd class="mt-1">
+ <span class="badge">{{ chamado.status }}</span>
+ </dd>
+ </div>
+ <div>
+ <dt >Registrado em</dt>
+ <dd class="mt-1">{{ chamado.data_criacao | date: 'dd/MM/yyyy HH:mm' }}</dd>
+ </div>
+ </dl>
+
+ <div class="mt-8 flex justify-center gap-3">
+ <button type="button" class="btn btn-primary" id="btn-novo-registro" (click)="novoRegistro()">
+ Registrar outro chamado
+ </button>
+ </div>
+ </section>
+ } @else {
+ <section class="card animate-fade-in-up p-6 sm:p-8" aria-labelledby="titulo-novo-chamado">
+ <header class="mb-6">
+ <h1 id="titulo-novo-chamado" class="text-xl font-bold sm:text-2xl">
+ Novo Chamado <span class="font-medium">— Registro Manual</span>
+ </h1>
+ <p class="mt-1 text-sm">Preencha os dados mínimos para registrar o chamado.</p>
+ </header>
+
+ <!-- Aviso LGPD (T01.6 / RN01) -->
+ <div
+ class="mb-6 flex gap-3 border px-4 py-3 text-sm"
+ role="note"
+ id="aviso-lgpd"
+>
+ <svg class="mt-0.5 h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+ <path d="M12 9v4" /><path d="M12 17h.01" />
+ <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+ </svg>
+ <p>
+ <strong class="font-semibold">Não inclua dados clínicos.</strong>
+ Evite nomes de pacientes, resultados de exames, laudos ou prints de telas com informações
+ identificáveis. Descreva apenas o problema técnico.
+ </p>
+ </div>
+
+ @if (errosApi().length) {
+ <div class="mb-6 border px-4 py-3 text-sm" role="alert" id="erros-api">
+ <p class="font-semibold">Não foi possível registrar o chamado:</p>
+ <ul class="mt-1 list-inside list-disc">
+ @for (erro of errosApi(); track erro) {
+ <li>{{ erro }}</li>
+ }
+ </ul>
+ </div>
+ }
+
+ <form [formGroup]="form" (ngSubmit)="registrar()" novalidate class="space-y-5">
+ <!-- Canal de origem (HU01) -->
+ <fieldset>
+ <legend class="form-label">Canal de origem</legend>
+ <div class="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup">
+ @for (canal of canais; track canal.valor) {
+ <button
+ type="button"
+ role="radio"
+ [id]="'canal-' + canal.valor.toLowerCase()"
+ [attr.aria-checked]="form.controls.canalOrigem.value === canal.valor"
+ (click)="selecionarCanal(canal.valor)"
+ class="border px-3 py-2.5 text-sm font-medium transition"
+ [class]="
+ form.controls.canalOrigem.value === canal.valor
+ ? ' '
+ : ' '
+"
+>
+ {{ canal.rotulo }}
+ </button>
+ }
+ </div>
+ </fieldset>
+
+ <div class="grid gap-5 sm:grid-cols-2">
+ <!-- Unidade -->
+ <div>
+ <label for="unidade" class="form-label">Unidade <span >*</span></label>
+ <select
+ id="unidade"
+ formControlName="unidadeId"
+ class="form-control"
+ [class.is-invalid]="invalido('unidadeId')"
+>
+ <option value="" disabled>
+ {{ carregandoUnidades() ? 'Carregando unidades...' : 'Selecionar unidade...' }}
+ </option>
+ @for (unidade of unidades(); track unidade.id) {
+ <option [value]="unidade.id">{{ unidade.nome }} ({{ unidade.identificacao || unidade.codigo }})</option>
+ }
+ </select>
+ @if (erroUnidades()) {
+ <p class="form-error">
+ Falha ao carregar unidades.
+ <button type="button" class="font-semibold underline" id="btn-recarregar-unidades" (click)="carregarUnidades()">
+ Tentar novamente
+ </button>
+ </p>
+ } @else if (!carregandoUnidades() && !unidades().length) {
+ <p class="form-error">
+ Nenhuma unidade ativa cadastrada.
+ <a routerLink="/admin/unidades" class="font-semibold underline">Cadastrar unidade</a>
+ </p>
+ } @else if (invalido('unidadeId')) {
+ <p class="form-error">Selecione a unidade do chamado.</p>
+ }
+ </div>
+
+ <!-- Contato -->
+ <div>
+ <label for="contato" class="form-label">
+ {{ contatoEhEmail() ? 'E-mail do Solicitante' : 'Telefone do Solicitante' }}
+ <span >*</span>
+ </label>
+ <input
+ id="contato"
+ formControlName="contato"
+ class="form-control"
+ [class.is-invalid]="invalido('contato')"
+ [type]="contatoEhEmail() ? 'email' : 'tel'"
+ [placeholder]="contatoEhEmail() ? 'nome@lumendiagnosticos.com.br' : '+55 81 9....-....'"
+ autocomplete="off"
+ />
+ @if (invalido('contato')) {
+ <p class="form-error">
+ @if (form.controls.contato.hasError('required')) {
+ Informe um telefone ou e-mail para retorno.
+ } @else {
+ Informe um telefone com DDD ou um e-mail válido.
+ }
+ </p>
+ } @else {
+ <p class="form-hint">Telefone com DDD ou e-mail para retorno.</p>
+ }
+ </div>
+ </div>
+
+ <!-- Nome -->
+ <div>
+ <label for="nome" class="form-label">
+ Nome do Solicitante <span class="font-normal">(se informado)</span>
+ </label>
+ <input
+ id="nome"
+ formControlName="nome"
+ class="form-control"
+ [class.is-invalid]="invalido('nome')"
+ placeholder="Opcional"
+ autocomplete="off"
+ />
+ @if (invalido('nome')) {
+ <p class="form-error">O nome deve ter no máximo 120 caracteres.</p>
+ }
+ </div>
+
+ <!-- Descrição -->
+ <div>
+ <label for="descricao" class="form-label">
+ Descrição do Problema <span >*</span>
+ </label>
+ <textarea
+ id="descricao"
+ formControlName="descricao"
+ rows="5"
+ class="form-control resize-y"
+ [class.is-invalid]="invalido('descricao')"
+ placeholder="Descreva o que foi relatado... Ex.: Impressora de etiquetas da coleta não imprime e pisca luz vermelha."
+ [attr.maxlength]="limiteDescricao"
+></textarea>
+ <div class="mt-1.5 flex items-start justify-between gap-4">
+ @if (invalido('descricao')) {
+ <p class="text-xs">
+ @if (form.controls.descricao.hasError('required')) {
+ Descreva o problema relatado.
+ } @else if (form.controls.descricao.hasError('minlength')) {
+ Detalhe um pouco mais (mínimo de 10 caracteres).
+ } @else {
+ Limite de {{ limiteDescricao }} caracteres excedido.
+ }
+ </p>
+ } @else {
+ <span></span>
+ }
+ <span class="text-xs whitespace-nowrap">
+ {{ tamanhoDescricao() }}/{{ limiteDescricao }}
+ </span>
+ </div>
+ </div>
+
+ <div class="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:justify-end">
+ <button type="button" class="btn btn-secondary" id="btn-cancelar" (click)="cancelar()" [disabled]="enviando()">
+ Cancelar
+ </button>
+ <button type="submit" class="btn btn-primary" id="btn-registrar-chamado" [disabled]="enviando()">
+ @if (enviando()) {
+ <span class="spinner" aria-hidden="true"></span>
+ Registrando...
+ } @else {
+ Registrar Chamado
+ }
+ </button>
+ </div>
+ </form>
+ </section>
+ }
+</div>

@@ -1,3 +1,87 @@
 /* You can add global styles to this file, and also import other style files */
 
 @import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    @apply bg-[#F5F5F5] font-sans text-black antialiased;
+  }
+}
+
+/* Componentes visuais reutilizáveis (design system do AvanDesk-AI) - Lo-fi (Preto e Branco) */
+@layer components {
+  .card {
+    @apply border border-black bg-white shadow-none;
+  }
+
+  .form-label {
+    @apply mb-1.5 block text-sm font-medium text-black;
+  }
+
+  .form-control {
+    @apply w-full border border-black bg-white px-3.5 py-2.5 text-sm text-black placeholder:text-gray-500 transition outline-none focus:border-black focus:ring-1 focus:ring-black disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .form-control.is-invalid {
+    @apply border-black border-2;
+  }
+
+  .form-error {
+    @apply mt-1.5 text-xs text-black font-semibold;
+  }
+
+  .form-hint {
+    @apply mt-1.5 text-xs text-gray-600;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 border border-black px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-primary {
+    @apply bg-gray-200 text-black hover:bg-gray-300;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-black hover:bg-gray-100;
+  }
+
+  .btn-danger {
+    @apply bg-white text-black hover:bg-gray-100;
+  }
+
+  .btn-ghost {
+    @apply border-transparent bg-transparent px-2.5 py-1.5 text-black hover:underline;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1.5 border border-black bg-white px-2.5 py-0.5 text-xs font-medium text-black;
+  }
+
+  .spinner {
+    @apply h-4 w-4 animate-spin rounded-full border-2 border-black border-r-transparent;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.15s ease-out both;
+}
