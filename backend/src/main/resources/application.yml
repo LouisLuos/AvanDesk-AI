@@ -21,6 +21,9 @@ spring:
     locations: classpath:db/migration
     schemas: public
 
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+
   security:
     user:
       name: admin
