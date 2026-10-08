@@ -1,0 +1,275 @@
+<section class="animate-fade-in-up" aria-labelledby="titulo-unidades">
+ <!-- Cabeçalho -->
+ <header class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+ <div>
+ <h1 id="titulo-unidades" class="text-2xl font-bold">Unidades</h1>
+ <p class="mt-1 text-sm">
+ Cadastro das unidades da Rede Lúmen. Somente unidades ativas aparecem na abertura de chamados.
+ </p>
+ </div>
+ <button type="button" class="btn btn-primary" id="btn-nova-unidade" (click)="abrirCadastro()">
+ <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+ <path d="M12 5v14M5 12h14" />
+ </svg>
+ Nova Unidade
+ </button>
+ </header>
+
+ <!-- Indicadores -->
+ <div class="mb-6 grid grid-cols-3 gap-3 sm:gap-4">
+ <div class="card px-4 py-3">
+ <p class="text-xs">Total</p>
+ <p class="mt-1 text-2xl font-bold" id="total-unidades">{{ totais().total }}</p>
+ </div>
+ <div class="card px-4 py-3">
+ <p class="text-xs">Ativas</p>
+ <p class="mt-1 text-2xl font-bold" id="total-ativas">{{ totais().ativas }}</p>
+ </div>
+ <div class="card px-4 py-3">
+ <p class="text-xs">Inativas</p>
+ <p class="mt-1 text-2xl font-bold" id="total-inativas">{{ totais().inativas }}</p>
+ </div>
+ </div>
+
+ <div class="card overflow-hidden">
+ <!-- Filtros -->
+ <div class="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center">
+ <div class="relative flex-1">
+ <svg class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+ <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+ </svg>
+ <input
+ type="search"
+ id="busca-unidade"
+ class="form-control pl-9"
+ placeholder="Buscar por nome ou código..."
+ aria-label="Buscar unidade por nome ou código"
+ [value]="busca()"
+ (input)="alterarBusca($event)"
+ />
+ </div>
+ <label class="flex items-center gap-2 text-sm">
+ Situação:
+ <select id="filtro-situacao" class="form-control w-auto" [value]="filtroSituacao()" (change)="alterarFiltro($event)">
+ <option value="TODAS">Todas</option>
+ <option value="ATIVAS">Ativas</option>
+ <option value="INATIVAS">Inativas</option>
+ </select>
+ </label>
+ </div>
+
+ <!-- Tabela -->
+ <div class="overflow-x-auto">
+ <table class="w-full text-left text-sm">
+ <thead class="text-xs tracking-wider uppercase">
+ <tr>
+ <th scope="col" class="px-4 py-3 font-medium">Identificação</th>
+ <th scope="col" class="px-4 py-3 font-medium">Nome</th>
+ <th scope="col" class="px-4 py-3 font-medium">Situação</th>
+ <th scope="col" class="px-4 py-3 text-right font-medium">Ações</th>
+ </tr>
+ </thead>
+ <tbody class="divide-y divide-slate-800/80">
+ @if (carregando()) {
+ @for (linha of [1, 2, 3, 4]; track linha) {
+ <tr>
+ <td class="px-4 py-4"><div class="h-4 w-20 animate-pulse"></div></td>
+ <td class="px-4 py-4"><div class="h-4 w-48 animate-pulse"></div></td>
+ <td class="px-4 py-4"><div class="h-5 w-16 animate-pulse"></div></td>
+ <td class="px-4 py-4"><div class="ml-auto h-4 w-28 animate-pulse"></div></td>
+ </tr>
+ }
+ } @else if (erroCarregamento()) {
+ <tr>
+ <td colspan="4" class="px-4 py-12 text-center">
+ <p >Não foi possível carregar as unidades.</p>
+ <button type="button" class="btn btn-secondary mt-4" id="btn-recarregar" (click)="carregar()">
+ Tentar novamente
+ </button>
+ </td>
+ </tr>
+ } @else {
+ @for (unidade of unidadesFiltradas(); track unidade.id) {
+ <tr class="transition" [class.opacity-60]="!unidade.ativo">
+ <td class="px-4 py-3.5 font-mono text-xs font-semibold">{{ unidade.identificacao || unidade.codigo }}</td>
+ <td class="px-4 py-3.5 font-medium">{{ unidade.nome }}</td>
+ <td class="px-4 py-3.5">
+ @if (unidade.ativo) {
+ <span class="badge">
+ <span class="h-1.5 w-1.5"></span> Ativa
+ </span>
+ } @else {
+ <span class="badge">
+ <span class="h-1.5 w-1.5"></span> Inativa
+ </span>
+ }
+ </td>
+ <td class="px-4 py-3.5">
+ <div class="flex justify-end gap-1">
+ <button
+ type="button"
+ class="btn btn-ghost text-xs"
+ [id]="'btn-editar-' + (unidade.identificacao || unidade.codigo)"
+ (click)="abrirEdicao(unidade)"
+>
+ Editar
+ </button>
+ @if (unidade.ativo) {
+ <button
+ type="button"
+ class="btn btn-ghost text-xs"
+ [id]="'btn-desativar-' + (unidade.identificacao || unidade.codigo)"
+ (click)="confirmarDesativacao(unidade)"
+>
+ Desativar
+ </button>
+ }
+ </div>
+ </td>
+ </tr>
+ } @empty {
+ <tr>
+ <td colspan="4" class="px-4 py-12 text-center">
+ @if (unidades().length) {
+ Nenhuma unidade encontrada para os filtros aplicados.
+ } @else {
+ Nenhuma unidade cadastrada ainda.
+ <button type="button" class="ml-1 font-semibold underline" (click)="abrirCadastro()">
+ Cadastrar a primeira
+ </button>
+ }
+ </td>
+ </tr>
+ }
+ }
+ </tbody>
+ </table>
+ </div>
+ </div>
+</section>
+
+<!-- Modal: cadastro / edição -->
+<app-modal
+ [aberto]="modalFormAberto()"
+ [titulo]="unidadeEmEdicao() ? 'Editar Unidade' : 'Nova Unidade'"
+ subtitulo="Informe o nome e a identificação da unidade."
+ (fechar)="fecharForm()"
+>
+ <form [formGroup]="form" (ngSubmit)="salvar()" novalidate class="space-y-4">
+ @if (errosForm().length) {
+ <div class="border px-4 py-3 text-sm" role="alert" id="erros-form-unidade">
+ <ul class="list-inside list-disc">
+ @for (erro of errosForm(); track erro) {
+ <li>{{ erro }}</li>
+ }
+ </ul>
+ </div>
+ }
+
+ <div>
+ <label for="unidade-nome" class="form-label">Nome <span >*</span></label>
+ <input
+ id="unidade-nome"
+ formControlName="nome"
+ class="form-control"
+ [class.is-invalid]="invalido('nome')"
+ placeholder="Ex.: Unidade Boa Viagem"
+ autocomplete="off"
+ />
+ @if (invalido('nome')) {
+ <p class="form-error">
+ {{ form.controls.nome.hasError('required') ? 'Informe o nome da unidade.' : 'Máximo de 120 caracteres.' }}
+ </p>
+ }
+ </div>
+
+ <div>
+ <label for="unidade-codigo" class="form-label">Identificação <span >*</span></label>
+ <input
+ id="unidade-codigo"
+ formControlName="identificacao"
+ class="form-control font-mono uppercase"
+ [class.is-invalid]="invalido('identificacao')"
+ placeholder="Ex.: LUM-BVG"
+ autocomplete="off"
+ />
+ @if (invalido('identificacao')) {
+ <p class="form-error">
+ @if (form.controls.identificacao.hasError('required')) {
+ Informe a identificação da unidade.
+ } @else if (form.controls.identificacao.hasError('pattern')) {
+ Use apenas letras, números e hífen.
+ } @else {
+ Máximo de 20 caracteres.
+ }
+ </p>
+ } @else {
+ <p class="form-hint">Identificador único da unidade (letras, números e hífen).</p>
+ }
+ </div>
+
+ <div>
+ <label for="unidade-localizacao" class="form-label">Localização</label>
+ <input
+ id="unidade-localizacao"
+ formControlName="localizacao"
+ class="form-control"
+ [class.is-invalid]="invalido('localizacao')"
+ placeholder="Ex.: Rua da Aurora, 123"
+ autocomplete="off"
+ />
+ @if (invalido('localizacao')) {
+ <p class="form-error">Máximo de 255 caracteres.</p>
+ }
+ </div>
+
+ <div>
+ <label class="flex items-center gap-2 text-sm font-medium">
+ <input type="checkbox" formControlName="atendimento_24h" class="h-4 w-4 border-black focus:ring-black">
+ Atendimento 24h
+ </label>
+ </div>
+
+ <div class="flex justify-end gap-3 pt-2">
+ <button type="button" class="btn btn-secondary" id="btn-cancelar-unidade" (click)="fecharForm()" [disabled]="salvando()">
+ Cancelar
+ </button>
+ <button type="submit" class="btn btn-primary" id="btn-salvar-unidade" [disabled]="salvando()">
+ @if (salvando()) {
+ <span class="spinner" aria-hidden="true"></span> Salvando...
+ } @else {
+ {{ unidadeEmEdicao() ? 'Salvar alterações' : 'Cadastrar' }}
+ }
+ </button>
+ </div>
+ </form>
+</app-modal>
+
+<!-- Modal: confirmação de desativação -->
+<app-modal
+ [aberto]="!!unidadeParaDesativar()"
+ titulo="Desativar unidade?"
+ (fechar)="cancelarDesativacao()"
+>
+ <p class="text-sm">
+ A unidade
+ <strong >{{ unidadeParaDesativar()?.nome }}</strong>
+ (<span class="font-mono">{{ unidadeParaDesativar()?.identificacao || unidadeParaDesativar()?.codigo }}</span>)
+ deixará de aparecer na abertura de novos chamados.
+ </p>
+ <p class="mt-3 border px-4 py-3 text-xs">
+ Os chamados já registrados continuam vinculados a esta unidade e o histórico é preservado.
+ </p>
+ <div class="mt-6 flex justify-end gap-3">
+ <button type="button" class="btn btn-secondary" id="btn-cancelar-desativacao" (click)="cancelarDesativacao()" [disabled]="desativando()">
+ Cancelar
+ </button>
+ <button type="button" class="btn btn-danger" id="btn-confirmar-desativacao" (click)="desativar()" [disabled]="desativando()">
+ @if (desativando()) {
+ <span class="spinner" aria-hidden="true"></span> Desativando...
+ } @else {
+ Desativar
+ }
+ </button>
+ </div>
+</app-modal>
