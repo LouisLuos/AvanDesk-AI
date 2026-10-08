@@ -1,3 +1,87 @@
 /* You can add global styles to this file, and also import other style files */
 
 @import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-slate-950 font-sans text-slate-100 antialiased;
+  }
+}
+
+/* Componentes visuais reutilizáveis (design system do AvanDesk-AI) */
+@layer components {
+  .card {
+    @apply rounded-2xl border border-slate-800 bg-slate-900/60 shadow-xl shadow-black/20 backdrop-blur;
+  }
+
+  .form-label {
+    @apply mb-1.5 block text-sm font-medium text-slate-300;
+  }
+
+  .form-control {
+    @apply w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 transition outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .form-control.is-invalid {
+    @apply border-rose-500/70 focus:border-rose-500 focus:ring-rose-500/15;
+  }
+
+  .form-error {
+    @apply mt-1.5 text-xs text-rose-400;
+  }
+
+  .form-hint {
+    @apply mt-1.5 text-xs text-slate-500;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
+  }
+
+  .btn-primary {
+    @apply bg-gradient-to-tr from-indigo-600 to-violet-500 text-white shadow-lg shadow-indigo-500/20 hover:brightness-110;
+  }
+
+  .btn-secondary {
+    @apply border border-slate-700 bg-slate-900 text-slate-200 hover:border-slate-600 hover:bg-slate-800;
+  }
+
+  .btn-danger {
+    @apply bg-rose-600 text-white shadow-lg shadow-rose-600/20 hover:bg-rose-500;
+  }
+
+  .btn-ghost {
+    @apply px-2.5 py-1.5 text-slate-300 hover:bg-slate-800 hover:text-white;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  .spinner {
+    @apply h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.25s ease-out both;
+}

@@ -1,0 +1,83 @@
+<div
+  class="flex min-h-screen flex-col bg-[radial-gradient(ellipse_at_top,_rgba(99,102,241,0.12),_transparent_55%)] selection:bg-indigo-500 selection:text-white"
+>
+  <header class="sticky top-0 z-40 border-b border-slate-800 bg-slate-900/70 backdrop-blur-md">
+    <div class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center gap-8">
+        <a routerLink="/" class="flex items-center gap-3" id="nav-logo">
+          <span
+            class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-sm font-bold text-white shadow-lg shadow-indigo-500/20"
+          >
+            AD
+          </span>
+          <span class="text-lg font-bold tracking-tight text-white">
+            AvanDesk<span class="text-indigo-400">-AI</span>
+          </span>
+        </a>
+
+        <nav class="hidden items-center gap-1 md:flex" aria-label="Navegação principal">
+          @for (item of menu; track item.rota) {
+            <a
+              [id]="item.id"
+              [routerLink]="item.rota"
+              routerLinkActive="!bg-indigo-500/10 !text-indigo-300"
+              class="rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition hover:bg-slate-800 hover:text-white"
+            >
+              {{ item.rotulo }}
+            </a>
+          }
+        </nav>
+      </div>
+
+      <div class="flex items-center gap-1 sm:gap-2">
+        <button type="button" class="btn btn-ghost" aria-label="Buscar" id="btn-buscar" title="Buscar (em breve)">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+        </button>
+        <button type="button" class="btn btn-ghost" aria-label="Notificações" id="btn-notificacoes" title="Notificações (em breve)">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+          </svg>
+        </button>
+        <div class="ml-2 flex items-center gap-3 border-l border-slate-800 pl-4">
+          <span
+            class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-xs font-semibold text-indigo-300 ring-1 ring-slate-700"
+            aria-hidden="true"
+          >
+            {{ iniciais }}
+          </span>
+          <div class="hidden leading-tight sm:block">
+            <p class="text-sm font-medium text-slate-200">{{ usuario.nome }}</p>
+            <p class="text-xs text-slate-500">{{ usuario.perfil }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navegação mobile -->
+    <nav class="flex gap-1 overflow-x-auto border-t border-slate-800 px-4 py-2 md:hidden" aria-label="Navegação principal (mobile)">
+      @for (item of menu; track item.rota) {
+        <a
+          [routerLink]="item.rota"
+          routerLinkActive="!bg-indigo-500/10 !text-indigo-300"
+          class="rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap text-slate-400 transition hover:bg-slate-800 hover:text-white"
+        >
+          {{ item.rotulo }}
+        </a>
+      }
+    </nav>
+  </header>
+
+  <main class="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+    <router-outlet />
+  </main>
+
+  <footer class="border-t border-slate-900 py-5 text-center text-xs text-slate-500">
+    AvanDesk-AI &bull; Rede Lúmen Diagnósticos &bull; 2026
+  </footer>
+</div>
+
+<app-toast-container />
