@@ -42,7 +42,7 @@ export class Unidades implements OnInit {
         (u) =>
           !termo ||
           this.normalizar(u.nome).includes(termo) ||
-          this.normalizar(u.codigo).includes(termo),
+          this.normalizar(u.identificacao || (u as any).codigo).includes(termo),
       )
       .sort((a, b) => Number(b.ativo) - Number(a.ativo) || a.nome.localeCompare(b.nome, 'pt-BR'));
   });
@@ -55,10 +55,12 @@ export class Unidades implements OnInit {
 
   protected readonly form = this.fb.nonNullable.group({
     nome: ['', [Validators.required, Validators.maxLength(120)]],
-    codigo: [
+    identificacao: [
       '',
       [Validators.required, Validators.maxLength(20), Validators.pattern(/^[A-Za-z0-9-]+$/)],
     ],
+    localizacao: ['', [Validators.maxLength(255)]],
+    atendimento_24h: [false],
   });
 
   // Desativação
@@ -100,7 +102,12 @@ export class Unidades implements OnInit {
 
   protected abrirEdicao(unidade: Unidade): void {
     this.unidadeEmEdicao.set(unidade);
-    this.form.reset({ nome: unidade.nome, codigo: unidade.codigo });
+    this.form.reset({
+      nome: unidade.nome,
+      identificacao: unidade.identificacao || (unidade as any).codigo || '',
+      localizacao: unidade.localizacao || '',
+      atendimento_24h: !!unidade.atendimento_24h,
+    });
     this.errosForm.set([]);
     this.modalFormAberto.set(true);
   }
@@ -109,7 +116,7 @@ export class Unidades implements OnInit {
     if (!this.salvando()) this.modalFormAberto.set(false);
   }
 
-  protected invalido(campo: 'nome' | 'codigo'): boolean {
+  protected invalido(campo: 'nome' | 'identificacao' | 'localizacao'): boolean {
     const control = this.form.controls[campo];
     return control.invalid && (control.touched || control.dirty);
   }
@@ -124,7 +131,9 @@ export class Unidades implements OnInit {
     const valor = this.form.getRawValue();
     const payload: UnidadeRequest = {
       nome: valor.nome.trim(),
-      codigo: valor.codigo.trim().toUpperCase(),
+      identificacao: valor.identificacao.trim().toUpperCase(),
+      localizacao: valor.localizacao.trim(),
+      atendimento_24h: valor.atendimento_24h,
     };
     const emEdicao = this.unidadeEmEdicao();
     const requisicao = emEdicao
@@ -181,8 +190,8 @@ export class Unidades implements OnInit {
     });
   }
 
-  private normalizar(texto: string): string {
-    return texto
+  private normalizar(texto?: string | null): string {
+    return (texto ?? '')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()

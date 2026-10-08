@@ -11,11 +11,17 @@
 export interface Unidade {
   id: string;
   nome: string;
-  codigo: string;
+  identificacao: string;
+  codigo?: string;
+  localizacao?: string;
+  atendimento_24h: boolean;
   ativo: boolean;
 }
 
 export interface UnidadeRequest {
   nome: string;
-  codigo: string;
+  identificacao: string;
+  codigo?: string;
+  localizacao?: string;
+  atendimento_24h: boolean;
 }

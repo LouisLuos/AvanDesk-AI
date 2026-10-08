@@ -20,21 +20,22 @@ import { Unidade, UnidadeRequest } from '../../shared/models/unidade.model';
 const LATENCIA_MS = 400;
 
 const unidades: Unidade[] = [
-  { id: 'a1f0c3e2-0001-4000-8000-000000000001', nome: 'Unidade Boa Viagem', codigo: 'LUM-BVG', ativo: true },
-  { id: 'a1f0c3e2-0002-4000-8000-000000000002', nome: 'Unidade Derby (24h)', codigo: 'LUM-DRB', ativo: true },
-  { id: 'a1f0c3e2-0003-4000-8000-000000000003', nome: 'Unidade Casa Forte', codigo: 'LUM-CSF', ativo: true },
-  { id: 'a1f0c3e2-0004-4000-8000-000000000004', nome: 'Unidade Olinda', codigo: 'LUM-OLD', ativo: true },
-  { id: 'a1f0c3e2-0005-4000-8000-000000000005', nome: 'Unidade Caruaru', codigo: 'LUM-CRU', ativo: false },
+  { id: 'a1f0c3e2-0001-4000-8000-000000000001', nome: 'Unidade Boa Viagem', identificacao: 'LUM-BVG', localizacao: 'Rua Boa Viagem, 123', atendimento_24h: false, ativo: true },
+  { id: 'a1f0c3e2-0002-4000-8000-000000000002', nome: 'Unidade Derby (24h)', identificacao: 'LUM-DRB', localizacao: 'Av Agamenon Magalhaes, 400', atendimento_24h: true, ativo: true },
+  { id: 'a1f0c3e2-0003-4000-8000-000000000003', nome: 'Unidade Casa Forte', identificacao: 'LUM-CSF', localizacao: 'Praca de Casa Forte, 50', atendimento_24h: false, ativo: true },
+  { id: 'a1f0c3e2-0004-4000-8000-000000000004', nome: 'Unidade Olinda', identificacao: 'LUM-OLD', localizacao: 'Av Getulio Vargas, 200', atendimento_24h: false, ativo: true },
+  { id: 'a1f0c3e2-0005-4000-8000-000000000005', nome: 'Unidade Caruaru', identificacao: 'LUM-CRU', localizacao: '', atendimento_24h: false, ativo: false },
 ];
 
 let sequencialChamado = 123;
 
 export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
-  if (!environment.useMocks || !req.url.startsWith(environment.apiUrl)) {
+  const apiIndex = req.url.indexOf(environment.apiUrl);
+  if (!environment.useMocks || apiIndex === -1) {
     return next(req);
   }
 
-  const caminho = req.url.substring(environment.apiUrl.length);
+  const caminho = req.url.substring(apiIndex + environment.apiUrl.length);
 
   if (caminho === '/unidades') {
     if (req.method === 'GET') return listarUnidades(req);
@@ -72,7 +73,9 @@ function cadastrarUnidade(req: HttpRequest<UnidadeRequest>): Observable<HttpResp
   const nova: Unidade = {
     id: crypto.randomUUID(),
     nome: req.body!.nome.trim(),
-    codigo: req.body!.codigo.trim().toUpperCase(),
+    identificacao: req.body!.identificacao.trim().toUpperCase(),
+    localizacao: req.body!.localizacao?.trim() || '',
+    atendimento_24h: req.body!.atendimento_24h,
     ativo: true,
   };
   unidades.push(nova);
@@ -90,7 +93,9 @@ function editarUnidade(
   if (erros.length) return erro(HttpStatusCode.BadRequest, 'Erro de validação', erros);
 
   unidade.nome = req.body!.nome.trim();
-  unidade.codigo = req.body!.codigo.trim().toUpperCase();
+  unidade.identificacao = req.body!.identificacao.trim().toUpperCase();
+  unidade.localizacao = req.body!.localizacao?.trim() || '';
+  unidade.atendimento_24h = req.body!.atendimento_24h;
   return sucesso(HttpStatusCode.Ok, 'Unidade atualizada com sucesso', { ...unidade });
 }
 
@@ -105,10 +110,10 @@ function desativarUnidade(id: string): Observable<HttpResponse<unknown>> {
 function validarUnidade(body: UnidadeRequest | null, idAtual?: string): string[] {
   const erros: string[] = [];
   if (!body?.nome?.trim()) erros.push("Campo 'nome' é obrigatório.");
-  if (!body?.codigo?.trim()) erros.push("Campo 'codigo' é obrigatório.");
-  const codigo = body?.codigo?.trim().toUpperCase();
-  if (codigo && unidades.some((u) => u.codigo === codigo && u.id !== idAtual)) {
-    erros.push('Já existe uma unidade com o código informado.');
+  if (!body?.identificacao?.trim()) erros.push("Campo 'identificacao' é obrigatório.");
+  const identificacao = body?.identificacao?.trim().toUpperCase();
+  if (identificacao && unidades.some((u) => u.identificacao === identificacao && u.id !== idAtual)) {
+    erros.push('Já existe uma unidade com a identificação informada.');
   }
   return erros;
 }
@@ -143,7 +148,7 @@ function registrarChamado(req: HttpRequest<ChamadoRequest>): Observable<HttpResp
 
 function sucesso<T>(status: number, message: string, data: T): Observable<HttpResponse<unknown>> {
   const body: ApiResponse<T> = { status_code: status, message, data, errors: null };
-  return of(new HttpResponse({ status, body })).pipe(delay(LATENCIA_MS));
+  return of(new HttpResponse({ status, body }));
 }
 
 function erro(
@@ -152,7 +157,5 @@ function erro(
   errors: string[] | null,
 ): Observable<never> {
   const body: ApiResponse<null> = { status_code: status, message, data: null, errors };
-  return timer(LATENCIA_MS).pipe(
-    mergeMap(() => throwError(() => new HttpErrorResponse({ status, error: body }))),
-  );
+  return throwError(() => new HttpErrorResponse({ status, error: body }));
 }

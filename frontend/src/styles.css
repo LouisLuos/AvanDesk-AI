@@ -8,73 +8,73 @@
 
 @layer base {
   html {
-    color-scheme: dark;
+    color-scheme: light;
   }
 
   body {
-    @apply bg-slate-950 font-sans text-slate-100 antialiased;
+    @apply bg-[#F5F5F5] font-sans text-black antialiased;
   }
 }
 
-/* Componentes visuais reutilizáveis (design system do AvanDesk-AI) */
+/* Componentes visuais reutilizáveis (design system do AvanDesk-AI) - Lo-fi (Preto e Branco) */
 @layer components {
   .card {
-    @apply rounded-2xl border border-slate-800 bg-slate-900/60 shadow-xl shadow-black/20 backdrop-blur;
+    @apply border border-black bg-white shadow-none;
   }
 
   .form-label {
-    @apply mb-1.5 block text-sm font-medium text-slate-300;
+    @apply mb-1.5 block text-sm font-medium text-black;
   }
 
   .form-control {
-    @apply w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 transition outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply w-full border border-black bg-white px-3.5 py-2.5 text-sm text-black placeholder:text-gray-500 transition outline-none focus:border-black focus:ring-1 focus:ring-black disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .form-control.is-invalid {
-    @apply border-rose-500/70 focus:border-rose-500 focus:ring-rose-500/15;
+    @apply border-black border-2;
   }
 
   .form-error {
-    @apply mt-1.5 text-xs text-rose-400;
+    @apply mt-1.5 text-xs text-black font-semibold;
   }
 
   .form-hint {
-    @apply mt-1.5 text-xs text-slate-500;
+    @apply mt-1.5 text-xs text-gray-600;
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
+    @apply inline-flex items-center justify-center gap-2 border border-black px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .btn-primary {
-    @apply bg-gradient-to-tr from-indigo-600 to-violet-500 text-white shadow-lg shadow-indigo-500/20 hover:brightness-110;
+    @apply bg-gray-200 text-black hover:bg-gray-300;
   }
 
   .btn-secondary {
-    @apply border border-slate-700 bg-slate-900 text-slate-200 hover:border-slate-600 hover:bg-slate-800;
+    @apply bg-white text-black hover:bg-gray-100;
   }
 
   .btn-danger {
-    @apply bg-rose-600 text-white shadow-lg shadow-rose-600/20 hover:bg-rose-500;
+    @apply bg-white text-black hover:bg-gray-100;
   }
 
   .btn-ghost {
-    @apply px-2.5 py-1.5 text-slate-300 hover:bg-slate-800 hover:text-white;
+    @apply border-transparent bg-transparent px-2.5 py-1.5 text-black hover:underline;
   }
 
   .badge {
-    @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center gap-1.5 border border-black bg-white px-2.5 py-0.5 text-xs font-medium text-black;
   }
 
   .spinner {
-    @apply h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent;
+    @apply h-4 w-4 animate-spin rounded-full border-2 border-black border-r-transparent;
   }
 }
 
 @keyframes fade-in-up {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -83,5 +83,5 @@
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up 0.25s ease-out both;
+  animation: fade-in-up 0.15s ease-out both;
 }
