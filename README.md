@@ -32,8 +32,8 @@ A **Rede Lúmen Diagnósticos** é uma rede fictícia de saúde e medicina diagn
 
 ## ⚠️ Desafios e Dores Operacionais
 
-1. **Canais Fragmentados e Falta de Rastreabilidade:** Chamados chegam de forma caótica via grupos de WhatsApp, ligações, e-mails, conversas paralelas e planilhas isoladas, sem identificador único (`Ticket ID`), gerando retrabalho e perda de histórico.
-2. **"Tudo é Urgente" vs. Impacto Assistencial Real:** Gestores de unidade tendem a classificar qualquer ocorrência local como prioridade máxima. O suporte precisa de inteligência para arbitrar a fila diferenciando um bloqueio na coleta/exame de paciente de um problema administrativo secundário.
+1. **Canais Fragmentados e Falta de Rastreabilidade:** Chamados chegam de forma caótica via grupos de WhatsApp, ligações, e-mails, conversas paralelas e planilhas isoladas, sem identificador único (`Código LUM-AAAA-NNNNNN`), gerando retrabalho e perda de histórico.
+2. **"Tudo é Urgente" vs. Impacto Assistencial Real:** Gestores de unidade tendem a classificar qualquer ocorrência local como prioridade máxima. O suporte precisa de critérios objetivos para arbitrar a fila diferenciando um bloqueio na coleta/exame de paciente de um problema administrativo secundário.
 3. **Falta de Visibilidade Operacional:** Dificuldade em identificar rapidamente quais analistas estão alocados em cada incidente, quais problemas dependem de fornecedores externos de sistemas e quais unidades possuem maior recorrência de falhas.
 4. **Privacidade e LGPD na Saúde:** Nas solicitações de suporte, funcionários frequentemente anexam capturas de tela com nomes, CPFs ou dados médicos. O sistema de suporte **não deve armazenar resultados de exames nem prontuários clínicos**, registrando estritamente os dados técnicos necessários para a resolução.
 5. **Estações Compartilhadas:** Múltiplos profissionais compartilham computadores nas recepções e laboratórios com ritmos de trabalho intensos, exigindo sessões seguras e formulários rápidos de preenchimento.
@@ -44,10 +44,10 @@ A **Rede Lúmen Diagnósticos** é uma rede fictícia de saúde e medicina diagn
 
 O **AvanDesk-AI** atua como o hub central inteligente de atendimento da Rede Lúmen Diagnósticos:
 
-* 🏷️ **Identificador Único e Centralização:** Cada chamado recebe um protocolo exclusivo, agrupando históricos de mensagens, anexos técnicos e status de resolução em um só lugar.
-* 🤖 **Triagem Inteligente com IA:** Algoritmos analisam a descrição do ticket e calculam o nível de criticidade com base no impacto real na cadeia assistencial (ex: impressora de etiquetas da triagem laboratoral parada tem prioridade superior a impressora administrativa de escritório).
+* 🏷️ **Identificador Único (`LUM-AAAA-NNNNNN`) e Centralização:** Cada chamado recebe um protocolo exclusivo, agrupando históricos de mensagens, anexos técnicos e status de resolução em um só lugar.
+* 🤖 **Triagem Inteligente com IA:** Algoritmos analisam a descrição do ticket e apoiam o cálculo da prioridade com base na Matriz 3D (Severidade + Urgência + Impacto Operacional).
 * 📝 **Entrada de Dados Guiada:** Sugere campos indispensáveis no momento da abertura (ex: identificação da unidade, setor, equipamento afetado e horário), reduzindo o vaivém de mensagens.
-* ⏱️ **Gestão de SLA e Fornecedores:** Alertas automáticos para chamados próximos ao vencimento e acompanhamento transparente de incidentes encaminhados a parceiros externos (ex: sistemas laboratoriais de terceiros).
+* ⏱️ **Gestão de Prazos e Fornecedores:** Acompanhamento transparente de incidentes encaminhados a parceiros externos com controle de protocolos e monitoramento de tempos de resposta.
 * 🔒 **Segurança e Conformidade com LGPD:** Validação de anexos e orientações ativas para evitar a exposição indevida de dados clínicos de pacientes em tíquetes de suporte.
 
 ---
@@ -231,11 +231,12 @@ AvanDesk-AI/
 │   ├── proxy.conf.json
 │   └── package.json
 ├── docs/
-│   ├── 01-analise-de-dominio.md
+│   ├── 01-analise-de-dominio-Nexo.md
 │   ├── 02-requisitos-funcionais.md
 │   ├── 03-requisitos-nao-funcionais.md
-│   ├── 04-historias-de-usuario.md
-│   ├── 05-proximos-passos.md
+│   ├── 06-documentacao-api-mvp.md
+│   ├── Nexo - Historias de Usuario do MVP.md
+│   ├── backlog-geral-mvp-atualizado.md
 │   ├── definicao-tecnica-ambiente.md
 │   └── plano-setup-ambiente.md
 ├── .env.example
@@ -252,8 +253,9 @@ AvanDesk-AI/
 * 📋 [Template Oficial de Pull Request](./.github/pull_request_template.md)
 * 🛠️ [Plano de Setup do Ambiente](./docs/plano-setup-ambiente.md)
 * ⚙️ [Definição Técnica & Ambiente](./docs/definicao-tecnica-ambiente.md)
-* 📊 [Análise de Domínio](./docs/01-analise-de-dominio.md)
+* 📊 [Análise de Domínio](./docs/01-analise-de-dominio-Nexo.md)
 * ⚙️ [Requisitos Funcionais](./docs/02-requisitos-funcionais.md)
 * 🛡️ [Requisitos Não Funcionais](./docs/03-requisitos-nao-funcionais.md)
-* 📖 [Histórias de Usuário & Tasks](./docs/04-historias-de-usuario.md)
-* 🧭 [Próximos Passos & Roadmap](./docs/05-proximos-passos.md)
+* 📖 [Histórias de Usuário do MVP](./docs/Nexo%20-%20Historias%20de%20Usuario%20do%20MVP.md)
+* 📋 [Backlog Geral do MVP](./docs/backlog-geral-mvp-atualizado.md)
+* 🔌 [Documentação da API](./docs/06-documentacao-api-mvp.md)

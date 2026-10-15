@@ -25,7 +25,7 @@ Os requisitos não funcionais estão organizados segundo as características de 
 | RNF-006 | Toda comunicação entre cliente e servidor deve usar **HTTPS/TLS 1.2+**. | Certificado SSL válido em todos os ambientes. | **M** |
 | RNF-007 | Tokens de autenticação (JWT) devem ter expiração configurável (default: 1 hora) com refresh token. | Validação de expiração em todas as requisições autenticadas. | **M** |
 | RNF-008 | O sistema deve implementar proteção contra os **OWASP Top 10**: SQL Injection, XSS, CSRF, etc. | Scan de vulnerabilidades (OWASP ZAP ou equivalente) sem achados críticos. | **M** |
-| RNF-009 | O sistema deve garantir a restrição de armazenamento e visualização para evitar vazamento de informações clínicas. | Sanitização de inputs para dados sensíveis. | **M** |
+| RNF-009 | O sistema não deve armazenar resultados de exames nem prontuários clínicos completos (LGPD). | Proibição de dados clínicos; evidências ocultas por padrão com auditoria de acesso. | **M** |
 | RNF-010 | O sistema deve implementar rate limiting em endpoints públicos e de autenticação. | Máx. 10 tentativas de login por minuto por IP. | **S** |
 | RNF-011 | Dados sensíveis em logs devem ser mascarados (e-mail, tokens, senhas). | Auditoria de logs confirma ausência de dados expostos. | **S** |
 
