@@ -6,10 +6,17 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./layouts/main-layout/main-layout').then((m) => m.MainLayout),
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'chamados/novo' },
+      { path: '', pathMatch: 'full', redirectTo: 'chamados' },
+      {
+        path: 'chamados',
+        pathMatch: 'full',
+        title: 'Fila de Chamados | AvanDesk-AI',
+        loadComponent: () =>
+          import('./features/chamados/fila-chamados/fila-chamados').then((m) => m.FilaChamados),
+      },
       {
         path: 'chamados/novo',
-        title: 'Novo Chamado | AvanDesk-AI',
+        title: 'Registrar chamado | AvanDesk-AI',
         loadComponent: () =>
           import('./features/chamados/novo-chamado/novo-chamado').then((m) => m.NovoChamado),
       },

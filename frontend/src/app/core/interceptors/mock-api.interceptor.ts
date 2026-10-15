@@ -8,8 +8,18 @@ import {
 import { Observable, delay, mergeMap, of, throwError, timer } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { ApiResponse } from '../../shared/models/api-response.model';
-import { ChamadoRequest, ChamadoResponse } from '../../shared/models/chamado.model';
+import {
+  CanalOrigem,
+  ChamadoRequest,
+  ChamadoResponse,
+  ChamadoResumo,
+  PrioridadeChamado,
+  ResponsavelChamado,
+  SlaChamado,
+  StatusChamado,
+} from '../../shared/models/chamado.model';
 import { Unidade, UnidadeRequest } from '../../shared/models/unidade.model';
+import { USUARIO_ATUAL } from '../../shared/utils/usuario-atual';
 
 /**
  * API simulada em memória para desenvolver o frontend antes do backend ficar pronto.
@@ -20,14 +30,89 @@ import { Unidade, UnidadeRequest } from '../../shared/models/unidade.model';
 const LATENCIA_MS = 400;
 
 const unidades: Unidade[] = [
-  { id: 'a1f0c3e2-0001-4000-8000-000000000001', nome: 'Unidade Boa Viagem', identificacao: 'LUM-BVG', localizacao: 'Rua Boa Viagem, 123', atendimento_24h: false, ativo: true },
-  { id: 'a1f0c3e2-0002-4000-8000-000000000002', nome: 'Unidade Derby (24h)', identificacao: 'LUM-DRB', localizacao: 'Av Agamenon Magalhaes, 400', atendimento_24h: true, ativo: true },
-  { id: 'a1f0c3e2-0003-4000-8000-000000000003', nome: 'Unidade Casa Forte', identificacao: 'LUM-CSF', localizacao: 'Praca de Casa Forte, 50', atendimento_24h: false, ativo: true },
-  { id: 'a1f0c3e2-0004-4000-8000-000000000004', nome: 'Unidade Olinda', identificacao: 'LUM-OLD', localizacao: 'Av Getulio Vargas, 200', atendimento_24h: false, ativo: true },
-  { id: 'a1f0c3e2-0005-4000-8000-000000000005', nome: 'Unidade Caruaru', identificacao: 'LUM-CRU', localizacao: '', atendimento_24h: false, ativo: false },
+  { id: 'a1f0c3e2-0001-4000-8000-000000000001', nome: 'U.03 Boa Viagem', identificacao: 'LUM-BVG', localizacao: 'Rua Boa Viagem, 123', atendimento_24h: false, ativo: true },
+  { id: 'a1f0c3e2-0002-4000-8000-000000000002', nome: 'U.07 Recife Centro', identificacao: 'LUM-RCT', localizacao: 'Av Agamenon Magalhaes, 400', atendimento_24h: true, ativo: true },
+  { id: 'a1f0c3e2-0003-4000-8000-000000000003', nome: 'U.11 Boa Vista', identificacao: 'LUM-BVT', localizacao: 'Rua da Aurora, 50', atendimento_24h: false, ativo: true },
+  { id: 'a1f0c3e2-0004-4000-8000-000000000004', nome: 'U.14 Jaboatão', identificacao: 'LUM-JBT', localizacao: 'Av Barreto de Menezes, 200', atendimento_24h: false, ativo: true },
+  { id: 'a1f0c3e2-0006-4000-8000-000000000006', nome: 'Sede Administrativa', identificacao: 'LUM-SED', localizacao: 'Rua do Bom Jesus, 10', atendimento_24h: false, ativo: true },
+  { id: 'a1f0c3e2-0005-4000-8000-000000000005', nome: 'U.20 Caruaru', identificacao: 'LUM-CRU', localizacao: '', atendimento_24h: false, ativo: false },
 ];
 
-let sequencialChamado = 123;
+const RESPONSAVEIS: Record<string, ResponsavelChamado> = {
+  ana: { id: USUARIO_ATUAL.id, nome: USUARIO_ATUAL.nome },
+  carlos: { id: 'usr-carlos-lima', nome: 'Carlos Lima' },
+  rafael: { id: 'usr-rafael-dias', nome: 'Rafael Dias' },
+  juliana: { id: 'usr-juliana-melo', nome: 'Juliana Melo' },
+};
+
+const minutosAtras = (minutos: number) => new Date(Date.now() - minutos * 60_000).toISOString();
+
+const unidadeRef = (indice: number) => ({ id: unidades[indice].id, nome: unidades[indice].nome });
+
+type SementeChamado = [
+  numero: number,
+  titulo: string,
+  unidade: number,
+  canal: CanalOrigem,
+  status: StatusChamado,
+  prioridade: PrioridadeChamado | null,
+  sla: SlaChamado,
+  responsavel: keyof typeof RESPONSAVEIS | null,
+  minutosDesdeAtualizacao: number,
+];
+
+const SEMENTES: SementeChamado[] = [
+  [127, 'Impressora de etiquetas parada na coleta', 0, 'LIGACAO', 'EM_ATENDIMENTO', 'ALTA', { situacao: 'EM_RISCO', rotulo: 'Em risco · 12 min', progresso: 86 }, 'ana', 6],
+  [126, 'Lentidão no sistema de agendamento', 1, 'WHATSAPP', 'ABERTO', null, { situacao: 'TRIAGEM', rotulo: 'Triagem · 9 min', progresso: 40 }, null, 6],
+  [125, 'Acesso bloqueado após troca de senha', 2, 'EMAIL', 'AGUARDANDO', 'BAIXA', { situacao: 'PAUSADO', rotulo: 'Pausado · solicitante', progresso: 30 }, 'carlos', 60],
+  [124, 'Computador da recepção não liga', 3, 'PRESENCIAL', 'EM_ATENDIMENTO', 'MEDIA', { situacao: 'DENTRO_DA_META', rotulo: 'Dentro da meta · 5 h', progresso: 35 }, 'rafael', 60],
+  [123, 'Rede instável na recepção', 0, 'WHATSAPP', 'EM_TRIAGEM', 'ALTA', { situacao: 'ESTOURADO', rotulo: 'Estourado · +18 min', progresso: 100 }, null, 120],
+  [122, 'Médico sem acesso aos resultados', 2, 'LIGACAO', 'REABERTO', 'MEDIA', { situacao: 'EM_RISCO', rotulo: 'Em risco · 1 h', progresso: 90 }, 'ana', 180],
+  [121, 'Falha de impressão no RH', 4, 'LIGACAO', 'RESOLVIDO', 'BAIXA', { situacao: 'CUMPRIDO', rotulo: 'Cumprido · 2 h 10 min', progresso: 50 }, 'carlos', 1500],
+  [120, 'Sistema de agendamento muito lento', 1, 'WHATSAPP', 'MESCLADO', 'MEDIA', { situacao: 'INCORPORADO', rotulo: 'Incorporado ao 000112', progresso: 0 }, 'ana', 1560],
+  [119, 'Leitor de código de barras sem resposta', 3, 'PRESENCIAL', 'ABERTO', null, { situacao: 'TRIAGEM', rotulo: 'Triagem · 22 min', progresso: 70 }, null, 1620],
+  [118, 'PACS não carrega imagens na estação 2', 1, 'LIGACAO', 'EM_ATENDIMENTO', 'ALTA', { situacao: 'DENTRO_DA_META', rotulo: 'Dentro da meta · 1 h 40 min', progresso: 55 }, 'rafael', 1700],
+  [117, 'Ramal da triagem sem linha', 0, 'EMAIL', 'ABERTO', null, { situacao: 'TRIAGEM', rotulo: 'Triagem · 4 min', progresso: 20 }, null, 1800],
+  [116, 'Monitor piscando no guichê 3', 2, 'PRESENCIAL', 'EM_TRIAGEM', 'BAIXA', { situacao: 'DENTRO_DA_META', rotulo: 'Dentro da meta · 7 h', progresso: 15 }, 'juliana', 2000],
+  [115, 'LIS fora do ar na coleta', 3, 'LIGACAO', 'EM_ATENDIMENTO', 'ALTA', { situacao: 'ESTOURADO', rotulo: 'Estourado · +42 min', progresso: 100 }, 'ana', 2100],
+  [114, 'Solicitação de novo e-mail corporativo', 4, 'EMAIL', 'AGUARDANDO', 'BAIXA', { situacao: 'PAUSADO', rotulo: 'Pausado · aprovação', progresso: 25 }, 'carlos', 2300],
+  [113, 'Teclado com teclas travando', 0, 'WHATSAPP', 'ABERTO', null, { situacao: 'TRIAGEM', rotulo: 'Triagem · 14 min', progresso: 55 }, null, 2400],
+  [112, 'Agendamento online com erro ao confirmar', 1, 'WHATSAPP', 'EM_ATENDIMENTO', 'MEDIA', { situacao: 'EM_RISCO', rotulo: 'Em risco · 25 min', progresso: 82 }, 'ana', 2500],
+  [111, 'Impressora do laboratório com atolamento', 2, 'LIGACAO', 'ABERTO', null, { situacao: 'TRIAGEM', rotulo: 'Triagem · 18 min', progresso: 60 }, null, 2700],
+  [110, 'VPN não conecta no notebook da diretoria', 4, 'EMAIL', 'EM_ATENDIMENTO', 'MEDIA', { situacao: 'DENTRO_DA_META', rotulo: 'Dentro da meta · 3 h', progresso: 45 }, 'juliana', 2900],
+  [109, 'Wi-Fi de visitantes indisponível', 3, 'PRESENCIAL', 'EM_TRIAGEM', 'BAIXA', { situacao: 'DENTRO_DA_META', rotulo: 'Dentro da meta · 6 h', progresso: 20 }, null, 3000],
+  [108, 'Certificado digital expirado na estação fiscal', 4, 'EMAIL', 'AGUARDANDO', 'MEDIA', { situacao: 'PAUSADO', rotulo: 'Pausado · fornecedor', progresso: 50 }, 'carlos', 3200],
+  [107, 'Nobreak apitando na sala de servidores', 1, 'LIGACAO', 'EM_ATENDIMENTO', 'ALTA', { situacao: 'EM_RISCO', rotulo: 'Em risco · 30 min', progresso: 80 }, 'rafael', 3400],
+  [106, 'Senha do sistema de ponto bloqueada', 0, 'WHATSAPP', 'ABERTO', null, { situacao: 'TRIAGEM', rotulo: 'Triagem · 7 min', progresso: 30 }, null, 3600],
+  [105, 'Scanner de documentos não digitaliza', 2, 'PRESENCIAL', 'EM_TRIAGEM', 'BAIXA', { situacao: 'DENTRO_DA_META', rotulo: 'Dentro da meta · 8 h', progresso: 10 }, 'juliana', 3800],
+  [104, 'Etiquetadora imprimindo em branco', 3, 'LIGACAO', 'ABERTO', null, { situacao: 'TRIAGEM', rotulo: 'Triagem · 11 min', progresso: 45 }, null, 4000],
+  [103, 'Perfil de acesso incorreto no LIS', 1, 'EMAIL', 'EM_ATENDIMENTO', 'MEDIA', { situacao: 'DENTRO_DA_META', rotulo: 'Dentro da meta · 2 h', progresso: 60 }, 'ana', 4300],
+  [102, 'Telefone IP sem registro', 0, 'PRESENCIAL', 'ABERTO', null, { situacao: 'TRIAGEM', rotulo: 'Triagem · 20 min', progresso: 65 }, null, 4500],
+  [101, 'Lentidão na rede da recepção', 2, 'WHATSAPP', 'EM_ATENDIMENTO', 'ALTA', { situacao: 'ESTOURADO', rotulo: 'Estourado · +1 h', progresso: 100 }, 'carlos', 4700],
+  [100, 'Instalação de software de planilhas', 4, 'EMAIL', 'AGUARDANDO', 'BAIXA', { situacao: 'PAUSADO', rotulo: 'Pausado · licença', progresso: 35 }, 'juliana', 5000],
+  [99, 'Mouse sem fio sem resposta', 3, 'PRESENCIAL', 'ABERTO', null, { situacao: 'TRIAGEM', rotulo: 'Triagem · 3 min', progresso: 15 }, null, 5200],
+  [98, 'Painel de senhas travado', 0, 'LIGACAO', 'EM_TRIAGEM', 'MEDIA', { situacao: 'DENTRO_DA_META', rotulo: 'Dentro da meta · 4 h', progresso: 30 }, null, 5500],
+  [97, 'Atualização do navegador nas estações', 4, 'EMAIL', 'ABERTO', null, { situacao: 'TRIAGEM', rotulo: 'Triagem · 25 min', progresso: 75 }, null, 5800],
+];
+
+const ANO_ATUAL = new Date().getFullYear();
+
+const chamados: ChamadoResumo[] = SEMENTES.map(
+  ([numero, titulo, unidade, canal, status, prioridade, sla, responsavel, minutos]) => ({
+    id: `chm-${numero}`,
+    codigo: `LUM-${ANO_ATUAL}-${String(numero).padStart(6, '0')}`,
+    titulo,
+    unidade: unidadeRef(unidade),
+    canal_origem: canal,
+    status,
+    prioridade,
+    sla,
+    responsavel: responsavel ? RESPONSAVEIS[responsavel] : null,
+    atualizado_em: minutosAtras(minutos),
+  }),
+);
+
+let sequencialChamado = 127;
 
 export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
   const apiIndex = req.url.indexOf(environment.apiUrl);
@@ -48,6 +133,14 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
   const editar = caminho.match(/^\/unidades\/([^/]+)$/);
   if (editar && req.method === 'PUT') {
     return editarUnidade(editar[1], req as HttpRequest<UnidadeRequest>);
+  }
+
+  if (caminho === '/chamados' && req.method === 'GET') {
+    return sucesso(
+      HttpStatusCode.Ok,
+      'Chamados recuperados',
+      chamados.map((c) => ({ ...c })),
+    ).pipe(delay(LATENCIA_MS));
   }
 
   if (caminho === '/chamados' && req.method === 'POST') {
@@ -141,6 +234,18 @@ function registrarChamado(req: HttpRequest<ChamadoRequest>): Observable<HttpResp
     status: 'ABERTO',
     data_criacao: new Date().toISOString(),
   };
+  chamados.unshift({
+    id: chamado.id,
+    codigo: chamado.codigo,
+    titulo: body!.descricao.trim().split('\n')[0].slice(0, 80),
+    unidade: { id: unidade!.id, nome: unidade!.nome },
+    canal_origem: body!.canal_origem,
+    status: 'ABERTO',
+    prioridade: body!.prioridade ?? null,
+    sla: { situacao: 'TRIAGEM', rotulo: 'Triagem · 0 min', progresso: 0 },
+    responsavel: body!.atribuir_a_mim ? { id: USUARIO_ATUAL.id, nome: USUARIO_ATUAL.nome } : null,
+    atualizado_em: chamado.data_criacao,
+  });
   return sucesso(HttpStatusCode.Created, 'Chamado registrado com sucesso', chamado);
 }
 

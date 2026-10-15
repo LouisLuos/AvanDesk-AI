@@ -1,83 +1,87 @@
-<div
- class="flex min-h-screen flex-col bg-[radial-gradient(ellipse_at_top,_rgba(99,102,241,0.12),_transparent_55%)] selection: selection:"
->
- <header class="sticky top-0 z-40 border-b">
- <div class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-4 sm:px-6 lg:px-8">
- <div class="flex items-center gap-8">
- <a routerLink="/" class="flex items-center gap-3" id="nav-logo">
- <span
- class="flex h-9 w-9 items-center justify-center text-sm font-bold"
->
- AD
- </span>
- <span class="text-lg font-bold tracking-tight">
- AvanDesk<span >-AI</span>
- </span>
- </a>
+<div class="flex min-h-screen flex-col bg-[#f8f9fc] text-[#14161b]">
+  <header class="sticky top-0 z-40 border-b border-[#e2e5ec] bg-white">
+    <div class="mx-auto flex h-14 max-w-7xl items-center justify-between gap-6 px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center gap-8">
+        <a routerLink="/chamados" class="flex items-center transition hover:opacity-90" id="nav-logo" aria-label="Nexo — página inicial">
+          <img src="/nexo.svg" alt="Nexo" class="h-6 w-auto" />
+        </a>
 
- <nav class="hidden items-center gap-1 md:flex" aria-label="Navegação principal">
- @for (item of menu; track item.rota) {
- <a
- [id]="item.id"
- [routerLink]="item.rota"
- routerLinkActive="bg-black text-white"
- class="px-3 py-2 text-sm font-medium transition"
->
- {{ item.rotulo }}
- </a>
- }
- </nav>
- </div>
+        <nav class="hidden items-center gap-1 md:flex" aria-label="Navegação principal">
+          @for (item of menu; track item.rota) {
+            <a
+              [id]="item.id"
+              [routerLink]="item.rota"
+              routerLinkActive="bg-[#e8edff] text-[#1e3fcc] font-semibold"
+              ariaCurrentWhenActive="page"
+              class="rounded-md px-3 py-1.5 text-sm font-medium text-[#6b7280] transition hover:text-[#14161b]"
+            >
+              {{ item.rotulo }}
+            </a>
+          }
+        </nav>
+      </div>
 
- <div class="flex items-center gap-1 sm:gap-2">
- <button type="button" class="btn btn-ghost" aria-label="Buscar" id="btn-buscar" title="Buscar (em breve)">
- <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
- <circle cx="11" cy="11" r="7" />
- <path d="m20 20-3.5-3.5" />
- </svg>
- </button>
- <button type="button" class="btn btn-ghost" aria-label="Notificações" id="btn-notificacoes" title="Notificações (em breve)">
- <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
- <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
- <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
- </svg>
- </button>
- <div class="ml-2 flex items-center gap-3 border-l pl-4">
- <span
- class="flex h-8 w-8 items-center justify-center text-xs font-semibold"
- aria-hidden="true"
->
- {{ iniciais }}
- </span>
- <div class="hidden leading-tight sm:block">
- <p class="text-sm font-medium">{{ usuario.nome }}</p>
- <p class="text-xs">{{ usuario.perfil }}</p>
- </div>
- </div>
- </div>
- </div>
+      <div class="flex items-center gap-3 sm:gap-4">
+        <div class="relative hidden sm:block">
+          <label for="busca-global" class="sr-only">Buscar chamado</label>
+          <svg class="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+          <input
+            #campoBusca
+            id="busca-global"
+            type="search"
+            placeholder="Buscar chamado..."
+            (keydown.enter)="buscar($event, campoBusca)"
+            class="h-9 w-56 rounded-md border border-[#e2e5ec] bg-white pr-3 pl-8 text-sm text-[#14161b] placeholder:text-[#9aa2b1] outline-none transition focus:border-[#2d5bff] focus:ring-2 focus:ring-[#e8edff] lg:w-64"
+          />
+        </div>
 
- <!-- Navegação mobile -->
- <nav class="flex gap-1 overflow-x-auto border-t px-4 py-2 md:hidden" aria-label="Navegação principal (mobile)">
- @for (item of menu; track item.rota) {
- <a
- [routerLink]="item.rota"
- routerLinkActive="bg-black text-white"
- class="px-3 py-1.5 text-sm font-medium whitespace-nowrap transition"
->
- {{ item.rotulo }}
- </a>
- }
- </nav>
- </header>
+        <button
+          type="button"
+          id="btn-notificacoes"
+          class="rounded-md p-1.5 text-[#6b7280] transition hover:bg-[#e2e5ec]/40 hover:text-[#14161b]"
+          aria-label="Notificações"
+        >
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+          </svg>
+        </button>
 
- <main class="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
- <router-outlet />
- </main>
+        <div class="flex items-center gap-2.5">
+          <span class="flex h-8 w-8 items-center justify-center rounded-full bg-[#e8edff] text-xs font-semibold text-[#1e3fcc]" aria-hidden="true">
+            {{ iniciais }}
+          </span>
+          <div class="hidden leading-tight sm:block">
+            <p class="text-sm font-semibold text-[#14161b]">{{ usuario.nome }}</p>
+            <p class="text-[11px] text-[#6b7280]">{{ usuario.perfil }}</p>
+          </div>
+          <svg class="hidden h-4 w-4 text-[#9aa2b1] sm:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </div>
+      </div>
+    </div>
 
- <footer class="border-t py-5 text-center text-xs">
- AvanDesk-AI &bull; Rede Lúmen Diagnósticos &bull; 2026
- </footer>
+    <nav class="flex gap-1 overflow-x-auto border-t border-[#e2e5ec] px-4 py-2 md:hidden" aria-label="Navegação principal (mobile)">
+      @for (item of menu; track item.rota) {
+        <a
+          [routerLink]="item.rota"
+          routerLinkActive="bg-[#e8edff] text-[#1e3fcc] font-semibold"
+          ariaCurrentWhenActive="page"
+          class="rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap text-[#6b7280] transition"
+        >
+          {{ item.rotulo }}
+        </a>
+      }
+    </nav>
+  </header>
+
+  <main class="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+    <router-outlet />
+  </main>
 </div>
 
 <app-toast-container />
