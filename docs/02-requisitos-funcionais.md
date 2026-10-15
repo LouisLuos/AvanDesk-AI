@@ -15,14 +15,14 @@
 
 | ID | Requisito | Prioridade | Observações |
 |----|-----------|:----------:|-------------|
-| RF-001 | O sistema deve permitir que o analista de suporte registre uma solicitação recebida por um canal existente como um novo chamado. | **M** | Deve indicar unidade (obrigatória), solicitante e canal de origem. |
+| RF-001 | O sistema deve permitir que o analista de suporte registre uma solicitação recebida por um canal existente como um novo chamado. | **M** | Deve indicar unidade (obrigatória), solicitante e canal de origem; gera código `LUM-AAAA-NNNNNN`. |
 | RF-002 | O sistema deve validar a completude dos dados do chamado antes da submissão, indicando campos obrigatórios não preenchidos. | **M** | Validação client-side + server-side. |
 | RF-003 | O sistema deve exibir uma lista de chamados com filtros por status, prioridade, unidade e responsável. | **M** | Paginação, ordenação e busca por identificador único. |
 | RF-004 | O sistema deve permitir a visualização detalhada de um chamado, incluindo todo seu histórico e registros de contato. | **M** | Timeline cronológica de eventos. |
 | RF-005 | O sistema deve permitir a edição de dados do chamado durante seu ciclo de vida. | **M** | Apenas campos permitidos, mantendo auditoria. |
 | RF-006 | O sistema deve permitir a adição de novos registros de contato a um chamado existente. | **M** | Informando canal, data e quem relatou. |
-| RF-007 | O sistema deve permitir a anexação de arquivos (imagens, logs, documentos) ao chamado. | **S** | Limite de tamanho configurável. Tratamento para dados sensíveis. |
-| RF-008 | O sistema deve alertar ou bloquear a inclusão de dados clínicos completos e resultados de exames. | **S** | Restrição de negócio para evitar exposição de dados sensíveis. |
+| RF-007 | O sistema deve permitir a anexação de arquivos (imagens, logs, documentos) ao chamado. | **S** | Limite de tamanho configurável. Evidências ocultas por padrão com registro de auditoria. |
+| RF-008 | O sistema deve alertar ou bloquear a inclusão de dados clínicos completos e resultados de exames. | **S** | Restrição de negócio para evitar exposição de dados sensíveis (LGPD). |
 
 ---
 
@@ -30,7 +30,7 @@
 
 | ID | Requisito | Prioridade | Observações |
 |----|-----------|:----------:|-------------|
-| RF-009 | O sistema deve permitir que o analista avalie a severidade, urgência e impacto operacional de um chamado. | **M** | Variáveis separadas para definição de prioridade. |
+| RF-009 | O sistema deve permitir que o analista avalie a severidade, urgência e impacto operacional de um chamado. | **M** | Variáveis separadas para definição de prioridade via Matriz 3D (Severidade + Urgência + Impacto). |
 | RF-010 | O sistema deve calcular ou determinar a prioridade final com base na combinação de severidade, urgência e impacto. | **M** | Restrito a perfis autorizados (Analista/Liderança). |
 | RF-011 | O sistema deve permitir associar diferentes relatos (múltiplos registros de contato) ao mesmo chamado. | **M** | Identificação manual de duplicidades/relacionamentos. |
 | RF-012 | O sistema deve permitir que o analista registre a resolução do chamado. | **M** | Com opção de indicar a causa raiz, se identificada. |
@@ -103,4 +103,4 @@
 | RF-003 | HU14 - Listar e buscar chamados |
 | RF-013, RF-028 | HU15 - Encerrar chamado com verificação |
 
-> 📎 Ver detalhes completos em [Nexo - Historias de Usuario do MVP.md](./Nexo - Historias de Usuario do MVP.md)
+> 📎 Ver detalhes completos em [Nexo - Historias de Usuario do MVP.md](./Nexo%20-%20Historias%20de%20Usuario%20do%20MVP.md)
