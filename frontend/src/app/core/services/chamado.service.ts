@@ -3,12 +3,23 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { ApiResponse } from '../../shared/models/api-response.model';
-import { ChamadoRequest, ChamadoResponse } from '../../shared/models/chamado.model';
+import {
+  ChamadoRequest,
+  ChamadoResponse,
+  ChamadoResumo,
+} from '../../shared/models/chamado.model';
 
 @Injectable({ providedIn: 'root' })
 export class ChamadoService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiUrl}/chamados`;
+
+  /** GET /chamados — fila de chamados de todos os canais. */
+  listar(): Observable<ChamadoResumo[]> {
+    return this.http
+      .get<ApiResponse<ChamadoResumo[]>>(this.baseUrl)
+      .pipe(map((res) => res.data ?? []));
+  }
 
   /** POST /chamados — registra um chamado (HU01). */
   registrar(payload: ChamadoRequest): Observable<ChamadoResponse> {

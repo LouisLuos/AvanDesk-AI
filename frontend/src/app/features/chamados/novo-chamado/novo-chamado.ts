@@ -1,9 +1,15 @@
-import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { Router, RouterLink } from '@angular/router';
+import { debounceTime, finalize } from 'rxjs';
 import { ChamadoService } from '../../../core/services/chamado.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { UnidadeService } from '../../../core/services/unidade.service';
@@ -12,29 +18,104 @@ import {
   CanalOrigem,
   ChamadoRequest,
   ChamadoResponse,
+  ChamadoResumo,
+  PrioridadeChamado,
+  StatusChamado,
 } from '../../../shared/models/chamado.model';
 import { Unidade } from '../../../shared/models/unidade.model';
 import { extrairMensagensErro } from '../../../shared/utils/api-error';
 import { contatoValidator, normalizarContato } from '../../../shared/utils/contato';
 
 const LIMITE_DESCRICAO = 2000;
+const TAMANHO_MAXIMO_ANEXO = 10 * 1024 * 1024; // 10 MB
+const TIPOS_ANEXO = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf'];
+const SIMILARIDADE_MINIMA = 0.25;
+const MAXIMO_DUPLICIDADES = 3;
 
-type CampoChamado = 'unidadeId' | 'canalOrigem' | 'contato' | 'nome' | 'descricao';
+export type OpcaoPrioridade = 'TRIAGEM' | PrioridadeChamado;
+
+export interface AnexoItem {
+  id: string;
+  arquivo: File;
+  nome: string;
+  tamanhoFormatado: string;
+}
+
+export interface DuplicidadeItem {
+  chamado: ChamadoResumo;
+  percentual: number;
+}
+
+type CampoChamado =
+  | 'canalOrigem'
+  | 'unidadeId'
+  | 'contato'
+  | 'nome'
+  | 'categoria'
+  | 'sistema'
+  | 'descricao'
+  | 'prioridade'
+  | 'atribuirAMim';
+
+function radicais(texto: string): Set<string> {
+  const palavras = texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((p) => p.length >= 3);
+  return new Set(palavras.map((p) => p.slice(0, 5)));
+}
 
 @Component({
   selector: 'app-novo-chamado',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './novo-chamado.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NovoChamado implements OnInit {
   private readonly fb = inject(FormBuilder);
+  private readonly router = inject(Router);
   private readonly unidadeService = inject(UnidadeService);
   private readonly chamadoService = inject(ChamadoService);
   private readonly toast = inject(ToastService);
 
   protected readonly canais = CANAIS_ORIGEM;
   protected readonly limiteDescricao = LIMITE_DESCRICAO;
+
+  protected readonly categorias: ReadonlyArray<string> = [
+    'Equipamento de apoio',
+    'Sistema hospitalar',
+    'Infraestrutura / Rede',
+    'Acesso e senhas',
+    'Telefonia e comunicação',
+    'Outro',
+  ];
+
+  protected readonly sistemas: ReadonlyArray<string> = [
+    'Impressora de etiquetas',
+    'Impressora comum',
+    'Computador da recepção',
+    'Sistema de agendamento',
+    'Portal de resultados',
+    'Rede / Wi-Fi',
+    'Telefone / ramal',
+    'Outro',
+  ];
+
+  protected readonly prioridades: ReadonlyArray<{ valor: OpcaoPrioridade; rotulo: string }> = [
+    { valor: 'TRIAGEM', rotulo: 'Definir na triagem' },
+    { valor: 'ALTA', rotulo: 'Alta' },
+    { valor: 'MEDIA', rotulo: 'Média' },
+    { valor: 'BAIXA', rotulo: 'Baixa' },
+  ];
+
+  protected readonly prazos = [
+    { prioridade: 'Alta (P1)', estilo: 'bg-[#dc2626] text-white', prazo: '15 min · 2 h' },
+    { prioridade: 'Média (P2)', estilo: 'bg-[#f59e0b] text-white', prazo: '1 h · 8 h úteis' },
+    { prioridade: 'Baixa (P3)', estilo: 'bg-[#94a3b8] text-white', prazo: '4 h · 3 dias úteis' },
+  ];
 
   protected readonly unidades = signal<Unidade[]>([]);
   protected readonly carregandoUnidades = signal(true);
@@ -43,26 +124,66 @@ export class NovoChamado implements OnInit {
   protected readonly errosApi = signal<string[]>([]);
   protected readonly chamadoCriado = signal<ChamadoResponse | null>(null);
 
+  protected readonly chamadosExistentes = signal<ChamadoResumo[]>([]);
+  protected readonly vinculadoId = signal<string | null>(null);
+  protected readonly anexos = signal<AnexoItem[]>([]);
+  protected readonly erroAnexo = signal<string | null>(null);
+  protected readonly arrastando = signal(false);
+
   protected readonly form = this.fb.nonNullable.group({
-    unidadeId: ['', Validators.required],
     canalOrigem: ['LIGACAO' as CanalOrigem, Validators.required],
+    unidadeId: ['', Validators.required],
     contato: ['', [Validators.required, contatoValidator]],
     nome: ['', Validators.maxLength(120)],
+    categoria: ['Equipamento de apoio', Validators.required],
+    sistema: ['Impressora de etiquetas'],
     descricao: [
       '',
       [Validators.required, Validators.minLength(10), Validators.maxLength(LIMITE_DESCRICAO)],
     ],
+    prioridade: ['TRIAGEM' as OpcaoPrioridade],
+    atribuirAMim: [true],
   });
 
   private readonly valores = toSignal(this.form.valueChanges, {
     initialValue: this.form.getRawValue(),
   });
 
+  private readonly valoresDebounced = toSignal(
+    this.form.valueChanges.pipe(debounceTime(300)),
+    { initialValue: this.form.getRawValue() },
+  );
+
   protected readonly tamanhoDescricao = computed(() => this.valores().descricao?.length ?? 0);
-  protected readonly contatoEhEmail = computed(() => this.valores().canalOrigem === 'EMAIL');
+  protected readonly canalSelecionado = computed(() => this.valores().canalOrigem);
+  protected readonly prioridadeSelecionada = computed(() => this.valores().prioridade);
+
+  protected readonly duplicidades = computed<DuplicidadeItem[]>(() => {
+    const { descricao = '', sistema = '', unidadeId = '' } = this.valoresDebounced();
+    const termos = radicais(`${descricao} ${sistema}`);
+    if (termos.size === 0) return [];
+
+    return this.chamadosExistentes()
+      .filter((c) => c.status !== 'MESCLADO')
+      .map((chamado) => {
+        const termosChamado = radicais(`${chamado.titulo} ${chamado.unidade.nome}`);
+        const comuns = [...termosChamado].filter((t) => termos.has(t)).length;
+        const base = comuns / Math.max(1, Math.min(termos.size, termosChamado.size));
+        const score = base * 0.8 + (chamado.unidade.id === unidadeId ? 0.2 : 0);
+        return { chamado, comuns, percentual: Math.min(99, Math.round(score * 100)) };
+      })
+      .filter((d) => d.comuns > 0 && d.percentual >= SIMILARIDADE_MINIMA * 100)
+      .sort((a, b) => b.percentual - a.percentual)
+      .slice(0, MAXIMO_DUPLICIDADES)
+      .map(({ chamado, percentual }) => ({ chamado, percentual }));
+  });
 
   ngOnInit(): void {
     this.carregarUnidades();
+    this.chamadoService.listar().subscribe({
+      next: (lista) => this.chamadosExistentes.set(lista),
+      error: () => this.chamadosExistentes.set([]),
+    });
   }
 
   protected carregarUnidades(): void {
@@ -75,8 +196,14 @@ export class NovoChamado implements OnInit {
       .pipe(finalize(() => this.carregandoUnidades.set(false)))
       .subscribe({
         next: (lista) => {
-          this.unidades.set([...lista].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')));
-          if (lista.length) controle.enable();
+          const ordenadas = [...lista].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+          this.unidades.set(ordenadas);
+          if (ordenadas.length) {
+            controle.enable();
+            if (!this.form.controls.unidadeId.value) {
+              this.form.controls.unidadeId.setValue(ordenadas[0].id);
+            }
+          }
         },
         error: () => this.erroUnidades.set(true),
       });
@@ -84,6 +211,89 @@ export class NovoChamado implements OnInit {
 
   protected selecionarCanal(canal: CanalOrigem): void {
     this.form.controls.canalOrigem.setValue(canal);
+  }
+
+  protected selecionarPrioridade(prioridade: OpcaoPrioridade): void {
+    this.form.controls.prioridade.setValue(prioridade);
+  }
+
+  protected alternarVinculo(id: string): void {
+    this.vinculadoId.update((atual) => (atual === id ? null : id));
+  }
+
+  protected aoSelecionarArquivos(evento: Event): void {
+    const input = evento.target as HTMLInputElement;
+    this.adicionarArquivos(input.files);
+    input.value = '';
+  }
+
+  protected aoArrastar(evento: DragEvent, ativo: boolean): void {
+    evento.preventDefault();
+    this.arrastando.set(ativo);
+  }
+
+  protected aoSoltar(evento: DragEvent): void {
+    evento.preventDefault();
+    this.arrastando.set(false);
+    this.adicionarArquivos(evento.dataTransfer?.files ?? null);
+  }
+
+  protected removerAnexo(id: string): void {
+    this.anexos.update((lista) => lista.filter((a) => a.id !== id));
+  }
+
+  private adicionarArquivos(arquivos: FileList | null): void {
+    if (!arquivos?.length) return;
+    this.erroAnexo.set(null);
+    const validos: AnexoItem[] = [];
+    for (const arquivo of Array.from(arquivos)) {
+      if (!TIPOS_ANEXO.includes(arquivo.type)) {
+        this.erroAnexo.set(`"${arquivo.name}" não é um arquivo PNG, JPG ou PDF válido.`);
+        continue;
+      }
+      if (arquivo.size > TAMANHO_MAXIMO_ANEXO) {
+        this.erroAnexo.set(`"${arquivo.name}" ultrapassa o limite de 10 MB.`);
+        continue;
+      }
+      validos.push({
+        id: crypto.randomUUID(),
+        arquivo,
+        nome: arquivo.name,
+        tamanhoFormatado: this.formatarTamanho(arquivo.size),
+      });
+    }
+    this.anexos.update((lista) => [...lista, ...validos]);
+  }
+
+  private formatarTamanho(bytes: number): string {
+    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`;
+  }
+
+  protected estiloStatus(status: StatusChamado): string {
+    const estilos: Record<StatusChamado, string> = {
+      ABERTO: 'bg-[#ff6a3d]/10 text-[#ff6a3d]',
+      EM_TRIAGEM: 'bg-[#14b8a6]/10 text-[#14b8a6]',
+      EM_ATENDIMENTO: 'bg-[#0ea5e9]/10 text-[#0ea5e9]',
+      AGUARDANDO: 'bg-[#f0a202]/10 text-[#f0a202]',
+      REABERTO: 'bg-[#e5484d]/10 text-[#e5484d]',
+      RESOLVIDO: 'bg-[#22c55e]/10 text-[#22c55e]',
+      MESCLADO: 'bg-[#8b5cf6]/10 text-[#8b5cf6]',
+    };
+    return estilos[status] ?? 'bg-[#e2e5ec] text-[#363b47]';
+  }
+
+  protected rotuloStatus(status: StatusChamado): string {
+    const labels: Record<StatusChamado, string> = {
+      ABERTO: 'Aberto',
+      EM_TRIAGEM: 'Em Triagem',
+      EM_ATENDIMENTO: 'Em Atendimento',
+      AGUARDANDO: 'Aguardando',
+      REABERTO: 'Reaberto',
+      RESOLVIDO: 'Resolvido',
+      MESCLADO: 'Mesclado',
+    };
+    return labels[status] ?? status;
   }
 
   protected invalido(campo: CampoChamado): boolean {
@@ -100,6 +310,8 @@ export class NovoChamado implements OnInit {
 
     const valor = this.form.getRawValue();
     const nome = valor.nome.trim();
+    const vinculado = this.vinculadoId();
+
     const payload: ChamadoRequest = {
       unidade_id: valor.unidadeId,
       canal_origem: valor.canalOrigem,
@@ -108,6 +320,11 @@ export class NovoChamado implements OnInit {
         contato: normalizarContato(valor.contato),
       },
       descricao: valor.descricao.trim(),
+      categoria: valor.categoria,
+      ...(valor.sistema ? { sistema: valor.sistema } : {}),
+      ...(valor.prioridade !== 'TRIAGEM' ? { prioridade: valor.prioridade } : {}),
+      atribuir_a_mim: valor.atribuirAMim,
+      ...(vinculado ? { chamado_relacionado_id: vinculado } : {}),
     };
 
     this.enviando.set(true);
@@ -116,27 +333,28 @@ export class NovoChamado implements OnInit {
       .pipe(finalize(() => this.enviando.set(false)))
       .subscribe({
         next: (chamado) => {
-          this.chamadoCriado.set(chamado);
           this.toast.sucesso(`Chamado ${chamado.codigo} registrado com sucesso.`);
+          this.router.navigate(['/chamados']);
         },
         error: (erro) => this.errosApi.set(extrairMensagensErro(erro)),
       });
   }
 
   protected cancelar(): void {
-    this.form.reset();
+    this.form.reset({
+      canalOrigem: 'LIGACAO',
+      unidadeId: this.unidades()[0]?.id ?? '',
+      contato: '',
+      nome: '',
+      categoria: 'Equipamento de apoio',
+      sistema: 'Impressora de etiquetas',
+      descricao: '',
+      prioridade: 'TRIAGEM',
+      atribuirAMim: true,
+    });
+    this.vinculadoId.set(null);
+    this.anexos.set([]);
     this.errosApi.set([]);
-  }
-
-  protected novoRegistro(): void {
-    this.chamadoCriado.set(null);
-    this.cancelar();
-  }
-
-  protected copiarCodigo(codigo: string): void {
-    navigator.clipboard
-      ?.writeText(codigo)
-      .then(() => this.toast.info('Código copiado para a área de transferência.'))
-      .catch(() => this.toast.erro('Não foi possível copiar o código.'));
+    this.router.navigate(['/chamados']);
   }
 }
