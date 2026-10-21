@@ -15,6 +15,9 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        # Datas sempre gravadas e lidas em UTC (seção 9.5)
+        jdbc:
+          time_zone: UTC
 
   flyway:
     enabled: true
@@ -27,6 +30,10 @@ spring:
 
 server:
   port: 8080
+
+nexo:
+  # Marca os dados gravados (REAL, TESTE ou SIMULADO) para as métricas da seção 9.5
+  origem-dado: TESTE
 
 springdoc:
   api-docs:
