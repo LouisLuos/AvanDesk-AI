@@ -9,3 +9,5 @@ spring:
 
   flyway:
     enabled: true
+    # Sem db/seed: os usuários de teste nunca vão para produção
+    locations: classpath:db/migration
