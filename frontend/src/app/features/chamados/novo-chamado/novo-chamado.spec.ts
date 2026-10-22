@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { ToastService } from '../../../core/services/toast.service';
-import { ChamadoRequest, ChamadoResponse } from '../../../shared/models/chamado.model';
+import { ChamadoRequest, ChamadoResponse, ItemLista } from '../../../shared/models/chamado.model';
 import { Unidade } from '../../../shared/models/unidade.model';
 import { NovoChamado } from './novo-chamado';
 
@@ -33,6 +33,16 @@ const UNIDADES_ATIVAS: Unidade[] = [
   },
 ];
 
+const CATEGORIAS: ItemLista[] = [
+  { id: 'cat-acesso', nome: 'Acesso e senhas' },
+  { id: 'cat-equip', nome: 'Equipamento de apoio' },
+];
+
+const SISTEMAS: ItemLista[] = [
+  { id: 'sis-agenda', nome: 'Sistema de agendamento' },
+  { id: 'sis-etiquetas', nome: 'Impressora de etiquetas' },
+];
+
 const CHAMADO_CRIADO: ChamadoResponse = {
   id: 'c-1',
   codigo: 'LUM-2026-000124',
@@ -60,31 +70,49 @@ describe('NovoChamado', () => {
 
   afterEach(() => vi.useRealTimers());
 
-  /** Abre a tela. As requisições de carga (unidades e fila) ficam pendentes até serem respondidas. */
+  /**
+   * Abre a tela. As requisições de carga (unidades, categorias, sistemas e fila) ficam pendentes
+   * até serem respondidas.
+   */
   function abrirTela(): void {
     fixture = TestBed.createComponent(NovoChamado);
     component = fixture.componentInstance;
     fixture.detectChanges();
   }
 
+  function pedidoGet(url: string): ReturnType<HttpTestingController['expectOne']> {
+    return http.expectOne((req) => req.method === 'GET' && req.url === url);
+  }
+
   function responderCarga(unidades: Unidade[] = UNIDADES_ATIVAS): void {
-    http
-      .expectOne((req) => req.method === 'GET' && req.url === '/api/v1/unidades')
-      .flush(envelope(unidades));
-    http
-      .expectOne((req) => req.method === 'GET' && req.url === '/api/v1/chamados')
-      .flush(envelope([]));
+    pedidoGet('/api/v1/unidades').flush(envelope(unidades));
+    pedidoGet('/api/v1/categorias').flush(envelope(CATEGORIAS));
+    pedidoGet('/api/v1/sistemas-equipamentos').flush(envelope(SISTEMAS));
+    pedidoGet('/api/v1/chamados').flush(envelope([]));
     fixture.detectChanges();
   }
 
   function preencher(
-    valores: Partial<{ unidadeId: string; contato: string; nome: string; descricao: string }>,
+    valores: Partial<{
+      unidadeId: string;
+      contato: string;
+      nome: string;
+      categoriaId: string;
+      sistemaId: string;
+      descricao: string;
+    }>,
   ): void {
     component['form'].patchValue({
       contato: '81988771234',
+      categoriaId: 'cat-equip',
       descricao: 'Impressora de etiquetas da coleta parou de imprimir.',
       ...valores,
     });
+  }
+
+  function opcoes(seletor: string): string[] {
+    const select = fixture.nativeElement.querySelector(seletor) as HTMLSelectElement;
+    return Array.from(select.options).map((opcao) => opcao.textContent!.trim());
   }
 
   function registrar(): void {
@@ -110,9 +138,14 @@ describe('NovoChamado', () => {
     it('deve inicializar o formulário com valores padrão alinhados ao mockup', () => {
       const valor = component['form'].getRawValue();
       expect(valor.canalOrigem).toBe('LIGACAO');
-      expect(valor.categoria).toBe('Equipamento de apoio');
       expect(valor.prioridade).toBe('TRIAGEM');
       expect(valor.atribuirAMim).toBe(true);
+    });
+
+    it('deve começar sem categoria nem sistema escolhidos, para o analista escolher', () => {
+      const valor = component['form'].getRawValue();
+      expect(valor.categoriaId).toBe('');
+      expect(valor.sistemaId).toBe('');
     });
 
     it('deve permitir alternar o canal de atendimento para PRESENCIAL', () => {
@@ -144,9 +177,9 @@ describe('NovoChamado', () => {
     const pedido = http.expectOne((req) => req.method === 'GET' && req.url === '/api/v1/unidades');
     expect(pedido.request.params.get('ativo')).toBe('true');
     pedido.flush(envelope(UNIDADES_ATIVAS));
-    http
-      .expectOne((req) => req.method === 'GET' && req.url === '/api/v1/chamados')
-      .flush(envelope([]));
+    pedidoGet('/api/v1/categorias').flush(envelope(CATEGORIAS));
+    pedidoGet('/api/v1/sistemas-equipamentos').flush(envelope(SISTEMAS));
+    pedidoGet('/api/v1/chamados').flush(envelope([]));
 
     expect(component['unidades']().map((u) => u.nome)).toEqual([
       'Unidade Boa Viagem',
@@ -156,11 +189,76 @@ describe('NovoChamado', () => {
     expect(component['form'].controls.unidadeId.value).toBe('u-bvg');
   });
 
+  // ---------- categorias e sistemas (listas da API) ----------
+
+  it('deve montar os selects de categoria e sistema com as listas da API', () => {
+    abrirTela();
+    responderCarga();
+
+    expect(opcoes('#categoria')).toEqual([
+      'Selecionar categoria...',
+      'Acesso e senhas',
+      'Equipamento de apoio',
+    ]);
+    expect(opcoes('#sistema')).toEqual([
+      'Não informado',
+      'Sistema de agendamento',
+      'Impressora de etiquetas',
+    ]);
+  });
+
+  it('deve avisar quando as listas não carregam e permitir tentar de novo', () => {
+    abrirTela();
+    pedidoGet('/api/v1/unidades').flush(envelope(UNIDADES_ATIVAS));
+    const sistemasPrimeiraTentativa = pedidoGet('/api/v1/sistemas-equipamentos');
+    pedidoGet('/api/v1/categorias').flush(null, { status: 500, statusText: 'Erro' });
+    pedidoGet('/api/v1/chamados').flush(envelope([]));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Não foi possível carregar as listas.');
+    expect(sistemasPrimeiraTentativa.cancelled).toBe(true);
+
+    component['carregarListas']();
+    pedidoGet('/api/v1/categorias').flush(envelope(CATEGORIAS));
+    pedidoGet('/api/v1/sistemas-equipamentos').flush(envelope(SISTEMAS));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).not.toContain('Não foi possível carregar as listas.');
+    expect(component['categorias']()).toEqual(CATEGORIAS);
+  });
+
+  it('deve enviar o id da categoria e o do sistema escolhidos', () => {
+    abrirTela();
+    responderCarga();
+    preencher({ categoriaId: 'cat-acesso', sistemaId: 'sis-agenda' });
+
+    registrar();
+
+    const body = requisicaoDeRegistro().request.body as ChamadoRequest;
+    expect(body.categoria_id).toBe('cat-acesso');
+    expect(body.sistema_equipamento_id).toBe('sis-agenda');
+    expect(body).not.toHaveProperty('categoria');
+    expect(body).not.toHaveProperty('sistema');
+  });
+
+  it('deve omitir o sistema quando ele não é informado', () => {
+    abrirTela();
+    responderCarga();
+    preencher({ sistemaId: '' });
+
+    registrar();
+
+    const body = requisicaoDeRegistro().request.body as ChamadoRequest;
+    expect(body.categoria_id).toBe('cat-equip');
+    expect(body).not.toHaveProperty('sistema_equipamento_id');
+  });
+
   // ---------- validação ----------
 
   it.each([
     ['unidade', { unidadeId: '' }],
     ['contato', { contato: '' }],
+    ['categoria', { categoriaId: '' }],
     ['descrição', { descricao: '' }],
   ])('deve bloquear o envio sem %s', (_campo, valores) => {
     abrirTela();

@@ -17,13 +17,22 @@ export interface Solicitante {
   contato: string;
 }
 
+/** Item das listas do formulário: GET /categorias e GET /sistemas-equipamentos. */
+export interface ItemLista {
+  id: string;
+  nome: string;
+}
+
 export interface ChamadoRequest {
   unidade_id: string;
   canal_origem: CanalOrigem;
   solicitante: Solicitante;
   descricao: string;
-  categoria?: string;
-  sistema?: string;
+  /** Id de uma categoria ativa (GET /categorias). */
+  categoria_id: string;
+  /** Opcional. Id de um sistema/equipamento ativo (GET /sistemas-equipamentos). */
+  sistema_equipamento_id?: string;
+  /** Ainda ignorados pelo backend (HU04, HU05 e HU03); a tela já envia. */
   prioridade?: PrioridadeChamado;
   atribuir_a_mim?: boolean;
   chamado_relacionado_id?: string;
