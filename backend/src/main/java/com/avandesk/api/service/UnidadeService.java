@@ -64,6 +64,14 @@ public class UnidadeService {
         return UnidadeResponse.de(unidade);
     }
 
+    public Unidade obterAtivaParaNovoChamado(UUID id) {
+        Unidade unidade = buscarEntidade(id);
+        if (!unidade.isAtivo()) {
+            throw new RegraNegocioException("Unidade inativa não pode receber novos chamados.");
+        }
+        return unidade;
+    }
+
     private Unidade buscarEntidade(UUID id) {
         return unidadeRepository.findById(id)
             .orElseThrow(() -> new RecursoNaoEncontradoException("Unidade não encontrada."));
