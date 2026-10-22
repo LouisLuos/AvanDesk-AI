@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ToastContainer } from '../../shared/components/toast-container/toast-container';
+import { USUARIO_ATUAL } from '../../shared/utils/usuario-atual';
 
 @Component({
   selector: 'app-main-layout',
@@ -9,12 +10,13 @@ import { ToastContainer } from '../../shared/components/toast-container/toast-co
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MainLayout {
-  // Usuário fictício até a HU09 (login) fornecer o usuário autenticado.
-  protected readonly usuario = { nome: 'Ana Souza', perfil: 'Liderança de TI' };
+  private readonly router = inject(Router);
+
+  protected readonly usuario = USUARIO_ATUAL;
 
   protected readonly menu = [
-    { rotulo: 'Novo Chamado', rota: '/chamados/novo', id: 'nav-novo-chamado' },
-    { rotulo: 'Unidades', rota: '/admin/unidades', id: 'nav-unidades' },
+    { rotulo: 'Fila de Chamados', rota: '/chamados', id: 'nav-fila-chamados' },
+    { rotulo: 'Administração', rota: '/admin', id: 'nav-administracao' },
   ];
 
   protected get iniciais(): string {
@@ -23,5 +25,12 @@ export class MainLayout {
       .map((p) => p[0])
       .slice(0, 2)
       .join('');
+  }
+
+  protected buscar(evento: Event, campo: HTMLInputElement): void {
+    const teclado = evento as KeyboardEvent;
+    if (teclado.isComposing || teclado.keyCode === 229) return;
+    const termo = campo.value.trim();
+    this.router.navigate(['/chamados'], { queryParams: { busca: termo || null } });
   }
 }

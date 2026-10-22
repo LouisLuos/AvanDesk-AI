@@ -22,6 +22,11 @@ export interface ChamadoRequest {
   canal_origem: CanalOrigem;
   solicitante: Solicitante;
   descricao: string;
+  categoria?: string;
+  sistema?: string;
+  prioridade?: PrioridadeChamado;
+  atribuir_a_mim?: boolean;
+  chamado_relacionado_id?: string;
 }
 
 export interface ChamadoResponse {
@@ -29,4 +34,70 @@ export interface ChamadoResponse {
   codigo: string;
   status: string;
   data_criacao: string;
+}
+
+/**
+ * Fila de chamados — contrato provisório (GET /chamados).
+ * Somente dados técnicos/administrativos: nenhum dado clínico ou de paciente (LGPD / RN01).
+ */
+export type StatusChamado =
+  | 'ABERTO'
+  | 'EM_TRIAGEM'
+  | 'EM_ATENDIMENTO'
+  | 'AGUARDANDO'
+  | 'REABERTO'
+  | 'RESOLVIDO'
+  | 'MESCLADO';
+
+export const STATUS_CHAMADO: ReadonlyArray<{ valor: StatusChamado; rotulo: string }> = [
+  { valor: 'ABERTO', rotulo: 'Aberto' },
+  { valor: 'EM_TRIAGEM', rotulo: 'Em Triagem' },
+  { valor: 'EM_ATENDIMENTO', rotulo: 'Em Atendimento' },
+  { valor: 'AGUARDANDO', rotulo: 'Aguardando' },
+  { valor: 'REABERTO', rotulo: 'Reaberto' },
+  { valor: 'RESOLVIDO', rotulo: 'Resolvido' },
+  { valor: 'MESCLADO', rotulo: 'Mesclado' },
+];
+
+export type PrioridadeChamado = 'ALTA' | 'MEDIA' | 'BAIXA';
+
+export const PRIORIDADES_CHAMADO: ReadonlyArray<{ valor: PrioridadeChamado; rotulo: string }> = [
+  { valor: 'ALTA', rotulo: 'Alta' },
+  { valor: 'MEDIA', rotulo: 'Média' },
+  { valor: 'BAIXA', rotulo: 'Baixa' },
+];
+
+export type SituacaoSla =
+  | 'TRIAGEM'
+  | 'DENTRO_DA_META'
+  | 'EM_RISCO'
+  | 'ESTOURADO'
+  | 'PAUSADO'
+  | 'CUMPRIDO'
+  | 'INCORPORADO';
+
+export interface SlaChamado {
+  situacao: SituacaoSla;
+  /** Texto pronto para exibição, ex.: "Em risco · 12 min". */
+  rotulo: string;
+  /** Percentual do prazo já consumido (0–100). */
+  progresso: number;
+}
+
+export interface ResponsavelChamado {
+  id: string;
+  nome: string;
+}
+
+export interface ChamadoResumo {
+  id: string;
+  codigo: string;
+  titulo: string;
+  unidade: { id: string; nome: string };
+  canal_origem: CanalOrigem;
+  status: StatusChamado;
+  prioridade: PrioridadeChamado | null;
+  sla: SlaChamado;
+  responsavel: ResponsavelChamado | null;
+  atualizado_em: string;
 }
