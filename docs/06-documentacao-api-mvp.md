@@ -38,12 +38,23 @@ Cria um novo chamado estruturado a partir de uma solicitação recebida por um d
   "unidade_id": "uuid-da-unidade-obrigatoria",
   "canal_origem": "LIGACAO", // LIGACAO, PRESENCIAL, WHATSAPP, EMAIL
   "solicitante": {
-    "nome": "João da Silva",
+    "nome": "João da Silva", // opcional
     "contato": "+5581999999999" // E.164 ou E-mail
   },
-  "descricao": "Impressora da recepção travou e não puxa papel. Apita vermelho."
+  "descricao": "Impressora da recepção travou e não puxa papel. Apita vermelho.",
+  "categoria_id": "uuid-da-categoria-obrigatoria", // GET /categorias
+  "sistema_equipamento_id": "uuid-do-sistema", // opcional; GET /sistemas-equipamentos
+  "registro_iniciado_em": "2026-10-07T14:29:15Z" // opcional; quando a tela foi aberta (M11)
 }
 ```
+
+**Regras:**
+
+* Obrigatórios: `unidade_id`, `canal_origem`, `solicitante.contato`, `descricao` (10 a 2000 caracteres) e `categoria_id`.
+* `solicitante.contato`: com `@` é tratado como e-mail e gravado em minúsculas; sem `@` é telefone, com 10 a 13 dígitos, e vira E.164 (`+55` é acrescentado quando vem sem DDI). Um contato já conhecido reaproveita o mesmo solicitante (RN13).
+* Unidade, categoria e sistema/equipamento precisam existir e estar ativos.
+* `registro_iniciado_em` no futuro ou de mais de 2 h antes da abertura é descartado, sem recusar o chamado.
+* O registro grava, numa única transação, o chamado, o registro de contato inicial e os eventos `CHAMADO_ABERTO` e `REGISTRO_DE_CONTATO_RECEBIDO`.
 
 > **Aviso de Negócio (RN01):** O frontend deve garantir a exibição de um alerta para evitar o envio de dados clínicos ou exames completos no campo `descricao`.
 
@@ -57,8 +68,56 @@ Cria um novo chamado estruturado a partir de uma solicitação recebida por um d
     "id": "123e4567-e89b-12d3-a456-426614174000",
     "codigo": "LUM-2026-000123",
     "status": "ABERTO",
-    "data_criacao": "2026-10-07T14:30:00Z"
+    "data_criacao": "2026-10-07T14:30:00Z",
+    "origem_dado": "REAL" // REAL, TESTE ou SIMULADO; definido pelo servidor
   },
+  "errors": null
+}
+```
+
+### Erros
+
+* `400 Bad Request`: campo obrigatório ausente, valor fora da lista (ex.: `canal_origem` inválido), contato que não é telefone nem e-mail, ou unidade, categoria ou sistema/equipamento inativo.
+
+```json
+{
+  "status_code": 400,
+  "message": "Erro de validação",
+  "data": null,
+  "errors": ["Campo 'unidade_id' é obrigatório."]
+}
+```
+
+* `404 Not Found`: unidade, categoria ou sistema/equipamento inexistente.
+
+```json
+{
+  "status_code": 404,
+  "message": "Unidade não encontrada.",
+  "data": null,
+  "errors": null
+}
+```
+
+---
+
+## 1.1. Listas do Formulário de Registro (HU01)
+
+Opções dos campos categoria e sistema/equipamento do registro de chamado. Trazem só os itens ativos, ordenados por nome.
+
+**Endpoints:** `GET /categorias` e `GET /sistemas-equipamentos`
+**Autenticação:** Bearer Token (Analista)
+
+### Response: `200 OK`
+
+```json
+{
+  "status_code": 200,
+  "message": "Categorias recuperadas com sucesso",
+  "data": [
+    { "id": "uuid-da-categoria", "nome": "Acesso e senhas" },
+    { "id": "uuid-da-categoria", "nome": "Equipamento de apoio" }
+  ],
   "errors": null
 }
 ```
