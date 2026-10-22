@@ -1,0 +1,368 @@
+<section class="flex flex-col gap-6 text-[#14161b]" aria-labelledby="titulo-fila">
+  <!-- Cabeçalho -->
+  <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <h1 id="titulo-fila" class="text-2xl font-bold tracking-tight text-[#14161b] sm:text-[28px]">Fila de Chamados</h1>
+      <p class="mt-1 text-xs text-[#6b7280]">Todos os chamados, de qualquer canal, em um só lugar.</p>
+    </div>
+    <a
+      routerLink="/chamados/novo"
+      id="btn-novo-chamado"
+      class="inline-flex items-center justify-center gap-2 self-start rounded-md bg-[#2d5bff] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1e3fcc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] focus-visible:ring-offset-2"
+    >
+      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 12h14" />
+        <path d="M12 5v14" />
+      </svg>
+      Novo chamado
+    </a>
+  </header>
+
+  <!-- Indicadores -->
+  <section aria-label="Resumo da fila">
+    <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      @for (indicador of indicadores(); track indicador.id) {
+        <li class="rounded-lg border border-[#e2e5ec] bg-white px-4 py-3.5 shadow-xs" [id]="'indicador-' + indicador.id">
+          <p class="flex items-center gap-2 text-xs text-[#6b7280]">
+            <span class="h-1.5 w-1.5 rounded-full" [class]="indicador.corPonto" aria-hidden="true"></span>
+            {{ indicador.rotulo }}
+          </p>
+          @if (carregando()) {
+            <span class="mt-2 block h-6 w-8 animate-pulse rounded bg-[#e2e5ec]" aria-hidden="true"></span>
+            <span class="sr-only">Carregando</span>
+          } @else {
+            <p class="mt-1 text-2xl font-bold tabular-nums text-[#14161b]">{{ indicador.valor }}</p>
+          }
+        </li>
+      }
+    </ul>
+  </section>
+
+  <!-- Filtros -->
+  <div role="search" class="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center" aria-label="Filtrar chamados">
+    <div class="relative w-full lg:w-60">
+      <label for="filtro-busca" class="sr-only">Buscar por código ou descrição</label>
+      <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.3-4.3" />
+      </svg>
+      <input
+        id="filtro-busca"
+        type="search"
+        placeholder="Buscar por código ou descrição"
+        autocomplete="off"
+        [value]="busca()"
+        (input)="atualizarFiltro(busca, valorInput($event))"
+        class="h-9 w-full rounded-md border border-[#e2e5ec] bg-white pl-9 pr-3 text-xs text-[#14161b] placeholder:text-[#9aa2b1] transition focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff]"
+      />
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:flex lg:flex-wrap">
+      <div class="relative">
+        <label for="filtro-unidade" class="sr-only">Unidade</label>
+        <select
+          id="filtro-unidade"
+          [value]="filtroUnidade()"
+          (change)="atualizarFiltro(filtroUnidade, valorInput($event))"
+          class="h-9 w-full appearance-none rounded-md border border-[#e2e5ec] bg-white pl-3 pr-9 text-xs text-[#363b47] transition focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff] lg:w-auto"
+        >
+          <option value="">Unidade: Todas</option>
+          @for (unidade of unidades(); track unidade.id) {
+            <option [value]="unidade.id">Unidade: {{ unidade.nome }}</option>
+          }
+        </select>
+        <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </div>
+
+      <div class="relative">
+        <label for="filtro-status" class="sr-only">Status</label>
+        <select
+          id="filtro-status"
+          [value]="filtroStatus()"
+          (change)="atualizarFiltro(filtroStatus, $any(valorInput($event)))"
+          class="h-9 w-full appearance-none rounded-md border border-[#e2e5ec] bg-white pl-3 pr-9 text-xs text-[#363b47] transition focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff] lg:w-auto"
+        >
+          <option value="">Status: Todos</option>
+          @for (status of statusOpcoes; track status.valor) {
+            <option [value]="status.valor">Status: {{ status.rotulo }}</option>
+          }
+        </select>
+        <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </div>
+
+      <div class="relative">
+        <label for="filtro-prioridade" class="sr-only">Prioridade</label>
+        <select
+          id="filtro-prioridade"
+          [value]="filtroPrioridade()"
+          (change)="atualizarFiltro(filtroPrioridade, $any(valorInput($event)))"
+          class="h-9 w-full appearance-none rounded-md border border-[#e2e5ec] bg-white pl-3 pr-9 text-xs text-[#363b47] transition focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff] lg:w-auto"
+        >
+          <option value="">Prioridade: Todas</option>
+          @for (prioridade of prioridades; track prioridade.valor) {
+            <option [value]="prioridade.valor">Prioridade: {{ prioridade.rotulo }}</option>
+          }
+          <option [value]="semPrioridade">Sem prioridade</option>
+        </select>
+        <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </div>
+
+      <div class="relative">
+        <label for="filtro-canal" class="sr-only">Canal</label>
+        <select
+          id="filtro-canal"
+          [value]="filtroCanal()"
+          (change)="atualizarFiltro(filtroCanal, $any(valorInput($event)))"
+          class="h-9 w-full appearance-none rounded-md border border-[#e2e5ec] bg-white pl-3 pr-9 text-xs text-[#363b47] transition focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff] lg:w-auto"
+        >
+          <option value="">Canal: Todos</option>
+          @for (canal of canais; track canal.valor) {
+            <option [value]="canal.valor">Canal: {{ canal.rotulo }}</option>
+          }
+        </select>
+        <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </div>
+    </div>
+
+    <label for="filtro-meus" class="flex cursor-pointer items-center gap-2 text-xs text-[#363b47] lg:ml-1">
+      <input
+        id="filtro-meus"
+        type="checkbox"
+        [checked]="somenteMeus()"
+        (change)="atualizarFiltro(somenteMeus, marcado($event))"
+        class="h-4 w-4 cursor-pointer rounded border-[#e2e5ec] accent-[#2d5bff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] focus-visible:ring-offset-1"
+      />
+      Somente meus chamados
+    </label>
+
+    @if (temFiltroAtivo()) {
+      <button
+        type="button"
+        id="btn-limpar-filtros"
+        (click)="limparFiltros()"
+        class="self-start rounded px-1 text-xs font-medium text-[#2d5bff] hover:text-[#1e3fcc] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] lg:self-auto"
+      >
+        Limpar filtros
+      </button>
+    }
+  </div>
+
+  <!-- Tabela -->
+  <div class="overflow-hidden rounded-lg border border-[#e2e5ec] bg-white shadow-sm">
+    @if (erroCarregamento(); as erro) {
+      <div class="flex flex-col items-center gap-3 px-6 py-16 text-center" role="alert">
+        <span class="flex h-10 w-10 items-center justify-center rounded-full bg-[#dc2626]/10 text-[#dc2626]" aria-hidden="true">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+            <path d="M12 9v4" />
+            <path d="M12 17h.01" />
+          </svg>
+        </span>
+        <div>
+          <p class="text-sm font-semibold text-[#14161b]">Não foi possível carregar a fila</p>
+          <p class="mt-1 text-xs text-[#6b7280]">{{ erro }}</p>
+        </div>
+        <button
+          type="button"
+          (click)="carregar()"
+          class="rounded-md border border-[#e2e5ec] bg-white px-4 py-2 text-xs font-semibold text-[#363b47] transition hover:bg-[#f8f9fc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff]"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    } @else {
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[1080px] border-collapse text-left text-xs" [attr.aria-busy]="carregando()">
+          <caption class="sr-only">Fila de chamados</caption>
+          <thead>
+            <tr class="border-b border-[#e2e5ec] text-[10px] font-semibold uppercase tracking-wider text-[#9aa2b1]">
+              <th scope="col" class="px-3 py-3.5 font-semibold">Código</th>
+              <th scope="col" class="px-2 py-3.5 font-semibold">Chamado</th>
+              <th scope="col" class="px-2 py-3.5 font-semibold">Unidade</th>
+              <th scope="col" class="px-2 py-3.5 font-semibold">Canal</th>
+              <th scope="col" class="px-2 py-3.5 font-semibold">Status</th>
+              <th scope="col" class="px-2 py-3.5 font-semibold">Prioridade</th>
+              <th scope="col" class="px-2 py-3.5 font-semibold">Prazo (SLA)</th>
+              <th scope="col" class="px-2 py-3.5 font-semibold">Responsável</th>
+              <th scope="col" class="px-3 py-3.5 font-semibold">Atualizado</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[#e2e5ec]">
+            @if (carregando()) {
+              @for (linha of linhasEsqueleto; track linha) {
+                <tr aria-hidden="true">
+                  <td class="px-3 py-4"><span class="block h-3 w-28 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-2 py-4"><span class="block h-3 w-44 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-2 py-4"><span class="block h-3 w-24 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-2 py-4"><span class="block h-3 w-16 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-2 py-4"><span class="block h-4 w-20 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-2 py-4"><span class="block h-4 w-12 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-2 py-4"><span class="block h-3 w-28 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-2 py-4"><span class="block h-3 w-24 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-3 py-4"><span class="block h-3 w-14 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                </tr>
+              }
+            } @else {
+              @for (chamado of itensPagina(); track chamado.id) {
+                <tr class="transition-colors hover:bg-[#f8f9fc]">
+                  <td class="whitespace-nowrap px-3 py-3 font-semibold text-[#2d5bff] hover:text-[#1e3fcc]">{{ chamado.codigo }}</td>
+                  <td class="max-w-[200px] px-2 py-3 font-medium text-[#14161b]">{{ chamado.titulo }}</td>
+                  <td class="whitespace-nowrap px-2 py-3 text-[#363b47]">{{ chamado.unidade.nome }}</td>
+                  <td class="whitespace-nowrap px-2 py-3 text-[#363b47]">
+                    <span class="inline-flex items-center gap-1.5">
+                      <svg class="h-3.5 w-3.5 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        @switch (chamado.canal_origem) {
+                          @case ('LIGACAO') {
+                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                          }
+                          @case ('WHATSAPP') {
+                            <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+                          }
+                          @case ('EMAIL') {
+                            <rect x="2" y="4" width="20" height="16" rx="2" />
+                            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                          }
+                          @case ('PRESENCIAL') {
+                            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                          }
+                        }
+                      </svg>
+                      {{ rotuloCanal(chamado.canal_origem) }}
+                    </span>
+                  </td>
+                  <td class="whitespace-nowrap px-2 py-3">
+                    <span class="inline-flex rounded px-2 py-1 text-[10px] font-medium" [class]="estiloStatus(chamado.status)">
+                      {{ rotuloStatus(chamado.status) }}
+                    </span>
+                  </td>
+                  <td class="whitespace-nowrap px-2 py-3">
+                    @if (chamado.prioridade; as prioridade) {
+                      <span class="inline-flex rounded px-2 py-1 text-[10px] font-semibold" [class]="estiloPrioridade(prioridade)">
+                        {{ rotuloPrioridade(prioridade) }}
+                      </span>
+                    } @else {
+                      <span class="text-[11px] text-[#9aa2b1]">—</span>
+                    }
+                  </td>
+                  <td class="whitespace-nowrap px-2 py-3">
+                    <div class="flex flex-col gap-1">
+                      <span class="font-medium" [class]="estiloSla(chamado.sla.situacao).texto">
+                        {{ chamado.sla.rotulo }}
+                      </span>
+                      @if (estiloSla(chamado.sla.situacao).barra) {
+                        <div class="h-1 w-24 overflow-hidden rounded-full bg-[#e2e5ec]">
+                          <div
+                            class="h-full rounded-full transition-all"
+                            [class]="estiloSla(chamado.sla.situacao).barra"
+                            [style.width.%]="chamado.sla.progresso"
+                          ></div>
+                        </div>
+                      }
+                    </div>
+                  </td>
+                  <td class="whitespace-nowrap px-2 py-3 text-[#363b47]">
+                    @if (chamado.responsavel; as responsavel) {
+                      <span class="inline-flex items-center gap-1.5">
+                        <span class="flex h-5 w-5 items-center justify-center rounded-full bg-[#e8edff] text-[7px] font-bold text-[#1e3fcc]" aria-hidden="true">
+                          {{ iniciais(responsavel.nome) }}
+                        </span>
+                        {{ responsavel.nome }}
+                      </span>
+                    } @else {
+                      <span class="font-semibold text-[#dc2626]">Sem responsável</span>
+                    }
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-3 text-[#6b7280]">
+                    <time [attr.datetime]="chamado.atualizado_em">{{ tempoRelativo(chamado.atualizado_em) }}</time>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="9" class="px-6 py-16 text-center">
+                    <div class="flex flex-col items-center gap-2">
+                      <span class="flex h-10 w-10 items-center justify-center rounded-full bg-[#e8edff] text-[#1e3fcc]" aria-hidden="true">
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="11" cy="11" r="8" />
+                          <path d="m21 21-4.3-4.3" />
+                          <path d="m8.5 8.5 5 5" />
+                          <path d="m13.5 8.5-5 5" />
+                        </svg>
+                      </span>
+                      <p class="text-sm font-semibold text-[#14161b]">Nenhum chamado encontrado</p>
+                      <p class="text-xs text-[#6b7280]">Ajuste a busca ou os filtros para ver outros chamados.</p>
+                      @if (temFiltroAtivo()) {
+                        <button
+                          type="button"
+                          (click)="limparFiltros()"
+                          class="mt-1 rounded-md border border-[#e2e5ec] bg-white px-3 py-1.5 text-xs font-semibold text-[#363b47] transition hover:bg-[#f8f9fc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff]"
+                        >
+                          Limpar filtros
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+
+  <!-- Paginação -->
+  @if (!carregando() && !erroCarregamento()) {
+    <nav class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" aria-label="Paginação da fila">
+      <p class="text-[11px] text-[#6b7280]" aria-live="polite">
+        Mostrando {{ faixaExibida().inicio }} a {{ faixaExibida().fim }} de {{ faixaExibida().total }} chamados
+      </p>
+      @if (faixaExibida().total > 0) {
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            id="btn-pagina-anterior"
+            (click)="irParaPagina(paginaAtual() - 1)"
+            [disabled]="paginaAtual() === 1"
+            class="h-8 rounded-md border border-[#e2e5ec] bg-white px-3 text-xs font-semibold text-[#363b47] shadow-xs transition hover:bg-[#f8f9fc] hover:border-[#9aa2b1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
+          >
+            Anterior
+          </button>
+          @for (numero of paginas(); track numero) {
+            <button
+              type="button"
+              (click)="irParaPagina(numero)"
+              [attr.aria-current]="numero === paginaAtual() ? 'page' : null"
+              [attr.aria-label]="'Página ' + numero"
+              class="h-8 min-w-8 rounded-md px-2 text-xs font-semibold shadow-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] focus-visible:ring-offset-1"
+              [class]="
+                numero === paginaAtual()
+                  ? 'border border-[#2d5bff] bg-[#2d5bff] text-white'
+                  : 'border border-[#e2e5ec] bg-white text-[#363b47] hover:bg-[#f8f9fc]'
+              "
+            >
+              {{ numero }}
+            </button>
+          }
+          <button
+            type="button"
+            id="btn-proxima-pagina"
+            (click)="irParaPagina(paginaAtual() + 1)"
+            [disabled]="paginaAtual() === totalPaginas()"
+            class="h-8 rounded-md border border-[#e2e5ec] bg-white px-3 text-xs font-semibold text-[#363b47] shadow-xs transition hover:bg-[#f8f9fc] hover:border-[#9aa2b1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
+          >
+            Próxima
+          </button>
+        </div>
+      }
+    </nav>
+  }
+</section>
