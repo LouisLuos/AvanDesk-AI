@@ -32,6 +32,22 @@
 ./mvnw spring-boot:run
 ```
 
+## Login temporário (até a HU09)
+
+Até a autenticação JWT da HU09, a API usa login básico (HTTP Basic) com os usuários da tabela `usuarios`. Em desenvolvimento, o seed `db/seed/R__dados_dev.sql` cria três usuários de teste, todos com a senha `nexo-dev-2026`:
+
+| E-mail | Perfil |
+|---|---|
+| `analista1@lumen.local` | `ANALISTA_SUPORTE` |
+| `analista2@lumen.local` | `ANALISTA_SUPORTE` |
+| `lideranca@lumen.local` | `LIDERANCA_TI` |
+
+Esses usuários existem só em desenvolvimento: o perfil `prod` não carrega a pasta `db/seed`.
+
+```bash
+curl -u analista1@lumen.local:nexo-dev-2026 http://localhost:8080/api/v1/unidades
+```
+
 ## Endpoints Disponíveis
 
 | Endpoint | Descrição |

@@ -18,16 +18,12 @@ spring:
 
   flyway:
     enabled: true
-    locations: classpath:db/migration
+    # db/seed tem dados só de desenvolvimento; o perfil prod usa só db/migration
+    locations: classpath:db/migration,classpath:db/seed
     schemas: public
 
   jackson:
     property-naming-strategy: SNAKE_CASE
-
-  security:
-    user:
-      name: admin
-      password: admin
 
 server:
   port: 8080
