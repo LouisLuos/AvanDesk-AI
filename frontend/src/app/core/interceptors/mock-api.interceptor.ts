@@ -233,6 +233,8 @@ function registrarChamado(req: HttpRequest<ChamadoRequest>): Observable<HttpResp
     codigo: `LUM-${new Date().getFullYear()}-${String(sequencialChamado).padStart(6, '0')}`,
     status: 'ABERTO',
     data_criacao: new Date().toISOString(),
+    // Como no backend: o servidor marca a origem; aqui todo dado é fictício.
+    origem_dado: 'SIMULADO',
   };
   chamados.unshift({
     id: chamado.id,

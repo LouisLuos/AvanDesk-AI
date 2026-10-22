@@ -178,7 +178,14 @@ export class NovoChamado implements OnInit {
       .map(({ chamado, percentual }) => ({ chamado, percentual }));
   });
 
+  /**
+   * Instante em que a tela abriu (métrica M11: tempo de registro manual). Vai no payload e não
+   * aparece para o usuário. Cada acesso a /chamados/novo cria a tela de novo, com nova medição.
+   */
+  private registroIniciadoEm = new Date();
+
   ngOnInit(): void {
+    this.registroIniciadoEm = new Date();
     this.carregarUnidades();
     this.chamadoService.listar().subscribe({
       next: (lista) => this.chamadosExistentes.set(lista),
@@ -325,6 +332,7 @@ export class NovoChamado implements OnInit {
       ...(valor.prioridade !== 'TRIAGEM' ? { prioridade: valor.prioridade } : {}),
       atribuir_a_mim: valor.atribuirAMim,
       ...(vinculado ? { chamado_relacionado_id: vinculado } : {}),
+      registro_iniciado_em: this.registroIniciadoEm.toISOString(),
     };
 
     this.enviando.set(true);

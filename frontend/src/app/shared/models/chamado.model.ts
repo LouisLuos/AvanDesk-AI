@@ -27,13 +27,19 @@ export interface ChamadoRequest {
   prioridade?: PrioridadeChamado;
   atribuir_a_mim?: boolean;
   chamado_relacionado_id?: string;
+  /** Quando a tela Novo Chamado foi aberta, em ISO-8601 UTC (métrica M11, seção 9.5). */
+  registro_iniciado_em?: string;
 }
+
+/** Marca do dado gravado (seção 9.1): o servidor define, o cliente nunca envia. */
+export type OrigemDado = 'REAL' | 'TESTE' | 'SIMULADO';
 
 export interface ChamadoResponse {
   id: string;
   codigo: string;
   status: string;
   data_criacao: string;
+  origem_dado?: OrigemDado;
 }
 
 /**
