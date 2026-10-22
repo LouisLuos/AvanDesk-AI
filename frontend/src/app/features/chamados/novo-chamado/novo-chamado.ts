@@ -341,7 +341,12 @@ export class NovoChamado implements OnInit {
       .pipe(finalize(() => this.enviando.set(false)))
       .subscribe({
         next: (chamado) => {
-          this.toast.sucesso(`Chamado ${chamado.codigo} registrado com sucesso.`);
+          // Dado de teste ou simulado nunca pode parecer real (seção 9.1): mostra a origem no aviso.
+          const origem =
+            chamado.origem_dado && chamado.origem_dado !== 'REAL'
+              ? ` (dado ${chamado.origem_dado})`
+              : '';
+          this.toast.sucesso(`Chamado ${chamado.codigo} registrado com sucesso${origem}.`);
           this.router.navigate(['/chamados']);
         },
         error: (erro) => this.errosApi.set(extrairMensagensErro(erro)),

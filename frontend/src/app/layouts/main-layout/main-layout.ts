@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { MODO_SIMULADO } from '../../core/config/modo-simulado';
 import { ToastContainer } from '../../shared/components/toast-container/toast-container';
 import { USUARIO_ATUAL } from '../../shared/utils/usuario-atual';
 
@@ -13,6 +14,7 @@ export class MainLayout {
   private readonly router = inject(Router);
 
   protected readonly usuario = USUARIO_ATUAL;
+  protected readonly modoSimulado = inject(MODO_SIMULADO);
 
   protected readonly menu = [
     { rotulo: 'Fila de Chamados', rota: '/chamados', id: 'nav-fila-chamados' },
