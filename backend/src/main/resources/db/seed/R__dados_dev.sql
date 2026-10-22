@@ -11,3 +11,24 @@ INSERT INTO usuarios (id, nome, email, senha_hash, perfil) VALUES
     ('00000000-0000-0000-0000-0000000000a2', 'Analista Dev Dois', 'analista2@lumen.local', '$2a$10$wP24GU5mL0ysN//Ga3xCOusMZmd/oxAXXqlRX4XQtK7LUhWPLYAa.', 'ANALISTA_SUPORTE'),
     ('00000000-0000-0000-0000-0000000000a3', 'Lideranca Dev',     'lideranca@lumen.local', '$2a$10$wP24GU5mL0ysN//Ga3xCOusMZmd/oxAXXqlRX4XQtK7LUhWPLYAa.', 'LIDERANCA_TI')
 ON CONFLICT (id) DO NOTHING;
+
+-- Listas provisorias, iguais as do codigo do front, ate a Sarah e o Pedro revisarem
+INSERT INTO categorias (nome) VALUES
+    ('Equipamento de apoio'),
+    ('Sistema hospitalar'),
+    ('Infraestrutura / Rede'),
+    ('Acesso e senhas'),
+    ('Telefonia e comunicação'),
+    ('Outro')
+ON CONFLICT (nome) DO NOTHING;
+
+INSERT INTO sistemas_equipamentos (nome) VALUES
+    ('Impressora de etiquetas'),
+    ('Impressora comum'),
+    ('Computador da recepção'),
+    ('Sistema de agendamento'),
+    ('Portal de resultados'),
+    ('Rede / Wi-Fi'),
+    ('Telefone / ramal'),
+    ('Outro')
+ON CONFLICT (nome) DO NOTHING;
