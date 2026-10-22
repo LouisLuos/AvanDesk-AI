@@ -23,10 +23,13 @@ export interface ChamadoRequest {
   solicitante: Solicitante;
   descricao: string;
   categoria?: string;
+  categoria_id?: string;
   sistema?: string;
+  sistema_equipamento_id?: string;
   prioridade?: PrioridadeChamado;
   atribuir_a_mim?: boolean;
   chamado_relacionado_id?: string;
+  registro_iniciado_em?: string;
 }
 
 export interface ChamadoResponse {
@@ -34,7 +37,76 @@ export interface ChamadoResponse {
   codigo: string;
   status: string;
   data_criacao: string;
+  origem_dado?: 'REAL' | 'TESTE' | 'SIMULADO';
 }
+
+/**
+ * Evento na Linha do Tempo (Timeline) do chamado (HU02 / Seção 6).
+ */
+export interface EventoTimeline {
+  id: string;
+  tipo: string;
+  titulo: string;
+  descricao?: string;
+  autor?: string;
+  hora: string;
+  dataCompleta: string;
+  estiloDot?: string; // Classe de cor do dot (Tailwind)
+}
+
+export interface EvidenciaAnexo {
+  id: string;
+  nome: string;
+  enviadoAs: string;
+  tamanho?: string;
+  tipo?: string;
+}
+
+export interface RelatoVinculadoItem {
+  id: string;
+  codigo: string;
+  status: StatusChamado;
+  descricao: string;
+  vinculadoEm: string;
+  vinculadoPor: string;
+}
+
+export interface ItemSlaDetalhe {
+  etapa: string;
+  meta: string;
+  situacaoTexto: string;
+  progresso: number;
+  estiloBarra: string;
+}
+
+export interface ChamadoDetalhe {
+  id: string;
+  codigo: string;
+  titulo: string;
+  descricao: string;
+  unidade: { id: string; nome: string };
+  solicitante: {
+    nome?: string;
+    contato: string;
+    telefoneMascarado?: string;
+  };
+  canal_origem: CanalOrigem;
+  status: StatusChamado;
+  prioridade: PrioridadeChamado | null;
+  categoria: string;
+  sistema: string;
+  responsavel: ResponsavelChamado | null;
+  aberto_em: string;
+  primeira_resposta_em?: string | null;
+  evidencias: EvidenciaAnexo[];
+  historico: EventoTimeline[];
+  slaItens: ItemSlaDetalhe[];
+  pausasMinutos?: number;
+  tempoTerceirosHoras?: number;
+  relatosVinculados: RelatoVinculadoItem[];
+  origem_dado?: 'REAL' | 'TESTE' | 'SIMULADO';
+}
+
 
 /**
  * Fila de chamados — contrato provisório (GET /chamados).
