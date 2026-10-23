@@ -27,4 +27,27 @@ describe('FilaChamados', () => {
     expect(component['pagina']()).toBe(1);
     expect(component['temFiltroAtivo']()).toBe(false);
   });
+
+  it('deve renderizar os 4 dropdowns customizados de filtros no DOM', () => {
+    const el = fixture.nativeElement;
+    expect(el.querySelector('#filtro-unidade')).toBeTruthy();
+    expect(el.querySelector('#filtro-status')).toBeTruthy();
+    expect(el.querySelector('#filtro-prioridade')).toBeTruthy();
+    expect(el.querySelector('#filtro-canal')).toBeTruthy();
+  });
+
+  it('deve atualizar o estado de filtro ativo e resetar página ao filtrar', () => {
+    component['atualizarFiltro'](component['filtroStatus'], 'ABERTO');
+    fixture.detectChanges();
+
+    expect(component['filtroStatus']()).toBe('ABERTO');
+    expect(component['temFiltroAtivo']()).toBe(true);
+    expect(component['pagina']()).toBe(1);
+
+    component['limparFiltros']();
+    fixture.detectChanges();
+
+    expect(component['filtroStatus']()).toBe('');
+    expect(component['temFiltroAtivo']()).toBe(false);
+  });
 });

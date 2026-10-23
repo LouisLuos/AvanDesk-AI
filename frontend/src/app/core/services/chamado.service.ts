@@ -4,6 +4,7 @@ import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { ApiResponse } from '../../shared/models/api-response.model';
 import {
+  ChamadoDetalhe,
   ChamadoRequest,
   ChamadoResponse,
   ChamadoResumo,
@@ -27,4 +28,12 @@ export class ChamadoService {
       .post<ApiResponse<ChamadoResponse>>(this.baseUrl, payload)
       .pipe(map((res) => res.data as ChamadoResponse));
   }
+
+  /** GET /chamados/{id} — recupera detalhes completos do chamado com histórico (HU02). */
+  buscarPorId(id: string): Observable<ChamadoDetalhe> {
+    return this.http
+      .get<ApiResponse<ChamadoDetalhe>>(`${this.baseUrl}/${id}`)
+      .pipe(map((res) => res.data as ChamadoDetalhe));
+  }
 }
+

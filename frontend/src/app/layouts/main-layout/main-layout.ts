@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MODO_SIMULADO } from '../../core/config/modo-simulado';
+import { AuthService } from '../../core/services/auth.service';
 import { ToastContainer } from '../../shared/components/toast-container/toast-container';
 import { USUARIO_ATUAL } from '../../shared/utils/usuario-atual';
 
@@ -12,21 +13,32 @@ import { USUARIO_ATUAL } from '../../shared/utils/usuario-atual';
 })
 export class MainLayout {
   private readonly router = inject(Router);
+  private readonly authService = inject(AuthService);
 
-  protected readonly usuario = USUARIO_ATUAL;
   protected readonly modoSimulado = inject(MODO_SIMULADO);
+  protected readonly usuario = computed(
+    () =>
+      this.authService.usuario() ?? {
+        id: USUARIO_ATUAL.id,
+        nome: USUARIO_ATUAL.nome,
+        email: 'ana.souza@lumendiagnosticos.com.br',
+        perfil: USUARIO_ATUAL.perfil,
+      },
+  );
 
   protected readonly menu = [
     { rotulo: 'Fila de Chamados', rota: '/chamados', id: 'nav-fila-chamados' },
-    { rotulo: 'Administração', rota: '/admin', id: 'nav-administracao' },
+    { rotulo: 'Administração', rota: '/admin/unidades', id: 'nav-administracao' },
   ];
 
   protected get iniciais(): string {
-    return this.usuario.nome
+    const nome = this.usuario().nome;
+    return nome
       .split(' ')
       .map((p) => p[0])
       .slice(0, 2)
-      .join('');
+      .join('')
+      .toUpperCase();
   }
 
   protected buscar(evento: Event, campo: HTMLInputElement): void {
@@ -35,4 +47,9 @@ export class MainLayout {
     const termo = campo.value.trim();
     this.router.navigate(['/chamados'], { queryParams: { busca: termo || null } });
   }
+
+  protected logout(): void {
+    this.authService.logout();
+  }
 }
+

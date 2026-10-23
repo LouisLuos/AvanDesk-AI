@@ -10,6 +10,7 @@ import { environment } from '../../../environments/environment';
 import { ApiResponse } from '../../shared/models/api-response.model';
 import {
   CanalOrigem,
+  ChamadoDetalhe,
   ChamadoRequest,
   ChamadoResponse,
   ChamadoResumo,
@@ -157,12 +158,21 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
     return editarUnidade(editar[1], req as HttpRequest<UnidadeRequest>);
   }
 
+  if (caminho === '/auth/login' && req.method === 'POST') {
+    return loginMock(req);
+  }
+
   if (caminho === '/chamados' && req.method === 'GET') {
     return sucesso(
       HttpStatusCode.Ok,
       'Chamados recuperados',
       chamados.map((c) => ({ ...c })),
     ).pipe(delay(LATENCIA_MS));
+  }
+
+  const detalheMatch = caminho.match(/^\/chamados\/([^/]+)$/);
+  if (detalheMatch && req.method === 'GET') {
+    return obterDetalheChamado(detalheMatch[1]);
   }
 
   if (caminho === '/chamados' && req.method === 'POST') {
@@ -292,6 +302,132 @@ function registrarChamado(req: HttpRequest<ChamadoRequest>): Observable<HttpResp
   });
   return sucesso(HttpStatusCode.Created, 'Chamado registrado com sucesso', chamado);
 }
+
+function loginMock(req: HttpRequest<unknown>): Observable<HttpResponse<unknown>> {
+  const body = req.body as { email?: string; senha?: string };
+  if (!body?.email?.trim() || !body?.senha?.trim()) {
+    return erro(HttpStatusCode.BadRequest, 'Erro de validação', ['E-mail e senha são obrigatórios.']);
+  }
+  return sucesso(HttpStatusCode.Ok, 'Autenticação realizada com sucesso', {
+    access_token: 'mock-jwt-token-lumen-2026',
+    usuario: {
+      id: USUARIO_ATUAL.id,
+      nome: USUARIO_ATUAL.nome,
+      email: body.email.includes('@') ? body.email : `${body.email}@lumendiagnosticos.com.br`,
+      perfil: USUARIO_ATUAL.perfil,
+    },
+  }).pipe(delay(LATENCIA_MS));
+}
+
+function obterDetalheChamado(idOuCodigo: string): Observable<HttpResponse<unknown>> {
+  const resumo = chamados.find((c) => c.id === idOuCodigo || c.codigo === idOuCodigo) ?? chamados[0];
+
+  const detalhe: ChamadoDetalhe = {
+    id: resumo.id,
+    codigo: resumo.codigo,
+    titulo: resumo.titulo,
+    descricao:
+      'Impressora de etiquetas da coleta parou de imprimir. Há pacientes aguardando na recepção para o cadastro das amostras. Já tentamos reiniciar o equipamento, sem sucesso.',
+    unidade: resumo.unidade,
+    solicitante: {
+      nome: 'Mariana Alves',
+      contato: '+5581988771234',
+      telefoneMascarado: '+55 81 9****-1234',
+    },
+    canal_origem: resumo.canal_origem,
+    status: resumo.status,
+    prioridade: resumo.prioridade,
+    categoria: 'Equipamento de apoio',
+    sistema: 'Impressora de etiquetas',
+    responsavel: resumo.responsavel,
+    aberto_em: '2026-10-07T10:02:00Z',
+    primeira_resposta_em: '2026-10-07T10:04:00Z',
+    evidencias: [
+      { id: 'ev-1', nome: 'erro-impressora.png', enviadoAs: '10:03' },
+      { id: 'ev-2', nome: 'etiquetas-travadas.jpg', enviadoAs: '10:04' },
+    ],
+    historico: [
+      {
+        id: 'h-1',
+        tipo: 'CHAMADO_ABERTO',
+        titulo: `Chamado aberto via ${resumo.canal_origem === 'LIGACAO' ? 'Ligação' : resumo.canal_origem}`,
+        descricao: 'Registrado por Ana Souza',
+        autor: 'Ana Souza',
+        hora: '10:02',
+        dataCompleta: '07/10/2026 10:02',
+        estiloDot: 'bg-[#94a3b8]',
+      },
+      {
+        id: 'h-2',
+        tipo: 'TRIAGEM_INICIADA',
+        titulo: 'Triagem iniciada',
+        autor: 'Ana Souza',
+        hora: '10:05',
+        dataCompleta: '07/10/2026 10:05',
+        estiloDot: 'bg-[#14b8a6]',
+      },
+      {
+        id: 'h-3',
+        tipo: 'PRIORIDADE_DEFINIDA',
+        titulo: 'Prioridade definida: Alta (P1)',
+        descricao: 'Sugestão do sistema (soma 8), confirmada por Ana Souza',
+        autor: 'Ana Souza',
+        hora: '10:05',
+        dataCompleta: '07/10/2026 10:05',
+        estiloDot: 'bg-[#dc2626]',
+      },
+      {
+        id: 'h-4',
+        tipo: 'CHAMADO_ATRIBUIDO',
+        titulo: 'Atribuído a Ana Souza',
+        autor: 'Ana Souza',
+        hora: '10:06',
+        dataCompleta: '07/10/2026 10:06',
+        estiloDot: 'bg-[#2d5bff]',
+      },
+      {
+        id: 'h-5',
+        tipo: 'STATUS_ALTERADO',
+        titulo: 'Status alterado para Em Atendimento',
+        autor: 'Ana Souza',
+        hora: '10:07',
+        dataCompleta: '07/10/2026 10:07',
+        estiloDot: 'bg-[#0ea5e9]',
+      },
+      {
+        id: 'h-6',
+        tipo: 'REGISTRO_DE_CONTATO_RECEBIDO',
+        titulo: 'Contato registrado',
+        descricao: 'Solicitante informou que há pacientes aguardando',
+        autor: 'Mariana Alves',
+        hora: '10:21',
+        dataCompleta: '07/10/2026 10:21',
+        estiloDot: 'bg-[#94a3b8]',
+      },
+    ],
+    slaItens: [
+      { etapa: 'Triagem', meta: '15 min', situacaoTexto: 'Cumprida em 3 min', progresso: 100, estiloBarra: 'bg-[#22c55e]' },
+      { etapa: 'Primeira resposta', meta: '15 min', situacaoTexto: 'Cumprida em 2 min', progresso: 100, estiloBarra: 'bg-[#22c55e]' },
+      { etapa: 'Resolução', meta: '2 h', situacaoTexto: 'Em risco - restam 22 min', progresso: 82, estiloBarra: 'bg-[#f59e0b]' },
+    ],
+    pausasMinutos: 0,
+    tempoTerceirosHoras: 0,
+    relatosVinculados: [
+      {
+        id: 'chm-118',
+        codigo: 'LUM-2026-000118',
+        status: 'EM_ATENDIMENTO',
+        descricao: 'Impressora de etiquetas sem imprimir',
+        vinculadoEm: 'às 10:21',
+        vinculadoPor: 'Ana Souza',
+      },
+    ],
+    origem_dado: 'SIMULADO',
+  };
+
+  return sucesso(HttpStatusCode.Ok, 'Detalhes do chamado recuperados', detalhe).pipe(delay(LATENCIA_MS));
+}
+
 
 // ---------- Helpers ----------
 

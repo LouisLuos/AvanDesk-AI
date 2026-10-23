@@ -54,9 +54,11 @@ const ESTILO_SLA: Record<SituacaoSla, { texto: string; barra: string }> = {
   INCORPORADO: { texto: 'text-[#6b7280]', barra: '' },
 };
 
+import { CustomDropdown } from '../../../shared/components/custom-dropdown/custom-dropdown';
+
 @Component({
   selector: 'app-fila-chamados',
-  imports: [RouterLink],
+  imports: [RouterLink, CustomDropdown],
   templateUrl: './fila-chamados.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -100,6 +102,15 @@ export class FilaChamados implements OnInit {
       .map(([id, nome]) => ({ id, nome }))
       .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   });
+
+  protected readonly unidadesOpcoes = computed(() =>
+    this.unidades().map((u) => ({ valor: u.id, rotulo: u.nome })),
+  );
+
+  protected readonly prioridadesOpcoes = computed(() => [
+    ...this.prioridades,
+    { valor: this.semPrioridade, rotulo: 'Sem prioridade' },
+  ]);
 
   protected readonly indicadores = computed<Indicador[]>(() => {
     const lista = this.chamados();

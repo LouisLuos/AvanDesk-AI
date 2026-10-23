@@ -1,15 +1,5 @@
 <div class="flex min-h-screen flex-col bg-[#f8f9fc] text-[#14161b]">
   <header class="sticky top-0 z-40 border-b border-[#e2e5ec] bg-white">
-    @if (modoSimulado) {
-      <!-- FE-02 / seção 9.1: com o mock ligado, todo dado é fictício e isso precisa ficar visível -->
-      <div
-        id="selo-modo-simulado"
-        role="note"
-        class="border-b border-[#f0a202]/40 bg-[#fff4db] px-4 py-1 text-center text-xs font-semibold tracking-wide text-[#7a4d00]"
-      >
-        MODO SIMULADO: dados fictícios
-      </div>
-    }
     <div class="mx-auto flex h-14 max-w-7xl items-center justify-between gap-6 px-4 sm:px-6 lg:px-8">
       <div class="flex items-center gap-8">
         <a routerLink="/chamados" class="flex items-center transition hover:opacity-90" id="nav-logo" aria-label="Nexo — página inicial">
@@ -48,6 +38,34 @@
           />
         </div>
 
+        <!-- Selo Discreto de Modo Simulado com Tooltip (FE-02 / seção 9.1) -->
+        @if (modoSimulado) {
+          <div
+            id="badge-modo-simulado"
+            class="group relative flex cursor-help items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-900 transition hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            tabindex="0"
+            role="status"
+            aria-label="Modo simulado: exibindo dados fictícios em memória"
+          >
+            <span class="h-2 w-2 rounded-full bg-amber-500 animate-pulse" aria-hidden="true"></span>
+            <span class="font-semibold text-amber-900">Simulado</span>
+
+            <!-- Tooltip acessível no hover e no foco -->
+            <div
+              role="tooltip"
+              class="pointer-events-none absolute right-0 top-full z-50 mt-2 hidden w-56 rounded-lg bg-[#14161b] p-2.5 text-left text-[11px] font-normal text-white shadow-xl group-hover:block group-focus:block"
+            >
+              <div class="flex items-center gap-1.5 font-semibold text-amber-400">
+                <span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
+                Modo Simulado Ativo
+              </div>
+              <p class="mt-1 leading-snug text-slate-300">
+                Exibindo dados fictícios em memória para desenvolvimento.
+              </p>
+            </div>
+          </div>
+        }
+
         <button
           type="button"
           id="btn-notificacoes"
@@ -65,12 +83,24 @@
             {{ iniciais }}
           </span>
           <div class="hidden leading-tight sm:block">
-            <p class="text-sm font-semibold text-[#14161b]">{{ usuario.nome }}</p>
-            <p class="text-[11px] text-[#6b7280]">{{ usuario.perfil }}</p>
+            <p class="text-sm font-semibold text-[#14161b]">{{ usuario().nome }}</p>
+            <p class="text-[11px] text-[#6b7280]">{{ usuario().perfil }}</p>
           </div>
-          <svg class="hidden h-4 w-4 text-[#9aa2b1] sm:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="m6 9 6 6 6-6" />
-          </svg>
+
+          <button
+            type="button"
+            id="btn-logout"
+            (click)="logout()"
+            class="rounded-md p-1.5 text-[#6b7280] transition hover:bg-[#e2e5ec]/40 hover:text-[#dc2626]"
+            aria-label="Sair da plataforma"
+            title="Sair da plataforma"
+          >
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" x2="9" y1="12" y2="12" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>
