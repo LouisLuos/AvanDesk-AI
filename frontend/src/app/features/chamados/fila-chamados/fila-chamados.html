@@ -58,78 +58,41 @@
     </div>
 
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:flex lg:flex-wrap">
-      <div class="relative">
-        <label for="filtro-unidade" class="sr-only">Unidade</label>
-        <select
-          id="filtro-unidade"
-          [value]="filtroUnidade()"
-          (change)="atualizarFiltro(filtroUnidade, valorInput($event))"
-          class="h-9 w-full appearance-none rounded-md border border-[#e2e5ec] bg-white pl-3 pr-9 text-xs text-[#363b47] transition focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff] lg:w-auto"
-        >
-          <option value="">Unidade: Todas</option>
-          @for (unidade of unidades(); track unidade.id) {
-            <option [value]="unidade.id">Unidade: {{ unidade.nome }}</option>
-          }
-        </select>
-        <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m6 9 6 6 6-6" />
-        </svg>
-      </div>
+      <app-custom-dropdown
+        id="filtro-unidade"
+        rotulo="Unidade"
+        [opcaoPadrao]="{ valor: '', rotulo: 'Todas' }"
+        [opcoes]="unidadesOpcoes()"
+        [valor]="filtroUnidade()"
+        (valorChange)="atualizarFiltro(filtroUnidade, $event)"
+      />
 
-      <div class="relative">
-        <label for="filtro-status" class="sr-only">Status</label>
-        <select
-          id="filtro-status"
-          [value]="filtroStatus()"
-          (change)="atualizarFiltro(filtroStatus, $any(valorInput($event)))"
-          class="h-9 w-full appearance-none rounded-md border border-[#e2e5ec] bg-white pl-3 pr-9 text-xs text-[#363b47] transition focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff] lg:w-auto"
-        >
-          <option value="">Status: Todos</option>
-          @for (status of statusOpcoes; track status.valor) {
-            <option [value]="status.valor">Status: {{ status.rotulo }}</option>
-          }
-        </select>
-        <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m6 9 6 6 6-6" />
-        </svg>
-      </div>
+      <app-custom-dropdown
+        id="filtro-status"
+        rotulo="Status"
+        [opcaoPadrao]="{ valor: '', rotulo: 'Todos' }"
+        [opcoes]="statusOpcoes"
+        [valor]="filtroStatus()"
+        (valorChange)="atualizarFiltro(filtroStatus, $any($event))"
+      />
 
-      <div class="relative">
-        <label for="filtro-prioridade" class="sr-only">Prioridade</label>
-        <select
-          id="filtro-prioridade"
-          [value]="filtroPrioridade()"
-          (change)="atualizarFiltro(filtroPrioridade, $any(valorInput($event)))"
-          class="h-9 w-full appearance-none rounded-md border border-[#e2e5ec] bg-white pl-3 pr-9 text-xs text-[#363b47] transition focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff] lg:w-auto"
-        >
-          <option value="">Prioridade: Todas</option>
-          @for (prioridade of prioridades; track prioridade.valor) {
-            <option [value]="prioridade.valor">Prioridade: {{ prioridade.rotulo }}</option>
-          }
-          <option [value]="semPrioridade">Sem prioridade</option>
-        </select>
-        <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m6 9 6 6 6-6" />
-        </svg>
-      </div>
+      <app-custom-dropdown
+        id="filtro-prioridade"
+        rotulo="Prioridade"
+        [opcaoPadrao]="{ valor: '', rotulo: 'Todas' }"
+        [opcoes]="prioridadesOpcoes()"
+        [valor]="filtroPrioridade()"
+        (valorChange)="atualizarFiltro(filtroPrioridade, $any($event))"
+      />
 
-      <div class="relative">
-        <label for="filtro-canal" class="sr-only">Canal</label>
-        <select
-          id="filtro-canal"
-          [value]="filtroCanal()"
-          (change)="atualizarFiltro(filtroCanal, $any(valorInput($event)))"
-          class="h-9 w-full appearance-none rounded-md border border-[#e2e5ec] bg-white pl-3 pr-9 text-xs text-[#363b47] transition focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff] lg:w-auto"
-        >
-          <option value="">Canal: Todos</option>
-          @for (canal of canais; track canal.valor) {
-            <option [value]="canal.valor">Canal: {{ canal.rotulo }}</option>
-          }
-        </select>
-        <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m6 9 6 6 6-6" />
-        </svg>
-      </div>
+      <app-custom-dropdown
+        id="filtro-canal"
+        rotulo="Canal"
+        [opcaoPadrao]="{ valor: '', rotulo: 'Todos' }"
+        [opcoes]="canais"
+        [valor]="filtroCanal()"
+        (valorChange)="atualizarFiltro(filtroCanal, $any($event))"
+      />
     </div>
 
     <label for="filtro-meus" class="flex cursor-pointer items-center gap-2 text-xs text-[#363b47] lg:ml-1">
@@ -213,7 +176,14 @@
             } @else {
               @for (chamado of itensPagina(); track chamado.id) {
                 <tr class="transition-colors hover:bg-[#f8f9fc]">
-                  <td class="whitespace-nowrap px-3 py-3 font-semibold text-[#2d5bff] hover:text-[#1e3fcc]">{{ chamado.codigo }}</td>
+                  <td class="whitespace-nowrap px-3 py-3">
+                    <a
+                      [routerLink]="['/chamados', chamado.id]"
+                      class="font-semibold text-[#2d5bff] hover:text-[#1e3fcc] hover:underline focus:outline-none focus:ring-1 focus:ring-[#2d5bff]"
+                    >
+                      {{ chamado.codigo }}
+                    </a>
+                  </td>
                   <td class="max-w-[200px] px-2 py-3 font-medium text-[#14161b]">{{ chamado.titulo }}</td>
                   <td class="whitespace-nowrap px-2 py-3 text-[#363b47]">{{ chamado.unidade.nome }}</td>
                   <td class="whitespace-nowrap px-2 py-3 text-[#363b47]">
