@@ -108,21 +108,23 @@ flowchart TD
 
 ---
 
-### LEVA 2: Autenticação Real, Atribuição & Fila de Chamados [PLANEJADA 🟡]
-> **Meta da Leva:** Substituir a autenticação temporária por JWT com perfis reais (RN06) e permitir que os analistas assumam e transitem status dos chamados.
+### LEVA 2: Autenticação Real, Atribuição & Fila de Chamados [SPRINT 2 ATIVA 🎯]
+> **Meta da Leva:** Substituir a autenticação temporária por JWT com perfis reais (RN06), disponibilizar a listagem paginada da fila e permitir que os analistas assumam e transitem status dos chamados no banco real.
 
-| ID | HU | Camada | Descrição da Tarefa | Responsável sugerido | Estimativa | Relação com Métricas / RN |
+| ID | HU | Camada | Descrição da Tarefa | Responsável | Status | Relação com Métricas / RN |
 | :--- | :--- | :---: | :--- | :---: | :---: | :--- |
-| **T09.1** | HU09 | BD | Migration V5: tabela `usuarios` com email UNIQUE, hash BCrypt e perfil (`ANALISTA_SUPORTE`, `LIDERANCA_TI`, `ADMIN`) | Elis | 1 dia | RN06, Seção 9.5 (autor real) |
-| **T09.2** | HU09 | BE | Endpoint `POST /auth/login` gerando token JWT com claims de perfil | Elis | 1 dia | Segurança |
-| **T09.3** | HU09 | FE | Tela de Login, integração com `authInterceptor` e guarda de rotas (`AuthGuard`) | Pedro | 1 dia | Usabilidade |
-| **T10.1** | HU10 | BE/FE | CRUD de Analistas de Suporte (apenas perfil autorizado) | Aguinaldo | 1,5 dia | Gestão de equipe |
-| **T05.1** | HU05 | BD/BE | Modelagem de máquina de estados de Chamado (`ABERTO`, `EM_TRIAGEM`, `EM_ATENDIMENTO`, `AGUARDANDO`, `RESOLVIDO`, `FECHADO`, `CANCELADO`, `MESCLADO`) | Elis | 1 dia | Ciclo de Vida (§6) |
-| **T12.1** | HU12 | BE | Endpoints para assumir chamado e transitar status com validação estrita e evento de histórico | Elis | 1 dia | M02 (TCD), M03 (TPR/TR) |
-| **T14.1** | HU14 | BD/BE | Endpoint de listagem paginada `GET /chamados` com filtros por unidade, status, responsável e busca por código | Aguinaldo | 1,5 dia | M02, Produtividade |
-| **T14.2** | HU14 | FE | Tela da Fila de Atendimento com filtros rápidos ("Meus Chamados", "Sem Responsável", por Unidade) | Pedro | 1,5 dia | Ação da 9.7 (M01/M02 < 90%) |
-| **T04.1** | HU04 | BE | Cálculo da prioridade sugerida a partir da matriz da Seção 3 e campo de justificativa obrigatório se divergente | Elis | 1 dia | M08 (Concordância) |
-| **T04.2** | HU04 | FE | Componente de triagem rápida com seleção de severidade/urgência/impacto e preview da prioridade | Pedro | 1 dia | M08 |
+| **T09.1** | HU09 | BD | Migration V3: tabela `usuarios` com email UNIQUE, hash BCrypt e perfis (`ANALISTA_SUPORTE`, `LIDERANCA_TI`, `ADMIN`) | Elis | Concluído ✅ | RN06, Seção 9.5 (PR #14) |
+| **T09.3** | HU09 | FE | Tela de Login, integração com `authInterceptor` e guarda de rotas (`AuthGuard`) | Pedro | Concluído ✅ | Usabilidade (PR #16, 5 testes Vitest) |
+| **T05.1** | HU05 | BD/BE | Modelagem de máquina de estados de Chamado (`ck_chamados_status`, enum `StatusChamado`) | Elis | Concluído ✅ | Ciclo de Vida (§6, PR #15) |
+| **T14.2** | HU14 | FE | Tela da Fila de Atendimento com filtros rápidos ("Meus Chamados", por Unidade, Status) | Pedro | Concluído ✅ | Ação da 9.7 (PR #13/#16, 4 testes Vitest) |
+| **T02.1 (FE)** | HU02 | FE | Tela de Detalhes do Chamado com Linha do Tempo cronológica e badges Nexo | Pedro | Concluído ✅ | M01 (Rastreabilidade, PR #16) |
+| **T09.2** | HU09 | BE | Endpoint `POST /api/v1/auth/login` gerando token JWT com claims de perfil | Elis | Em Andamento 🎯 | Segurança, RN06 |
+| **T14.1** | HU14 | BD/BE | Endpoint de listagem paginada `GET /api/v1/chamados` com filtros por unidade, status e busca por código | Aguinaldo | A Iniciar ⏳ | M02, Produtividade |
+| **T02.1 (BE)** | HU02 | BE | Endpoint `GET /api/v1/chamados/{id}` retornando dados do chamado e histórico de eventos | Elis | A Iniciar ⏳ | M01 (Rastreabilidade) |
+| **T12.1** | HU12 | BE | Endpoints para assumir chamado (`PATCH /chamados/{id}/assumir`) e transitar status com evento no histórico | Elis | A Iniciar ⏳ | M02 (TCD), M03 (TPR/TR) |
+| **T10.1** | HU10 | BE/FE | CRUD de Analistas de Suporte (apenas perfil autorizado Liderança/Admin) | Aguinaldo | Backlog ⚪ | Gestão de equipe |
+| **T04.1** | HU04 | BE | Cálculo da prioridade sugerida a partir da matriz da Seção 3 e campo de justificativa obrigatório se divergente | Elis | Backlog ⚪ | M08 (Concordância) |
+| **T04.2** | HU04 | FE | Componente de triagem rápida com seleção de severidade/urgência/impacto e preview da prioridade | Pedro | Backlog ⚪ | M08 |
 
 ---
 
