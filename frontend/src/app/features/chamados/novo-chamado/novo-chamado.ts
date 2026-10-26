@@ -9,8 +9,9 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { debounceTime, finalize } from 'rxjs';
+import { debounceTime, finalize, forkJoin } from 'rxjs';
 import { ChamadoService } from '../../../core/services/chamado.service';
+import { ListasChamadoService } from '../../../core/services/listas-chamado.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { UnidadeService } from '../../../core/services/unidade.service';
 import {
@@ -19,6 +20,7 @@ import {
   ChamadoRequest,
   ChamadoResponse,
   ChamadoResumo,
+  ItemLista,
   PrioridadeChamado,
   StatusChamado,
 } from '../../../shared/models/chamado.model';
@@ -51,8 +53,8 @@ type CampoChamado =
   | 'unidadeId'
   | 'contato'
   | 'nome'
-  | 'categoria'
-  | 'sistema'
+  | 'categoriaId'
+  | 'sistemaId'
   | 'descricao'
   | 'prioridade'
   | 'atribuirAMim';
@@ -79,30 +81,17 @@ export class NovoChamado implements OnInit {
   private readonly router = inject(Router);
   private readonly unidadeService = inject(UnidadeService);
   private readonly chamadoService = inject(ChamadoService);
+  private readonly listasChamadoService = inject(ListasChamadoService);
   private readonly toast = inject(ToastService);
 
   protected readonly canais = CANAIS_ORIGEM;
   protected readonly limiteDescricao = LIMITE_DESCRICAO;
 
-  protected readonly categorias: ReadonlyArray<string> = [
-    'Equipamento de apoio',
-    'Sistema hospitalar',
-    'Infraestrutura / Rede',
-    'Acesso e senhas',
-    'Telefonia e comunicação',
-    'Outro',
-  ];
-
-  protected readonly sistemas: ReadonlyArray<string> = [
-    'Impressora de etiquetas',
-    'Impressora comum',
-    'Computador da recepção',
-    'Sistema de agendamento',
-    'Portal de resultados',
-    'Rede / Wi-Fi',
-    'Telefone / ramal',
-    'Outro',
-  ];
+  /** Opções vindas da API (GET /categorias e GET /sistemas-equipamentos), só itens ativos. */
+  protected readonly categorias = signal<ItemLista[]>([]);
+  protected readonly sistemas = signal<ItemLista[]>([]);
+  protected readonly carregandoListas = signal(true);
+  protected readonly erroListas = signal(false);
 
   protected readonly prioridades: ReadonlyArray<{ valor: OpcaoPrioridade; rotulo: string }> = [
     { valor: 'TRIAGEM', rotulo: 'Definir na triagem' },
@@ -135,8 +124,9 @@ export class NovoChamado implements OnInit {
     unidadeId: ['', Validators.required],
     contato: ['', [Validators.required, contatoValidator]],
     nome: ['', Validators.maxLength(120)],
-    categoria: ['Equipamento de apoio', Validators.required],
-    sistema: ['Impressora de etiquetas'],
+    // Sem valor pré-selecionado: o analista escolhe, para a categoria não sair enviesada nas métricas.
+    categoriaId: ['', Validators.required],
+    sistemaId: [''],
     descricao: [
       '',
       [Validators.required, Validators.minLength(10), Validators.maxLength(LIMITE_DESCRICAO)],
@@ -159,7 +149,8 @@ export class NovoChamado implements OnInit {
   protected readonly prioridadeSelecionada = computed(() => this.valores().prioridade);
 
   protected readonly duplicidades = computed<DuplicidadeItem[]>(() => {
-    const { descricao = '', sistema = '', unidadeId = '' } = this.valoresDebounced();
+    const { descricao = '', sistemaId = '', unidadeId = '' } = this.valoresDebounced();
+    const sistema = this.sistemas().find((s) => s.id === sistemaId)?.nome ?? '';
     const termos = radicais(`${descricao} ${sistema}`);
     if (termos.size === 0) return [];
 
@@ -178,12 +169,37 @@ export class NovoChamado implements OnInit {
       .map(({ chamado, percentual }) => ({ chamado, percentual }));
   });
 
+  /**
+   * Instante em que a tela abriu (métrica M11: tempo de registro manual). Vai no payload e não
+   * aparece para o usuário. Cada acesso a /chamados/novo cria a tela de novo, com nova medição.
+   */
+  private registroIniciadoEm = new Date();
+
   ngOnInit(): void {
+    this.registroIniciadoEm = new Date();
     this.carregarUnidades();
+    this.carregarListas();
     this.chamadoService.listar().subscribe({
       next: (lista) => this.chamadosExistentes.set(lista),
       error: () => this.chamadosExistentes.set([]),
     });
+  }
+
+  protected carregarListas(): void {
+    this.carregandoListas.set(true);
+    this.erroListas.set(false);
+    forkJoin({
+      categorias: this.listasChamadoService.listarCategorias(),
+      sistemas: this.listasChamadoService.listarSistemasEquipamentos(),
+    })
+      .pipe(finalize(() => this.carregandoListas.set(false)))
+      .subscribe({
+        next: ({ categorias, sistemas }) => {
+          this.categorias.set(categorias);
+          this.sistemas.set(sistemas);
+        },
+        error: () => this.erroListas.set(true),
+      });
   }
 
   protected carregarUnidades(): void {
@@ -320,11 +336,12 @@ export class NovoChamado implements OnInit {
         contato: normalizarContato(valor.contato),
       },
       descricao: valor.descricao.trim(),
-      categoria: valor.categoria,
-      ...(valor.sistema ? { sistema: valor.sistema } : {}),
+      categoria_id: valor.categoriaId,
+      ...(valor.sistemaId ? { sistema_equipamento_id: valor.sistemaId } : {}),
       ...(valor.prioridade !== 'TRIAGEM' ? { prioridade: valor.prioridade } : {}),
       atribuir_a_mim: valor.atribuirAMim,
       ...(vinculado ? { chamado_relacionado_id: vinculado } : {}),
+      registro_iniciado_em: this.registroIniciadoEm.toISOString(),
     };
 
     this.enviando.set(true);
@@ -333,7 +350,12 @@ export class NovoChamado implements OnInit {
       .pipe(finalize(() => this.enviando.set(false)))
       .subscribe({
         next: (chamado) => {
-          this.toast.sucesso(`Chamado ${chamado.codigo} registrado com sucesso.`);
+          // Dado de teste ou simulado nunca pode parecer real (seção 9.1): mostra a origem no aviso.
+          const origem =
+            chamado.origem_dado && chamado.origem_dado !== 'REAL'
+              ? ` (dado ${chamado.origem_dado})`
+              : '';
+          this.toast.sucesso(`Chamado ${chamado.codigo} registrado com sucesso${origem}.`);
           this.router.navigate(['/chamados']);
         },
         error: (erro) => this.errosApi.set(extrairMensagensErro(erro)),
@@ -346,8 +368,8 @@ export class NovoChamado implements OnInit {
       unidadeId: this.unidades()[0]?.id ?? '',
       contato: '',
       nome: '',
-      categoria: 'Equipamento de apoio',
-      sistema: 'Impressora de etiquetas',
+      categoriaId: '',
+      sistemaId: '',
       descricao: '',
       prioridade: 'TRIAGEM',
       atribuirAMim: true,

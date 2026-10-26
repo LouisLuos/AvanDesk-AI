@@ -158,19 +158,35 @@
             <div class="relative">
               <select
                 id="categoria"
-                formControlName="categoria"
+                formControlName="categoriaId"
                 class="h-10 w-full appearance-none rounded-lg border border-[#e2e5ec] bg-white pl-3 pr-9 text-xs text-[#14161b] shadow-xs transition focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff]"
-                [class.border-[#dc2626]]="invalido('categoria')"
+                [class.border-[#dc2626]]="invalido('categoriaId')"
               >
-                @for (cat of categorias; track cat) {
-                  <option [value]="cat">{{ cat }}</option>
+                <option value="" disabled>
+                  {{
+                    carregandoListas()
+                      ? 'Carregando categorias...'
+                      : erroListas()
+                        ? 'Não foi possível carregar as categorias'
+                        : 'Selecionar categoria...'
+                  }}
+                </option>
+                @for (categoria of categorias(); track categoria.id) {
+                  <option [value]="categoria.id">{{ categoria.nome }}</option>
                 }
               </select>
               <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="m6 9 6 6 6-6" />
               </svg>
             </div>
-            @if (invalido('categoria')) {
+            @if (erroListas()) {
+              <p class="mt-1 text-[11px] font-medium text-[#dc2626]" role="alert">
+                Não foi possível carregar as listas.
+                <button type="button" class="font-semibold underline" (click)="carregarListas()">
+                  Tentar novamente
+                </button>
+              </p>
+            } @else if (invalido('categoriaId')) {
               <p class="mt-1 text-[11px] font-medium text-[#dc2626]">Selecione uma categoria.</p>
             }
           </div>
@@ -184,11 +200,12 @@
           <div class="relative">
             <select
               id="sistema"
-              formControlName="sistema"
+              formControlName="sistemaId"
               class="h-10 w-full appearance-none rounded-lg border border-[#e2e5ec] bg-white pl-3 pr-9 text-xs text-[#14161b] shadow-xs transition focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff]"
             >
-              @for (sis of sistemas; track sis) {
-                <option [value]="sis">{{ sis }}</option>
+              <option value="">Não informado</option>
+              @for (sistema of sistemas(); track sistema.id) {
+                <option [value]="sistema.id">{{ sistema.nome }}</option>
               }
             </select>
             <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

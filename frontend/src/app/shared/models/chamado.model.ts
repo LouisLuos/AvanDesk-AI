@@ -17,27 +17,38 @@ export interface Solicitante {
   contato: string;
 }
 
+/** Item das listas do formulário: GET /categorias e GET /sistemas-equipamentos. */
+export interface ItemLista {
+  id: string;
+  nome: string;
+}
+
 export interface ChamadoRequest {
   unidade_id: string;
   canal_origem: CanalOrigem;
   solicitante: Solicitante;
   descricao: string;
-  categoria?: string;
-  categoria_id?: string;
-  sistema?: string;
+  /** Id de uma categoria ativa (GET /categorias). */
+  categoria_id: string;
+  /** Opcional. Id de um sistema/equipamento ativo (GET /sistemas-equipamentos). */
   sistema_equipamento_id?: string;
+  /** Ainda ignorados pelo backend (HU04, HU05 e HU03); a tela já envia. */
   prioridade?: PrioridadeChamado;
   atribuir_a_mim?: boolean;
   chamado_relacionado_id?: string;
+  /** Quando a tela Novo Chamado foi aberta, em ISO-8601 UTC (métrica M11, seção 9.5). */
   registro_iniciado_em?: string;
 }
+
+/** Marca do dado gravado (seção 9.1): o servidor define, o cliente nunca envia. */
+export type OrigemDado = 'REAL' | 'TESTE' | 'SIMULADO';
 
 export interface ChamadoResponse {
   id: string;
   codigo: string;
   status: string;
   data_criacao: string;
-  origem_dado?: 'REAL' | 'TESTE' | 'SIMULADO';
+  origem_dado?: OrigemDado;
 }
 
 /**

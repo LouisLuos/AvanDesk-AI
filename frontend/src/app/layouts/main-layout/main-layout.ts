@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { environment } from '../../../environments/environment';
+import { MODO_SIMULADO } from '../../core/config/modo-simulado';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastContainer } from '../../shared/components/toast-container/toast-container';
 import { USUARIO_ATUAL } from '../../shared/utils/usuario-atual';
@@ -15,7 +15,7 @@ export class MainLayout {
   private readonly router = inject(Router);
   private readonly authService = inject(AuthService);
 
-  protected readonly useMocks = environment.useMocks;
+  protected readonly modoSimulado = inject(MODO_SIMULADO);
   protected readonly usuario = computed(
     () =>
       this.authService.usuario() ?? {

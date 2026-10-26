@@ -14,6 +14,7 @@ import {
   ChamadoRequest,
   ChamadoResponse,
   ChamadoResumo,
+  ItemLista,
   PrioridadeChamado,
   ResponsavelChamado,
   SlaChamado,
@@ -115,6 +116,27 @@ const chamados: ChamadoResumo[] = SEMENTES.map(
 
 let sequencialChamado = 127;
 
+/** Mesmos nomes do seed de dev do backend (db/seed/R__dados_dev.sql), já em ordem alfabética. */
+const categorias: ItemLista[] = [
+  { id: 'c4e0a000-0001-4000-8000-000000000001', nome: 'Acesso e senhas' },
+  { id: 'c4e0a000-0002-4000-8000-000000000002', nome: 'Equipamento de apoio' },
+  { id: 'c4e0a000-0003-4000-8000-000000000003', nome: 'Infraestrutura / Rede' },
+  { id: 'c4e0a000-0004-4000-8000-000000000004', nome: 'Outro' },
+  { id: 'c4e0a000-0005-4000-8000-000000000005', nome: 'Sistema hospitalar' },
+  { id: 'c4e0a000-0006-4000-8000-000000000006', nome: 'Telefonia e comunicação' },
+];
+
+const sistemasEquipamentos: ItemLista[] = [
+  { id: '5e5a0000-0001-4000-8000-000000000001', nome: 'Computador da recepção' },
+  { id: '5e5a0000-0002-4000-8000-000000000002', nome: 'Impressora comum' },
+  { id: '5e5a0000-0003-4000-8000-000000000003', nome: 'Impressora de etiquetas' },
+  { id: '5e5a0000-0004-4000-8000-000000000004', nome: 'Outro' },
+  { id: '5e5a0000-0005-4000-8000-000000000005', nome: 'Portal de resultados' },
+  { id: '5e5a0000-0006-4000-8000-000000000006', nome: 'Rede / Wi-Fi' },
+  { id: '5e5a0000-0007-4000-8000-000000000007', nome: 'Sistema de agendamento' },
+  { id: '5e5a0000-0008-4000-8000-000000000008', nome: 'Telefone / ramal' },
+];
+
 export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
   const apiIndex = req.url.indexOf(environment.apiUrl);
   if (!environment.useMocks || apiIndex === -1) {
@@ -155,6 +177,16 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
 
   if (caminho === '/chamados' && req.method === 'POST') {
     return registrarChamado(req as HttpRequest<ChamadoRequest>);
+  }
+
+  if (caminho === '/categorias' && req.method === 'GET') {
+    return sucesso(HttpStatusCode.Ok, 'Categorias recuperadas com sucesso', [...categorias]);
+  }
+
+  if (caminho === '/sistemas-equipamentos' && req.method === 'GET') {
+    return sucesso(HttpStatusCode.Ok, 'Sistemas e equipamentos recuperados com sucesso', [
+      ...sistemasEquipamentos,
+    ]);
   }
 
   return next(req);
@@ -230,6 +262,7 @@ function registrarChamado(req: HttpRequest<ChamadoRequest>): Observable<HttpResp
   if (!body?.canal_origem) erros.push("Campo 'canal_origem' é obrigatório.");
   if (!body?.solicitante?.contato?.trim()) erros.push("Campo 'solicitante.contato' é obrigatório.");
   if (!body?.descricao?.trim()) erros.push("Campo 'descricao' é obrigatório.");
+  if (!body?.categoria_id) erros.push("Campo 'categoria_id' é obrigatório.");
 
   const unidade = unidades.find((u) => u.id === body?.unidade_id);
   if (body?.unidade_id && (!unidade || !unidade.ativo)) {
@@ -237,12 +270,23 @@ function registrarChamado(req: HttpRequest<ChamadoRequest>): Observable<HttpResp
   }
   if (erros.length) return erro(HttpStatusCode.BadRequest, 'Erro de validação', erros);
 
+  // Como no backend (PR #15): id que não existe na lista volta 404.
+  if (!categorias.some((c) => c.id === body!.categoria_id)) {
+    return erro(HttpStatusCode.NotFound, 'Categoria não encontrada.', null);
+  }
+  const sistemaId = body!.sistema_equipamento_id;
+  if (sistemaId && !sistemasEquipamentos.some((s) => s.id === sistemaId)) {
+    return erro(HttpStatusCode.NotFound, 'Sistema/equipamento não encontrado.', null);
+  }
+
   sequencialChamado++;
   const chamado: ChamadoResponse = {
     id: crypto.randomUUID(),
     codigo: `LUM-${new Date().getFullYear()}-${String(sequencialChamado).padStart(6, '0')}`,
     status: 'ABERTO',
     data_criacao: new Date().toISOString(),
+    // Como no backend: o servidor marca a origem; aqui todo dado é fictício.
+    origem_dado: 'SIMULADO',
   };
   chamados.unshift({
     id: chamado.id,
