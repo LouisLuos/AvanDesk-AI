@@ -38,7 +38,7 @@ Este documento consolida as histórias de usuário propostas para o MVP do Nexo.
 * O registro não deve exigir informações clínicas completas ou resultados de exames.
 * O chamado deve iniciar seu ciclo de vida a partir do registro.
 * O registro deve permitir identificar o solicitante e o contexto disponível da solicitação.
-* O registro deve indicar o canal de origem da solicitação (WhatsApp, telefone, e-mail, presencial, outro). **(novo)**
+* O registro deve indicar o canal de origem da solicitação (WhatsApp, ligação, e-mail ou presencial).
 
 ### HU02 - Consultar e manter o histórico do chamado
 

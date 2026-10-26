@@ -1,7 +1,7 @@
-# AvanDesk-AI — Frontend
+# Nexo — Frontend
 
-> Aplicação Web do sistema de suporte e gestão de chamados **AvanDesk-AI**  
-> **Stack:** Angular · Tailwind CSS v4 · TypeScript · SSR · Vitest
+> Aplicação Web do sistema de suporte e gestão de chamados **Nexo** (Rede Lúmen Diagnósticos)  
+> **Stack:** Angular 22 · Tailwind CSS v4 · TypeScript · SSR · Vitest
 
 ---
 

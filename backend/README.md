@@ -1,7 +1,7 @@
-# AvanDesk API — Backend
+# Nexo API — Backend
 
-> API REST do sistema de suporte AvanDesk-AI  
-> **Stack:** Java 21 · Spring Boot 4.0 · PostgreSQL 16 · Flyway · Spring Security
+> API REST do sistema de suporte Nexo (Rede Lúmen Diagnósticos)  
+> **Stack:** Java 21 · Spring Boot 4.0.2 · PostgreSQL 16 · Flyway · Spring Security
 
 ---
 

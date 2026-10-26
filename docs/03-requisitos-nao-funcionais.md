@@ -1,4 +1,4 @@
-# 🔒 Requisitos Não Funcionais — AvanDesk-AI
+# 🔒 Requisitos Não Funcionais — Nexo
 
 ## Categorias ISO/IEC 25010
 

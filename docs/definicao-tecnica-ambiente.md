@@ -1,7 +1,7 @@
 # 🛠️ Definição Técnica Inicial & Ambiente do Projeto
 
 **Squad:** Squad 1 — Rede Lúmen Diagnósticos  
-**Projeto:** AvanDesk-AI  
+**Projeto:** Nexo (AvanDesk-AI)  
 **Programa:** Residência Tecnológica Avanade 2026.2 (Porto Digital / CESAR School / Embarque Digital)  
 **Tech Lead:** Luiz Henrique Souza  
 **Data:** 10 de Setembro de 2026  
@@ -20,7 +20,7 @@
   4. Desafio de estações de trabalho compartilhadas nas recepções e laboratórios com ritmos intensos.
 
 ### 1.2 Objetivo Geral
-Desenvolver o **AvanDesk-AI**, uma plataforma centralizada e inteligente de governança de chamados de suporte técnico, projetada para integrar o fluxo de atendimento em um único hub operacional. A solução utilizará Inteligência Artificial para:
+Desenvolver o **Nexo** (anteriormente concebido como *AvanDesk-AI*), uma plataforma centralizada e inteligente de governança de chamados de suporte técnico, projetada para integrar o fluxo de atendimento em um único hub operacional. A solução apoiará:
 * Guiar o registro de tickets e identificar lacunas de contexto essenciais.
 * Realizar triagem automatizada e arbitrar a prioridade de atendimento com base no impacto assistencial e operacional.
 * Apoiar os 7 analistas com histórico, direcionamento e controle rigoroso de prazos de SLA por criticidade, em conformidade com as diretrizes de privacidade e LGPD.

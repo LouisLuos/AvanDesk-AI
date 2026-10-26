@@ -1,7 +1,7 @@
-# Backlog Geral Atualizado — MVP AvanDesk-AI (Nexo)
+# Backlog Geral do MVP — Nexo
 
-> **Data de atualização:** 14/10/2026  
-> **Status geral:** Leva 0 (Base + HU11) concluída · Leva 1 (HU01 + Instrumentação 9.5) em execução/pronta para dev.  
+> **Data de atualização:** 26/10/2026  
+> **Status geral:** Leva 0 (Base + HU11) e Leva 1 (HU01 + Instrumentação 9.5) concluídas ✅ · Leva 2 (Auth, Atribuição & Fila) em execução (Sprint 2 Ativa 🎯).  
 > **Referência oficial:** Documento do MVP (HUs 01 a 15), Análise de Domínio Nexo e Seção 9 (Métricas de Sucesso e Instrumentação).
 
 ---
@@ -12,11 +12,11 @@
 Total de Histórias: 15 HUs + 1 Trilha Transversal (Privacidade & Testes)
 Total de Tarefas Mapeadas: 42 tarefas técnicas distribuídas por camada
 Progresso Geral:
-  [████░░░░░░░░░░░░░░░░] ~20% concluído
-  - Leva 0 (Fundações & HU11): 100% CONCLUÍDO
-  - Leva 1 (HU01 + Instrumentação P0): PRONTO PARA INICIAR (Bloqueante para Coleta)
-  - Leva 2 (Auth, Fila & Ciclo de Atendimento): PLANEJADA
-  - Leva 3 (Histórico, Resolução, Escalonamento & Painel): REFINAMENTO
+  [███████████░░░░░░░░░] ~55% concluído
+  - Leva 0 (Fundações & HU11): 100% CONCLUÍDO ✅
+  - Leva 1 (HU01 + Instrumentação P0): 100% CONCLUÍDO ✅
+  - Leva 2 (Auth, Fila & Ciclo de Atendimento): SPRINT 2 ATIVA (EM EXECUÇÃO) 🎯
+  - Leva 3 (Histórico, Resolução, Escalonamento & Painel): PLANEJADA ⏳
 ```
 
 ### Matriz de Papéis e Responsabilidades no Squad
@@ -93,18 +93,18 @@ flowchart TD
 
 ---
 
-### LEVA 1: HU01 + Instrumentação da Seção 9.5 [PRONTO PARA DEV / BLOQUEANTE 🔴]
+### LEVA 1: HU01 + Instrumentação da Seção 9.5 [CONCLUÍDO ✅]
 > **Meta da Leva:** Gravar o primeiro chamado no banco PostgreSQL com eventos reais, datas UTC, origem de dados e telemetria de tela, saindo do mock.
 
-| ID | Tarefa | Camada | Responsável | Estimativa | Relação com Métricas | Critério de Aceite Principal |
-| :--- | :--- | :---: | :---: | :---: | :---: | :--- |
-| **BE-01** | Modelar `chamado` e `registro_contato` com campos da 9.5 | BD/BE | Elis | 1 dia | M03, M04, M08, M09 | Migration V3 com `aberto_em`, `motivo_espera`, `prioridade_sugerida`, `origem_dado` (REAL/TESTE/SIMULADO) e `registro_iniciado_em`. |
-| **BE-02** | Criar tabela `evento_historico` append-only e serviço | BD/BE | Elis | 1 dia | M01 a M08 | Migration V4 com trigger que proíbe UPDATE/DELETE no banco; enum com os 18 tipos de evento de domínio; `propagation=MANDATORY`. |
-| **BE-03** | Implementar `POST /api/v1/chamados` transacional | BE | Elis | 1,5 dia | M03, M04, M11 | Grava chamado, registro de contato inicial e eventos `CHAMADO_ABERTO` e `REGISTRO_DE_CONTATO_RECEBIDO` em uma única transação com rollback. |
-| **FE-01** | Telemetria de registro (M11) na tela Novo Chamado | FE | Pedro | 0,5 dia | M11 | Captura timestamp de abertura da tela e envia `registro_iniciado_em` no payload do POST; atualiza mock local. |
-| **FE-02** | Aviso LGPD (dados clínicos) e selo de modo simulado | FE | Pedro | 0,5 dia | M12, RN01, 9.6 | Inclusão de aviso `role="note"` no formulário; tag visual "MODO SIMULADO" visível apenas quando `useMocks=true`. |
-| **FE-03** | Testes unitários (Vitest) da tela Novo Chamado | FE | Pedro | 1 dia | 9.3 | Cobertura do formulário reativo, validações obrigatórias, formato do contato (E.164/e-mail) e telemetria com fake timers. |
-| **INT-01** | Integração ponta a ponta e primeira validação da M11 | Integração | Aguinaldo | 1 dia | M11 | Conexão front real -> backend dev com Basic Auth multiusuário provisório; validação via query SQL do tempo de registro M11. |
+| ID | Tarefa | Camada | Responsável | Status | Relação com Métricas | Critério de Aceite Principal |
+| :--- | :--- | :---: | :--- | :---: | :---: | :--- |
+| **BE-01** | Modelar `chamado` e `registro_contato` com campos da 9.5 | BD/BE | Elis | Concluído ✅ | M03, M04, M08, M09 | Migration V4 com `aberto_em`, `motivo_espera`, `prioridade_sugerida`, `origem_dado` (REAL/TESTE/SIMULADO) e `registro_iniciado_em`. |
+| **BE-02** | Criar tabela `evento_historico` append-only e serviço | BD/BE | Elis | Concluído ✅ | M01 a M08 | Migration V5 com trigger que proíbe UPDATE/DELETE no banco; enum com os 18 tipos de evento de domínio; `EventoHistoricoService`. |
+| **BE-03** | Implementar `POST /api/v1/chamados` transacional | BE | Elis | Concluído ✅ | M03, M04, M11 | Grava chamado, registro de contato inicial e eventos `CHAMADO_ABERTO` e `REGISTRO_DE_CONTATO_RECEBIDO` em uma única transação com rollback testado. |
+| **FE-01** | Telemetria de registro (M11) na tela Novo Chamado | FE | Pedro | Concluído ✅ | M11 | Captura timestamp de abertura da tela e envia `registro_iniciado_em` no payload do POST; atualiza mock local. |
+| **FE-02** | Aviso LGPD (dados clínicos) e selo de modo simulado | FE | Pedro | Concluído ✅ | M12, RN01, 9.6 | Inclusão de aviso `role="note"` no formulário; tag visual "MODO SIMULADO" visível apenas quando `useMocks=true`. |
+| **FE-03** | Testes unitários (Vitest) da tela Novo Chamado | FE | Pedro | Concluído ✅ | 9.3 | Cobertura do formulário reativo, validações obrigatórias, formato do contato (E.164/e-mail) e telemetria (23 testes passando). |
+| **INT-01** | Integração ponta a ponta e primeira validação da M11 | Integração | Aguinaldo / Luiz | Em Andamento 🎯 | M11 | Conexão front real -> backend dev com validação do tempo de registro M11. |
 
 ---
 

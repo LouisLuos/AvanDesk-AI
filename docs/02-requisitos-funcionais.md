@@ -1,4 +1,4 @@
-# ✅ Requisitos Funcionais — AvanDesk-AI
+# ✅ Requisitos Funcionais — Nexo
 
 ## Legenda de Prioridade (MoSCoW)
 
@@ -47,7 +47,7 @@
 | RF-016 | O sistema deve permitir que o analista assuma um chamado ou o atribua/reatribua a outro analista ativo. | **M** | Registro em histórico. |
 | RF-017 | O sistema deve permitir o escalonamento de um chamado para um fornecedor externo. | **M** | Mantendo o analista interno como responsável pelo acompanhamento. |
 | RF-018 | O sistema deve permitir registrar o retorno do fornecedor externo e encerrar o escalonamento. | **M** | — |
-| RF-019 | O sistema deve calcular e monitorar o SLA (formal) de cada chamado. | **W** | SLA formal está fora do MVP. |
+| RF-019 | O sistema deve calcular e monitorar o SLA (formal) de cada chamado. | **W** | SLA formal/contratual com multas jurídicas está fora do MVP. O monitoramento dos tempos operacionais internos de atendimento (TT, TPR e TR — métricas M01 a M08 da Seção 9) faz parte do escopo do MVP. |
 | RF-020 | O sistema deve realizar escalonamento e triagem automáticos por IA. | **W** | IA fora do MVP. |
 
 ---
@@ -103,4 +103,4 @@
 | RF-003 | HU14 - Listar e buscar chamados |
 | RF-013, RF-028 | HU15 - Encerrar chamado com verificação |
 
-> 📎 Ver detalhes completos em [Nexo - Historias de Usuario do MVP.md](./Nexo%20-%20Historias%20de%20Usuario%20do%20MVP.md)
+> 📎 Ver detalhes completos em [04-historias-de-usuario-Nexo.md](./04-historias-de-usuario-Nexo.md)
