@@ -1,8 +1,8 @@
-# AvanDesk-AI — Rede Lúmen Diagnósticos
+# Nexo — Rede Lúmen Diagnósticos
 
 > Plataforma inteligente para registro, triagem e acompanhamento de chamados de suporte técnico em saúde e medicina diagnóstica.
 
-Projeto desenvolvido no âmbito da **Residência Tecnológica Avanade 2026.2**, em parceria com o **Porto Digital**, a **CESAR School** e o programa **Embarque Digital**.
+Projeto desenvolvido no âmbito da **Residência Tecnológica Avanade 2026.2** (projeto originalmente denominado *AvanDesk-AI*), em parceria com o **Porto Digital**, a **CESAR School** e o programa **Embarque Digital**.
 
 ---
 
@@ -40,9 +40,9 @@ A **Rede Lúmen Diagnósticos** é uma rede fictícia de saúde e medicina diagn
 
 ---
 
-## 💡 Como o AvanDesk-AI Transforma essa Realidade
+## 💡 Como o Nexo Transforma essa Realidade
 
-O **AvanDesk-AI** atua como o hub central inteligente de atendimento da Rede Lúmen Diagnósticos:
+O **Nexo** atua como o hub central inteligente de atendimento da Rede Lúmen Diagnósticos:
 
 * 🏷️ **Identificador Único (`LUM-AAAA-NNNNNN`) e Centralização:** Cada chamado recebe um protocolo exclusivo, agrupando históricos de mensagens, anexos técnicos e status de resolução em um só lugar.
 * 🤖 **Triagem Inteligente com IA:** Algoritmos analisam a descrição do ticket e apoiam o cálculo da prioridade com base na Matriz 3D (Severidade + Urgência + Impacto Operacional).
@@ -90,7 +90,7 @@ Antes de começar, certifique-se de ter instalado:
 | **Node.js** | 22+ (LTS) | [nodejs.org](https://nodejs.org/) |
 | **Docker Desktop** | 27+ | [docker.com](https://www.docker.com/products/docker-desktop/) |
 | **Maven** | 3.9+ (ou usar `mvnw`) | incluso no projeto |
-| **Angular CLI** | 21 | `npm install -g @angular/cli@21` |
+| **Angular CLI** | 22 | `npm install -g @angular/cli@22` |
 | **Git** | 2.x+ | [git-scm.com](https://git-scm.com/) |
 
 ### Verificação rápida
@@ -234,9 +234,10 @@ AvanDesk-AI/
 │   ├── 01-analise-de-dominio-Nexo.md
 │   ├── 02-requisitos-funcionais.md
 │   ├── 03-requisitos-nao-funcionais.md
+│   ├── 04-historias-de-usuario-Nexo.md
+│   ├── 05-backlog-geral-mvp.md
 │   ├── 06-documentacao-api-mvp.md
-│   ├── Nexo - Historias de Usuario do MVP.md
-│   ├── backlog-geral-mvp-atualizado.md
+│   ├── openapi-mvp.yaml
 │   ├── definicao-tecnica-ambiente.md
 │   └── plano-setup-ambiente.md
 ├── .env.example
@@ -256,6 +257,6 @@ AvanDesk-AI/
 * 📊 [Análise de Domínio](./docs/01-analise-de-dominio-Nexo.md)
 * ⚙️ [Requisitos Funcionais](./docs/02-requisitos-funcionais.md)
 * 🛡️ [Requisitos Não Funcionais](./docs/03-requisitos-nao-funcionais.md)
-* 📖 [Histórias de Usuário do MVP](./docs/Nexo%20-%20Historias%20de%20Usuario%20do%20MVP.md)
-* 📋 [Backlog Geral do MVP](./docs/backlog-geral-mvp-atualizado.md)
+* 📖 [Histórias de Usuário do MVP](./docs/04-historias-de-usuario-Nexo.md)
+* 📋 [Backlog Geral do MVP](./docs/05-backlog-geral-mvp.md)
 * 🔌 [Documentação da API](./docs/06-documentacao-api-mvp.md)
