@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: avandesk-api
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/avandesk_db
+    username: avandesk
+    password: avandesk_dev
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        # Datas sempre gravadas e lidas em UTC (seção 9.5)
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    # db/seed tem dados só de desenvolvimento; o perfil prod usa só db/migration
+    locations: classpath:db/migration,classpath:db/seed
+    schemas: public
+
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+
+server:
+  port: 8080
+
+nexo:
+  # Marca os dados gravados (REAL, TESTE ou SIMULADO) para as métricas da seção 9.5
+  origem-dado: TESTE
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui

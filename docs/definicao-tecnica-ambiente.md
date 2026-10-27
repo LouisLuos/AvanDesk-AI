@@ -1,7 +1,7 @@
 # 🛠️ Definição Técnica Inicial & Ambiente do Projeto
 
 **Squad:** Squad 1 — Rede Lúmen Diagnósticos  
-**Projeto:** AvanDesk-AI  
+**Projeto:** Nexo (AvanDesk-AI)  
 **Programa:** Residência Tecnológica Avanade 2026.2 (Porto Digital / CESAR School / Embarque Digital)  
 **Tech Lead:** Luiz Henrique Souza  
 **Data:** 10 de Setembro de 2026  
@@ -20,7 +20,7 @@
   4. Desafio de estações de trabalho compartilhadas nas recepções e laboratórios com ritmos intensos.
 
 ### 1.2 Objetivo Geral
-Desenvolver o **AvanDesk-AI**, uma plataforma centralizada e inteligente de governança de chamados de suporte técnico, projetada para integrar o fluxo de atendimento em um único hub operacional. A solução utilizará Inteligência Artificial para:
+Desenvolver o **Nexo** (anteriormente concebido como *AvanDesk-AI*), uma plataforma centralizada e inteligente de governança de chamados de suporte técnico, projetada para integrar o fluxo de atendimento em um único hub operacional. A solução apoiará:
 * Guiar o registro de tickets e identificar lacunas de contexto essenciais.
 * Realizar triagem automatizada e arbitrar a prioridade de atendimento com base no impacto assistencial e operacional.
 * Apoiar os 7 analistas com histórico, direcionamento e controle rigoroso de prazos de SLA por criticidade, em conformidade com as diretrizes de privacidade e LGPD.
@@ -115,7 +115,7 @@ Adoção do padrão **Conventional Commits** com tipos padronizados em inglês e
 
 ### 3.1 Frontend
 
-* **Tecnologia selecionada:** **Angular (v17+) com TypeScript**
+* **Tecnologia selecionada:** **Angular 21 com TypeScript + Tailwind CSS v4**
 * **Alternativas consideradas:** Angular e React
 
 #### Justificativas:
@@ -128,13 +128,23 @@ Adoção do padrão **Conventional Commits** com tipos padronizados em inglês e
 
 ### 3.2 Backend
 
-* **Tecnologia / Linguagem / Framework:** **Java 17/21 com Spring Boot 3**
+* **Tecnologia / Linguagem / Framework:** **Java 21 com Spring Boot 4.1**
 * **Alternativas consideradas:** C# com ASP.NET Core, Node.js com NestJS, Python com FastAPI
 
 #### Justificativas:
 * **Domínio da equipe:** A equipe tem base sólida em Programação Orientada a Objetos e no ecossistema Java. É também uma tecnologia madura e padrão de referência em soluções corporativas robustas na Avanade.
 * **Produtividade e ecossistema:** `Spring Data JPA` (simplificação de persistência), `Jakarta Bean Validation` (validação de payloads) e `SpringDoc OpenAPI / Swagger` (documentação interativa automática).
 * **Aderência ao produto:** Facilidade na modelagem do ciclo de vida dos chamados (máquina de estados), agendamento de tarefas (`@Scheduled`) para monitoramento de SLA e integração simples com serviços de IA via clientes HTTP tipados.
+
+#### Padrão Arquitetural Adotado: Arquitetura em Camadas (N-Tier / MVC)
+A arquitetura selecionada para o backend é o monólito estruturado na clássica **Arquitetura em Camadas** do Spring:
+* **Controllers (Camada Web):** Responsáveis apenas por receber requisições HTTP, validar o payload de entrada (via `@Valid`) e formatar a resposta. **Zero regra de negócio**.
+* **Services (Camada de Negócio):** Concentram todo o "cérebro" da aplicação e regras do AvanDesk. Todas as operações críticas e controle transacional (`@Transactional`) ocorrem aqui.
+* **Repositories (Camada de Persistência):** Interfaces do Spring Data JPA que gerenciam o acesso aos dados no PostgreSQL.
+* **Entities & DTOs (Isolamento):** Entidades (`@Entity`) mapeiam diretamente a estrutura do banco (Flyway). Para comunicação web, utilizamos estritamente **DTOs (Data Transfer Objects)** ou `Records`, impedindo que estruturas internas do banco ou dados sensíveis (LGPD) vazem inadvertidamente para o frontend.
+
+**Justificativa de Arquitetura (Por que não Clean Architecture?):**
+O projeto é um MVP com prazo curto (5 meses), executado por uma equipe de residentes em curva de aprendizado. A Arquitetura em Camadas é o padrão "ouro" do Spring Boot e proporciona uma curva de aprendizado fluida. Adotar padrões como Clean Architecture ou Arquitetura Hexagonal neste momento exigiria um esforço excessivo na criação de abstrações (ports e adapters), gerando um *overengineering* perigoso que atrasaria as entregas sem agregar valor perceptível nesta fase.
 
 ---
 

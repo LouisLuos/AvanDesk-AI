@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+
+  jpa:
+    show-sql: false
+
+  flyway:
+    enabled: true
+    # Sem db/seed: os usuários de teste nunca vão para produção
+    locations: classpath:db/migration
+
+nexo:
+  origem-dado: REAL

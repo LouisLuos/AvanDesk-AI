@@ -1,0 +1,6 @@
+-- =============================================
+-- V1__init_schema.sql
+-- Migration inicial do AvanDesk-AI
+-- Schema sera populado nas User Stories de
+-- autenticacao e abertura de chamados (US-007)
+-- =============================================

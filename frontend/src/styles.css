@@ -1,0 +1,78 @@
+/* Nexo Brand Design System - Stylesheet */
+
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* Nexo Brand - Primária Azul */
+  --color-nexo-blue-700: #1e3fcc;
+  --color-nexo-blue-600: #2d5bff;
+  --color-nexo-blue-100: #e8edff;
+
+  /* Nexo Brand - Secundária Neutros */
+  --color-nexo-white: #ffffff;
+  --color-nexo-gray-50: #f8f9fc;
+  --color-nexo-gray-200: #e2e5ec;
+  --color-nexo-gray-400: #9aa2b1;
+  --color-nexo-gray-500: #6b7280;
+  --color-nexo-gray-700: #363b47;
+  --color-nexo-gray-900: #14161b;
+
+  /* Nexo Brand - Status dos Chamados */
+  --color-status-aberto: #ff6a3d;
+  --color-status-triagem: #14b8a6;
+  --color-status-atendimento: #0ea5e9;
+  --color-status-aguardando: #f0a202;
+  --color-status-resolvido: #22c55e;
+  --color-status-reaberto: #e5484d;
+  --color-status-fechado: #8a92a3;
+  --color-status-mesclado: #8b5cf6;
+  --color-status-cancelado: #4b5160;
+
+  /* Nexo Brand - Prioridades */
+  --color-prio-alta: #dc2626;
+  --color-prio-media: #f59e0b;
+  --color-prio-baixa: #94a3b8;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    background-color: #f8f9fc;
+    color: #14161b;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Utilitários globais de botões e cartões */
+@layer components {
+  .btn-nexo-primary {
+    background-color: #2d5bff;
+    color: #ffffff;
+    transition: background-color 0.15s ease-in-out;
+  }
+  .btn-nexo-primary:hover {
+    background-color: #1e3fcc;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.15s ease-out both;
+}
