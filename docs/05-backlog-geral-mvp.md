@@ -1,7 +1,7 @@
 # Backlog Geral do MVP — Nexo
 
 > **Data de atualização:** 27/10/2026  
-> **Status geral:** Sprint 1 (Fundações + HU11 + HU01 + Instrumentação 9.5) concluída ✅ · Sprint 2 (Fluxo essencial: Fila, Detalhe, Status e Atribuição) ativa 🎯  
+> **Status geral:** Sprint 1 (Fundações + HU11 + HU01 + Instrumentação 9.5) concluída ✅ · Sprint 2 (Fluxo essencial: Autenticação JWT, Fila, Detalhe, Status e Atribuição) ativa 🎯  
 > **Referência oficial:** [Histórias de Usuário](./04-historias-de-usuario-Nexo.md), [Requisitos Funcionais](./02-requisitos-funcionais.md), [Análise de Domínio](./01-analise-de-dominio-Nexo.md) e Seção 9 do Documento do MVP (Métricas e Instrumentação).
 
 > [!NOTE]
@@ -15,24 +15,28 @@
 Total: 15 HUs + 2 trilhas transversais (Privacidade/LGPD e Qualidade 9.3)
 
 Sprint 1 — Fundações & Entrada ........................ CONCLUÍDA ✅
-Sprint 2 — Fluxo essencial (Fila, Detalhe, Status) .... ATIVA 🎯
+Sprint 2 — Fluxo essencial + JWT (Login, Fila, Detalhe, Atribuição)  ATIVA 🎯
 Sprint 3 — Triagem, Resolução, Fornecedor, Duplicidade  PLANEJADA ⏳
-Sprint 4 — Autenticação JWT, Gestão, Painel & Fecho ... PLANEJADA ⏳
+Sprint 4 — Gestão de Equipe, Painel & Encerramento .... PLANEJADA ⏳
 ```
 
 | Sprint | HUs | Objetivo de negócio |
 | :--- | :--- | :--- |
 | **1** ✅ | HU11, HU01 (+ base técnica) | Registrar o primeiro chamado real no PostgreSQL com eventos imutáveis, datas UTC e telemetria M11. |
-| **2** 🎯 | HU14, HU02, HU05, HU12 | O cliente ver o "coração" do sistema: chamado aberto → cai na fila → é assumido → muda de status, tudo com histórico. |
+| **2** 🎯 | HU09, HU14, HU02, HU05, HU12 | O cliente ver o "coração" do sistema com autenticação real: login JWT → chamado na fila → abrir detalhe → assumir com autor real → mudar de status, tudo com histórico auditável. |
 | **3** ⏳ | HU04, HU06, HU07, HU13, HU03 | Fechar o ciclo de atendimento: priorizar, resolver, escalar para fornecedor, registrar novos contatos e tratar duplicidade. |
-| **4** ⏳ | HU09, HU10, HU08, HU15, T-PRIV, QA final | Autenticação definitiva, gestão de equipe, painel da liderança, encerramento rastreável e homologação. |
+| **4** ⏳ | HU10, HU08, HU15, T-PRIV, QA final | Gestão de equipe de analistas, painel da liderança, encerramento rastreável, governança LGPD e homologação. |
 
-### Decisão de priorização (Tech Lead — 26/10/2026)
+### Decisão de priorização (Tech Lead — 27/10/2026)
 
-A autenticação JWT (HU09 — backend) foi movida para a **Sprint 4**. Motivo: para o cliente, o valor está em ver o fluxo essencial do chamado funcionando de ponta a ponta; login é um mecanismo que ele já conhece. Até lá, a API segue com o login básico temporário (usuários do seed `R__dados_dev.sql`).
+A autenticação JWT (HU09) foi integrada à **Sprint 2** (junto com o fluxo essencial). Motivo técnico e de negócio:
 
-> [!WARNING]
-> **Impacto na coleta da Seção 9:** as métricas M01–M08 dependem do **autor real** de cada evento. O fluxo da Sprint 2 pode ser demonstrado e validado com o cliente, mas a **coleta oficial de dados** só deve começar depois da HU09 (Sprint 4), quando cada analista tiver sua própria sessão.
+1. **Identidade real nos eventos (Seção 9.5):** as métricas M01–M08 e a imutabilidade do histórico exigem que o **autor** de cada evento (`CHAMADO_ATRIBUIDO`, `STATUS_ALTERADO`) seja o analista autenticado real, eliminando a dependência do usuário temporário compartilhado (`admin`).
+2. **Operações centradas no usuário:** o filtro "Meus chamados" (HU14) e a ação de "Assumir chamado" (HU12) precisam saber quem é o usuário logado para atribuir a responsabilidade diretamente a ele via token.
+3. **Frontend já adiantado:** a tela de login (`features/auth/login`) e o interceptor Bearer já foram implementados e testados no front; a meta agora é fechar o endpoint e o filtro de segurança no backend.
+
+> [!TIP]
+> **Benefício para a coleta da Seção 9:** Com a HU09 na Sprint 2, os eventos gerados já nascem com o `autor_id` legítimo de cada analista do squad (Sarah, Luiz, Elis, Pedro, etc.), permitindo que validações e a coleta oficial de métricas (M02, M03, M11) já comecem com dados íntegros e auditáveis.
 
 ### Matriz de Papéis no Squad
 
@@ -57,7 +61,8 @@ flowchart TD
         HU01["HU01: Registrar chamado + M11"]
     end
 
-    subgraph S2["Sprint 2: Fluxo essencial (Ativa)"]
+    subgraph S2["Sprint 2: Fluxo essencial + JWT (Ativa)"]
+        HU09["HU09: Autenticação JWT"]
         HU14["HU14: Listar e buscar"]
         HU02["HU02: Detalhe e histórico"]
         HU05["HU05: Ver status e responsável"]
@@ -72,8 +77,7 @@ flowchart TD
         HU03["HU03: Relatos duplicados"]
     end
 
-    subgraph S4["Sprint 4: Segurança, gestão e métricas"]
-        HU09["HU09: Autenticação JWT"]
+    subgraph S4["Sprint 4: Gestão, painel e encerramento"]
         HU10["HU10: Gerenciar analistas"]
         HU08["HU08: Painel da liderança"]
         HU15["HU15: Encerramento rastreável"]
@@ -81,6 +85,7 @@ flowchart TD
     end
 
     BASE --> HU11 --> HU01
+    HU09 --> HU14 & HU12
     HU01 --> HU14 & HU02 & HU05
     HU05 --> HU12
     HU02 --> HU13
@@ -93,7 +98,7 @@ flowchart TD
 ```
 
 > [!NOTE]
-> A tabela original de dependências ([HU, seção 3](./04-historias-de-usuario-Nexo.md)) coloca HU12 dependendo de HU10. Na Sprint 2, a reatribuição usa os usuários já existentes na tabela `usuarios` (seed de dev); o CRUD de analistas (HU10) entra na Sprint 4 junto com o JWT.
+> Com a HU09 na Sprint 2, a autenticação JWT fornece a identidade real do analista para a fila ("Meus chamados" - HU14) e para assumir chamados (HU12). A HU10 (CRUD administrativo de analistas) permanece na Sprint 4, utilizando inicialmente os usuários provisionados no seed de desenvolvimento (`R__dados_dev.sql`).
 
 ---
 
@@ -160,13 +165,46 @@ flowchart TD
 
 ---
 
-## 4. Sprint 2 — Fluxo Essencial [ATIVA 🎯]
+## 4. Sprint 2 — Fluxo Essencial & Autenticação [ATIVA 🎯]
 
-> **Meta da Sprint:** o cliente ver o chamado percorrer o fluxo principal no sistema real (sem mock): **abrir → aparecer na fila → abrir o detalhe → assumir → mudar status**, com cada passo registrado no histórico.
+> **Meta da Sprint:** o cliente ver o chamado percorrer o fluxo principal no sistema real com autenticação: **fazer login com sua conta → abrir ou ver o chamado na fila → abrir o detalhe → assumir como responsável → mudar status**, com cada passo registrado no histórico imutável contendo o autor real da ação.
+
+### 🏷️ [HU09] Autenticar no sistema (JWT)
+
+- **Status:** ⏳ A iniciar no backend (FE pronto com mock) · **Responsáveis:** Elis (BE), Pedro (FE), Luiz (Security)
+- **RF:** RF-021, RF-022 · **RNF:** RNF-005, RNF-007, RNF-010
+- **Métrica:** pré-requisito da coleta oficial e da Seção 9.5 (autor real dos eventos M01–M08)
+
+**História:** Como analista de suporte ou liderança de TI, quero acessar a plataforma com minhas credenciais, para usar apenas as funcionalidades permitidas ao meu perfil.
+
+**Regras de negócio**
+- Senha validada contra hash BCrypt da tabela `usuarios`.
+- Perfis: `ANALISTA_SUPORTE`, `LIDERANCA_TI` (e `ADMIN`, ver decisões em aberto).
+- Token JWT com expiração configurável (padrão de 1 hora, RNF-007).
+- Mensagem genérica em credenciais inválidas; usuário inativo não entra.
+- `SecurityContext` do Spring preenchido com o e-mail/ID do analista para gravar o `autor_id` legítimo em `eventos_historico`.
+
+**Critérios de aceite**
+- [ ] Entrar com e-mail e senha e receber token JWT assinado.
+- [ ] Usuário não autenticado recebe 401 e não acessa rotas de chamados.
+- [ ] Credenciais inválidas mostram mensagem genérica.
+- [ ] É possível sair (logout) limpando o armazenamento local.
+- [ ] Ações de mutação (abrir, assumir, mudar status) registram o autor autenticado no histórico.
+
+**Tarefas técnicas**
+- [x] **[BD]** `V3__cria_tabela_usuarios.sql` (BCrypt + perfil) e seed de dev (`R__dados_dev.sql`).
+- [x] **[FE]** Tela de login (`features/auth/login`, 5 testes Vitest).
+- [x] **[FE]** `TokenStorageService` e `authInterceptor` (anexa o Bearer token quando existir).
+- [ ] **[BE]** `POST /api/v1/auth/login` gerando JWT com claims de ID, e-mail e perfil.
+- [ ] **[BE]** Filtro JWT no Spring Security (`JwtAuthenticationFilter`) substituindo o HTTP Basic temporário.
+- [ ] **[FE]** Guarda de rotas (`AuthGuard`) impedindo acesso à fila sem login e logout ativo.
+- [ ] **[QA]** Testes automatizados de login: sucesso com credenciais válidas e validação de claims do JWT (ID, sub, perfil, expiração de 1h).
+- [ ] **[QA]** Testes negativos de autenticação: senha errada (401 com mensagem genérica anti-enumeração), usuário inativo (`ativo = false`) e token expirado/adulterado.
+- [ ] **[QA]** Testes de sessão no frontend: interceptor Bearer, redirecionamento para `/login` no 401 e limpeza do storage no logout.
 
 ### 🏷️ [HU14] Listar e buscar chamados
 
-- **Status:** ⏳ A iniciar (FE pronto com mock) · **Responsáveis:** Aguinaldo (BE), Pedro (FE)
+- **Status:** ⏳ A iniciar (FE pronto com mock) · **Responsáveis:** Aguinaldo (BE), Pedro (FE), Marcos (QA)
 - **RF:** RF-003 · **Métricas:** M02, apoio a M03
 
 **História:** Como analista de suporte, quero listar e buscar chamados com filtros, para encontrar rapidamente os atendimentos que preciso tratar ou consultar.
@@ -190,11 +228,14 @@ flowchart TD
 - [ ] **[BE]** `GET /api/v1/chamados` com `Pageable` e filtros opcionais (`unidade_id`, `status`, `prioridade`, `responsavel_id`, `codigo`).
 - [ ] **[BE]** Atualizar `openapi-mvp.yaml` e `06-documentacao-api-mvp.md` com o contrato paginado.
 - [ ] **[FE]** Ajustar `ChamadoService.listar()` ao formato paginado e desligar o mock da fila.
-- [ ] **[QA]** Teste de integração dos filtros e verificação do RNF-004 (p95 < 1 s).
+- [ ] **[QA]** Teste de integração de filtros combinados: status + unidade + prioridade + responsável (interseção correta).
+- [ ] **[QA]** Teste do filtro rápido "Meus chamados": assegurar que filtra exatamente pelo ID do analista autenticado no JWT.
+- [ ] **[QA]** Teste de performance de listagem (RNF-004): carga com 1.000 chamados no banco garantindo tempo de resposta p95 < 1.000 ms.
+- [ ] **[QA]** Teste de paginação e ordenação: validar consistência de `page`, `size` e ordenação `aberto_em DESC`.
 
 ### 🏷️ [HU02] Consultar o histórico do chamado
 
-- **Status:** ⏳ A iniciar (FE pronto com mock) · **Responsáveis:** Elis (BE), Pedro (FE)
+- **Status:** ⏳ A iniciar (FE pronto com mock) · **Responsáveis:** Elis (BE), Pedro (FE), Marcos (QA)
 - **RF:** RF-004 · **Métrica:** M01 (rastreabilidade)
 
 **História:** Como analista de suporte, quero visualizar o histórico completo de um chamado, para entender o que já aconteceu e continuar o atendimento sem depender de mensagens espalhadas.
@@ -215,11 +256,13 @@ flowchart TD
 - [x] **[FE]** Tela de detalhe com linha do tempo (`features/chamados/detalhe-chamado`, 3 testes Vitest).
 - [ ] **[BE]** `GET /api/v1/chamados/{id}` retornando dados do chamado, contatos e eventos ordenados.
 - [ ] **[FE]** Conectar `ChamadoService.buscarPorId()` à API real.
-- [ ] **[QA]** Teste de integração conferindo a ordem e o conteúdo da linha do tempo.
+- [ ] **[QA]** Teste de integridade da linha do tempo: conferir ordenação cronológica estrita dos eventos e junção correta dos contatos.
+- [ ] **[QA]** Teste de imutabilidade em banco: validar que tentativa de `UPDATE` ou `DELETE` em `eventos_historico` é abortada pelo trigger.
+- [ ] **[QA]** Teste de timezone e formatação: validação de conversão de timestamp UTC do banco para o fuso local do navegador do usuário.
 
 ### 🏷️ [HU05] Acompanhar status e responsável
 
-- **Status:** ⏳ A iniciar · **Responsáveis:** Elis (BE), Pedro (FE)
+- **Status:** ⏳ A iniciar · **Responsáveis:** Elis (BE), Pedro (FE), Marcos (QA)
 - **RF:** RF-015 · **Métrica:** M02
 
 **História:** Como analista de suporte, quero visualizar o status e o responsável de cada chamado, para saber quais atendimentos estão em andamento e quem cuida de cada um.
@@ -238,10 +281,12 @@ flowchart TD
 - [x] **[BD]** Constraint `ck_chamados_status` e enum `StatusChamado`.
 - [ ] **[BE]** Incluir `status` e `responsavel` (id e nome) nos DTOs da listagem e do detalhe.
 - [ ] **[FE]** Exibir status e responsável com os dados reais da API.
+- [ ] **[QA]** Teste de renderização de estados: validação de cores, badges e labels para os 9 status possíveis do domínio.
+- [ ] **[QA]** Teste de visualização de estado "Não atribuído": validar comportamento quando `responsavel_id` é nulo (sem exceptions na UI).
 
 ### 🏷️ [HU12] Atribuir responsável e atualizar status
 
-- **Status:** ⏳ A iniciar · **Responsáveis:** Elis / Aguinaldo (BE), Pedro (FE)
+- **Status:** ⏳ A iniciar · **Responsáveis:** Elis / Aguinaldo (BE), Pedro (FE), Marcos (QA)
 - **RF:** RF-015, RF-016 · **Métricas:** M02, M03 (TPR/TR)
 
 **História:** Como analista de suporte, quero assumir, atribuir ou reatribuir um chamado e atualizar seu status, para que fique claro quem conduz cada atendimento e em que etapa ele está.
@@ -267,7 +312,9 @@ flowchart TD
 - [ ] **[BE]** `PATCH /api/v1/chamados/{id}/status` (com motivo de espera quando aplicável).
 - [ ] **[BE]** Atualizar contrato OpenAPI e documentação da API.
 - [ ] **[FE]** Botões "Assumir", "Reatribuir" e "Alterar status" na tela de detalhe.
-- [ ] **[QA]** Testes de todas as transições permitidas e bloqueadas.
+- [ ] **[QA]** Teste exaustivo da máquina de estados: testar todas as transições de status válidas e inválidas da matriz do domínio, garantindo `422 Unprocessable Entity` nas ilegais.
+- [ ] **[QA]** Teste de obrigatoriedade de motivo de espera: validar rejeição de transição para `AGUARDANDO` sem motivo ou com motivo inválido (`ck_chamados_espera`).
+- [ ] **[QA]** Teste de autoria e gravação de evento: validar que assumir/reatribuir grava o evento com `autor_id` extraído do JWT e atualiza `primeira_resposta_em` no primeiro toque (M03).
 
 ---
 
@@ -275,7 +322,7 @@ flowchart TD
 
 ### 🏷️ [HU04] Definir a prioridade (Matriz 3D)
 
-- **Responsáveis:** Elis (BE), Pedro (FE) · **RF:** RF-009, RF-010 · **Métrica:** M08 (concordância)
+- **Responsáveis:** Elis (BE), Pedro (FE), Marcos (QA) · **RF:** RF-009, RF-010 · **Métrica:** M08 (concordância)
 
 **História:** Como analista de suporte, quero avaliar severidade, urgência e impacto operacional, para determinar a prioridade de forma estruturada.
 
@@ -295,10 +342,14 @@ flowchart TD
 - [ ] **[BE]** Serviço de cálculo da matriz com testes unitários de todas as combinações.
 - [ ] **[BE]** Endpoint de triagem/prioridade.
 - [ ] **[FE]** Componente de triagem com prévia da prioridade sugerida.
+- [ ] **[QA]** Teste unitário e paramétrico cobrindo as 27 combinações da Matriz 3D (Severidade x Urgência x Impacto).
+- [ ] **[QA]** Teste de divergência de prioridade: validar bloqueio sem justificativa e aprovação com justificativa válida (`ck_chamados_justificativa`).
+- [ ] **[QA]** Teste de RBAC: assegurar que solicitantes ou perfis não autorizados são bloqueados ao tentar definir prioridade.
+- [ ] **[QA]** Teste de telemetria M08: validar cálculo exato da taxa de concordância entre prioridade sugerida e final.
 
 ### 🏷️ [HU06] Registrar resolução e causa raiz
 
-- **Responsáveis:** Elis (BE), Pedro (FE) · **RF:** RF-012, RF-014 · **Métricas:** M04 (TR), M06 (reabertura)
+- **Responsáveis:** Elis (BE), Pedro (FE), Marcos (QA) · **RF:** RF-012, RF-014 · **Métricas:** M04 (TR), M06 (reabertura)
 
 **História:** Como analista de suporte, quero registrar como o chamado foi resolvido e, quando identificada, sua causa raiz, para manter o conhecimento e reconhecer problemas recorrentes.
 
@@ -316,10 +367,13 @@ flowchart TD
 **Tarefas técnicas**
 - [ ] **[BE]** Endpoint de resolução.
 - [ ] **[FE]** Formulário de resolução na tela de detalhe.
+- [ ] **[QA]** Teste de validação de encerramento: transição para `RESOLVIDO` sem descrição de resolução deve falhar (`ck_chamados_resolucao`).
+- [ ] **[QA]** Teste de causa raiz e recorrência: validar gravação correta de `possivel_recorrencia`, data UTC `resolvido_em` e emissão do evento.
+- [ ] **[QA]** Teste de ciclo de reabertura: validar cálculo do Tempo de Resolução (M04) e registro para taxa de reabertura (M06).
 
 ### 🏷️ [HU07] Escalar chamado para fornecedor externo
 
-- **Responsável:** Aguinaldo · **RF:** RF-017, RF-018 · **Métrica:** M05 (tempo em terceiros)
+- **Responsável:** Aguinaldo (BE/FE), Marcos (QA) · **RF:** RF-017, RF-018 · **Métrica:** M05 (tempo em terceiros)
 
 **História:** Como analista de suporte, quero encaminhar um chamado a um fornecedor externo mantendo o acompanhamento interno, para que o atendimento não perca a rastreabilidade.
 
@@ -338,10 +392,12 @@ flowchart TD
 - [ ] **[BD]** Nova migration para escalonamentos (fornecedor, envio, retorno).
 - [ ] **[BE]** Endpoints de escalar e registrar retorno.
 - [ ] **[FE]** Interface de escalonamento na tela de detalhe.
+- [ ] **[QA]** Teste de transição de escalonamento: validar status `AGUARDANDO`, motivo `FORNECEDOR` e permanência do analista interno como responsável.
+- [ ] **[QA]** Teste de encerramento de escalonamento: validação de data de retorno (`retorno_em >= enviado_em`) e cálculo de desconto de tempo para a métrica M05.
 
 ### 🏷️ [HU13] Registrar novo contato em chamado existente
 
-- **Responsáveis:** Elis (BE), Pedro (FE) · **RF:** RF-006 · **Métricas:** M09, M01
+- **Responsáveis:** Elis (BE), Pedro (FE), Marcos (QA) · **RF:** RF-006 · **Métricas:** M09, M01
 
 **História:** Como analista de suporte, quero registrar um novo contato sobre um chamado aberto, para manter as interações concentradas no mesmo atendimento.
 
@@ -358,13 +414,13 @@ flowchart TD
 **Tarefas técnicas**
 - [ ] **[BE]** `POST /api/v1/chamados/{id}/contatos` com evento `REGISTRO_DE_CONTATO_RECEBIDO`.
 - [ ] **[FE]** Formulário de novo contato na tela de detalhe.
-
-> [!NOTE]
-> O texto da HU13 em [04-historias-de-usuario-Nexo.md](./04-historias-de-usuario-Nexo.md) ainda cita o canal "outro". Ajustar para os 4 canais oficiais, como já feito na HU01.
+- [ ] **[QA]** Teste dos 4 canais aceitos (`LIGACAO`, `PRESENCIAL`, `WHATSAPP`, `EMAIL`) e direções `RECEBIDO`/`ENVIADO`.
+- [ ] **[QA]** Teste de unicidade de identificador externo por canal (RN16 / constraint `uq_registros_contato_externo`).
+- [ ] **[QA]** Teste de proteção LGPD (RN01): verificar bloqueio ou alerta para conteúdo sensível clínico nos contatos.
 
 ### 🏷️ [HU03] Identificar relatos duplicados ou relacionados
 
-- **Responsável:** Aguinaldo · **RF:** RF-011 · **Métrica:** M07
+- **Responsável:** Aguinaldo (BE/FE), Marcos (QA) · **RF:** RF-011 · **Métrica:** M07
 
 **História:** Como analista de suporte, quero associar relatos diferentes ao mesmo chamado quando se referem ao mesmo problema, para não tratar um incidente como vários atendimentos.
 
@@ -382,43 +438,17 @@ flowchart TD
 **Tarefas técnicas**
 - [ ] **[BE]** Operações de vincular relato e mesclar chamado.
 - [ ] **[FE]** Busca do chamado principal (usa a HU14) e confirmação da mesclagem.
+- [ ] **[QA]** Teste de auto-referência cíclica: bloqueio de tentativa de mesclar um chamado nele mesmo (`chamado_id == chamado_principal_id`).
+- [ ] **[QA]** Teste de conservação de contatos: garantir que a mesclagem não remove contatos originais e transiciona status para `MESCLADO`.
+- [ ] **[QA]** Teste de evento de mesclagem e auditoria para a métrica M07 (taxa de chamados duplicados).
 
 ---
 
-## 6. Sprint 4 — Segurança, Gestão, Painel & Encerramento [PLANEJADA ⏳]
-
-### 🏷️ [HU09] Autenticar no sistema (JWT)
-
-- **Responsáveis:** Elis (BE), Pedro (FE) · **RF:** RF-021, RF-022 · **RNF:** RNF-005, RNF-007, RNF-010
-- **Métrica:** pré-requisito da coleta oficial (autor real dos eventos M01–M08)
-
-**História:** Como analista de suporte ou liderança de TI, quero acessar a plataforma com minhas credenciais, para usar apenas as funcionalidades permitidas ao meu perfil.
-
-**Regras de negócio**
-- Senha validada contra hash BCrypt da tabela `usuarios`.
-- Perfis: `ANALISTA_SUPORTE`, `LIDERANCA_TI` (e `ADMIN`, ver decisões em aberto).
-- Token JWT com expiração configurável (padrão de 1 hora, RNF-007).
-- Mensagem genérica em credenciais inválidas; usuário inativo não entra.
-
-**Critérios de aceite**
-- [ ] Entrar com e-mail e senha.
-- [ ] Usuário não autenticado não acessa telas de chamados.
-- [ ] Credenciais inválidas mostram mensagem genérica.
-- [ ] É possível sair (logout).
-- [ ] Ações ficam associadas ao usuário autenticado.
-
-**Tarefas técnicas**
-- [x] **[BD]** `V3__cria_tabela_usuarios.sql` (BCrypt + perfil) e seed de dev.
-- [x] **[FE]** Tela de login (`features/auth/login`, 5 testes Vitest).
-- [x] **[FE]** `TokenStorageService` e `authInterceptor` (anexa o Bearer token quando existir).
-- [ ] **[BE]** `POST /api/v1/auth/login` gerando JWT com claims de perfil.
-- [ ] **[BE]** Filtro JWT no Spring Security substituindo o HTTP Basic temporário.
-- [ ] **[FE]** Guarda de rotas (`core/guards` ainda vazio) e logout.
-- [ ] **[QA]** Testes de login válido, senha errada, usuário inativo e token expirado.
+## 6. Sprint 4 — Gestão de Equipe, Painel & Encerramento [PLANEJADA ⏳]
 
 ### 🏷️ [HU10] Gerenciar analistas
 
-- **Responsável:** Aguinaldo · **RF:** RF-023
+- **Responsável:** Aguinaldo (BE/FE), Marcos (QA) · **RF:** RF-023
 
 **História:** Como liderança de TI, quero cadastrar, editar e desativar analistas, para controlar quem pode atuar nos chamados.
 
@@ -431,10 +461,13 @@ flowchart TD
 **Tarefas técnicas**
 - [ ] **[BE]** CRUD de usuários restrito ao perfil autorizado.
 - [ ] **[FE]** Tela em `features/admin/analistas/`.
+- [ ] **[QA]** Teste de RBAC: tentar cadastrar/editar analistas com token de `ANALISTA_SUPORTE` e validar rejeição `403 Forbidden`; liberar apenas para `LIDERANCA_TI` / `ADMIN`.
+- [ ] **[QA]** Teste de integridade de e-mail único: validar `409 Conflict` em duplicidade.
+- [ ] **[QA]** Teste de desativação lógica (`ativo = false`): analista inativo não faz login nem recebe atribuição em novos chamados, mas seu nome histórico permanece íntegro nos eventos passados.
 
 ### 🏷️ [HU08] Visualizar a situação dos chamados (Painel da Liderança)
 
-- **Responsáveis:** Elis / Luiz (BE), Pedro (FE) · **RF:** RF-026, RF-027, RF-028 · **Métricas:** M01–M12
+- **Responsáveis:** Elis / Luiz (BE), Pedro (FE), Marcos (QA) · **RF:** RF-026, RF-027, RF-028 · **Métricas:** M01–M12
 
 **História:** Como liderança de TI, quero visualizar chamados em aberto, responsáveis e informações agregadas, para acompanhar o suporte e identificar padrões.
 
@@ -452,10 +485,13 @@ flowchart TD
 **Tarefas técnicas**
 - [ ] **[BE]** Consultas agregadas das métricas M01–M12.
 - [ ] **[FE]** Dashboard em `features/dashboard/` (pasta ainda vazia).
+- [ ] **[QA]** Teste de segregação de dados: validar que consultas de métricas oficiais filtram estritamente `origem_dado = 'REAL'` e descartam `SIMULADO` e `TESTE`.
+- [ ] **[QA]** Teste matemático das métricas: validar cálculos de TT, TPR, TR, percentil 90 e taxa de reabertura contra base de dados de controle (oráculo de teste).
+- [ ] **[QA]** Teste de filtros agregados por período e unidade hospitalar.
 
 ### 🏷️ [HU15] Encerrar chamado com verificação de rastreabilidade
 
-- **Responsáveis:** Elis (BE), Pedro (FE) · **RF:** RF-013, RF-028 · **Métrica:** M01 (métrica principal)
+- **Responsáveis:** Elis (BE), Pedro (FE), Marcos (QA) · **RF:** RF-013, RF-028 · **Métrica:** M01 (métrica principal)
 
 **História:** Como analista de suporte, quero encerrar um chamado resolvido e saber se o registro está completo, para garantir que fique rastreável.
 
@@ -469,6 +505,8 @@ flowchart TD
 **Tarefas técnicas**
 - [ ] **[BE]** Verificador de rastreabilidade e endpoint de encerramento.
 - [ ] **[FE]** Checklist visual de pendências antes de encerrar.
+- [ ] **[QA]** Teste de bloqueio de encerramento incompleto: tentar fechar chamado sem resolução ou sem histórico de transição e validar recusa detalhada.
+- [ ] **[QA]** Teste de conformidade M01: validação de gravação do score de rastreabilidade e timestamp `fechado_em` no encerramento aprovado.
 
 ### 🏷️ [T-PRIV] Anexos com privacidade e auditoria (LGPD)
 
@@ -485,6 +523,9 @@ flowchart TD
 - [ ] **[BD]** Migration de anexos.
 - [ ] **[BE]** Download com verificação de perfil e gravação do evento.
 - [ ] **[FE]** Componente de anexo com bloqueio visual.
+- [ ] **[QA]** Teste de barreira de acesso e perfil (RN06): Liderança de TI bloqueada (`403 Forbidden`); analista de suporte autorizado.
+- [ ] **[QA]** Teste de auditoria obrigatória: validar inserção do evento `ANEXO_VISUALIZADO` na mesma transação com autor e data UTC a cada visualização/download.
+- [ ] **[QA]** Teste de segurança de upload: bloqueio de extensões maliciosas (.exe, .bat, .sh) e restrição aos tipos permitidos (PDF, PNG, JPG).
 
 > [!NOTE]
 > Não existe HU formal de anexos no documento de histórias. A Sarah deve decidir se esta trilha vira uma HU (HU16) ou continua como tarefa transversal.
@@ -493,13 +534,47 @@ flowchart TD
 
 ## 7. Trilha de Qualidade & Testes (Seção 9.3) — Marcos Fraga
 
-| ID | Tipo de teste | O que valida | Métricas | Sprint |
-| :--- | :--- | :--- | :--- | :---: |
-| **QA-01** | Cálculo (unitário) | TT, TPR, TR, percentil 90 e % dentro da meta, com pausa e reabertura | M03, M04 | 3 |
-| **QA-02** | Eventos (integração) | Todo comando de domínio grava evento imutável; idempotência | M01–M08, RN16, RN19 | 2 → 4 |
-| **QA-03** | Privacidade e RBAC | Liderança não vê anexos; solicitante não vê SLAs internos | M12, RN06, RN12 | 4 |
-| **QA-04** | Massa de demonstração | Script da "manhã de segunda-feira" com `origem_dado = SIMULADO` | 9.1, 9.3 | 4 |
-| **QA-05** | Usabilidade e coleta manual | Protocolo de medição de M11 e contagem semanal de M10 | M10, M11 | 4 |
+A estratégia de testes do Nexo segue a **Pirâmide de Testes de Automação Contínua**, garantindo que as regras de negócio, exigências de segurança hospitalar (LGPD) e telemetrias da Seção 9 sejam verificadas automaticamente a cada Pull Request pelo GitHub Actions.
+
+### Matriz de Testes por Leva / Sprint
+
+#### Leva 2 (Sprint 2) — Autenticação, Fila e Máquina de Estados
+| ID | Camada | Tipo | Cenário de Teste / O que valida | Ferramenta | Métrica / RNF |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **QA2-01** | Backend | Unitário/Segurança | Emissão e validação de JWT, assinatura HMAC-SHA256, expiração em 1h e extração de claims (`id`, `email`, `perfil`). | JUnit 5 + JJWT | RNF-005, RNF-007 |
+| **QA2-02** | Backend | Integração | Testes negativos de autenticação: credenciais erradas (401 com mensagem opaca anti-enumeração) e usuário desativado. | MockMvc + Spring Security | RNF-010 |
+| **QA2-03** | Frontend | E2E / Componente | Interceptor HTTP Bearer, persistência no `TokenStorageService`, redirect automático para `/login` em caso de 401 e logout com limpeza de token. | Vitest | RF-021, RF-022 |
+| **QA2-04** | Backend | Integração / BD | Teste exaustivo da máquina de estados (matriz 9x9): transições válidas aceitas e ilegais rejeitadas com `422 Unprocessable Entity`. | JUnit 5 + MockMvc | Análise §6 |
+| **QA2-05** | Backend | Integração / BD | Validação da constraint `ck_chamados_espera`: ir para `AGUARDANDO` sem motivo ou com motivo inválido dispara erro de banco e rollback. | PostgreSQL / Testcontainers | RN10, Seção 9.5 |
+| **QA2-06** | Backend | Integração | Autoria real em eventos: ao assumir ou alterar status, `SecurityContext` injeta o `autor_id` legítimo do JWT no evento imutável. | JUnit 5 + MockMvc | Seção 9.5, M02 |
+| **QA2-07** | Backend | Integração / BD | Teste dos filtros combinados da fila (`Specification`): status, unidade, prioridade, responsável e busca exata por código `LUM-AAAA-NNNNNN`. | Spring Data JPA | RF-003, M02 |
+| **QA2-08** | Backend | Performance | Teste de carga da listagem com paginação (1.000 chamados no banco) validando p95 < 1.000 ms. | JUnit 5 / Gatling | RNF-004 |
+| **QA2-09** | BD / Integridade | Banco de Dados | Trigger de imutabilidade: tentativa de `UPDATE` ou `DELETE` direto em `eventos_historico` aborta com violação de integridade. | Flyway / Testcontainers | RN19, M01 |
+
+#### Leva 3 (Sprint 3) — Ciclo de Atendimento, Triagem e Resolução
+| ID | Camada | Tipo | Cenário de Teste / O que valida | Ferramenta | Métrica / RNF |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **QA3-01** | Backend | Unitário Paramétrico | Validação exaustiva das 27 combinações da Matriz 3D (Severidade x Urgência x Impacto) comparando com a tabela da Análise de Domínio §3. | JUnit 5 (`@ParameterizedTest`) | RF-009, M08 |
+| **QA3-02** | Backend | Integração / BD | Validação da constraint `ck_chamados_justificativa`: divergência entre prioridade sugerida e final exige justificativa com >= 15 caracteres. | MockMvc + Bean Validation | RF-010, M08 |
+| **QA3-03** | Backend | Integração / BD | Obrigatoriedade de resolução (`ck_chamados_resolucao`): transicionar para `RESOLVIDO` sem texto explicativo da solução é bloqueado. | MockMvc + JPA | RF-012, M04 |
+| **QA3-04** | Backend | Integração | Escalonamento a fornecedor: transição para `AGUARDANDO/FORNECEDOR`, dados de contato externos e analista interno preservado como responsável. | MockMvc | RF-017, M05 |
+| **QA3-05** | Backend | Integração | Retorno de fornecedor com cálculo de desconto do tempo em terceiros para a métrica M05 (`retorno_em >= enviado_em`). | JUnit 5 | RF-018, M05 |
+| **QA3-06** | Backend | Integração / BD | Unicidade de ID externo por canal (`uq_registros_contato_externo`): tentativas de envio duplicado no mesmo canal geram erro. | PostgreSQL / Testcontainers | RN16 |
+| **QA3-07** | Backend / Frontend | Segurança / LGPD | Sanitização de dados de contatos: teste contra vazamento de termos clínicos e prontuários em contatos (RN01). | Vitest + Spring Validator | RN01, RNF-009 |
+| **QA3-08** | Backend | Integração | Mesclagem de chamados duplicados: prevenção de auto-referência cíclica, mudança de status para `MESCLADO` e preservação dos contatos vinculados. | MockMvc | RF-011, M07 |
+
+#### Leva 4 (Sprint 4) — Gestão, Painel da Liderança e Rastreabilidade Final
+| ID | Camada | Tipo | Cenário de Teste / O que valida | Ferramenta | Métrica / RNF |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **QA4-01** | Backend | Segurança / RBAC | Controle de acesso a analistas: perfil `ANALISTA_SUPORTE` recebe `403` no CRUD de usuários; apenas `LIDERANCA_TI` / `ADMIN` têm permissão. | MockMvc (`@WithMockUser`) | RF-023, RNF-005 |
+| **QA4-02** | Backend | Integração | Desativação lógica de analista: usuário inativo não recebe chamados nem loga, mas mantém integridade referencial em históricos passados. | JUnit 5 | RF-023 |
+| **QA4-03** | Backend | Integração / BD | Segregação estrita de dados: consultas agregadas das métricas M01–M12 descartam registros com `origem_dado IN ('SIMULADO', 'TESTE')`. | Spring Data JPA | Seção 9.1, 9.4 |
+| **QA4-04** | Backend | Cálculo Matemático | Exatidão das fórmulas de TT, TPR, TR, percentil 90 e % dentro da meta contra base de dados de controle (oráculo de teste). | JUnit 5 / AssertJ | M03, M04, M06 |
+| **QA4-05** | Backend | Integração | Validador de rastreabilidade (HU15): fechamento de chamado rejeitado se faltar responsável, resolução ou histórico mínimo (M01). | MockMvc | RF-013, M01 |
+| **QA4-06** | Backend | Segurança / LGPD | RBAC estrito de anexos (RN06): Liderança de TI recebe `403 Forbidden` ao tentar download de anexo; Analista de suporte baixa com sucesso. | MockMvc | RN06, M12 |
+| **QA4-07** | Backend | Auditoria / BD | Auditoria obrigatória de visualização de anexo: cada download grava evento imutável `ANEXO_VISUALIZADO` na mesma transação. | PostgreSQL / Testcontainers | RN06, M12 |
+| **QA4-08** | Backend | Segurança / Upload | Bloqueio de upload de extensões executáveis perigosas (.exe, .sh, .bat) e validação de MIME types permitidos. | MockMultipartFile | RNF-009 |
+| **QA4-09** | CI / Automação | E2E Integrado | Pipeline do GitHub Actions executando todos os testes automatizados de backend e frontend em container limpo. | GitHub Actions Runner | Seção 9.3 |
 
 **Estado atual dos testes:** 44 testes Vitest no frontend (7 arquivos) e, no backend, testes de `ChamadoService`, `EventoHistoricoService`, `SolicitanteService`, `ChamadoController` e integração com rollback do registro de chamado.
 
@@ -513,7 +588,7 @@ flowchart TD
 | Fornecedor externo é campo livre ou cadastro próprio (nova HU)? | HU07 | Sarah |
 | Quem tem autoridade para reclassificar a prioridade? | HU04 | Sarah + mentor |
 | Anexos viram HU formal (HU16)? | T-PRIV | Sarah |
-| Nova data da janela de coleta, considerando o JWT na Sprint 4 | Seção 9.4 | Sarah + Luiz |
+| Antecipação da janela de coleta oficial, viabilizada pela HU09 na Sprint 2 | Seção 9.4 | Sarah + Luiz |
 
 ---
 
