@@ -22,6 +22,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return responder(HttpStatus.BAD_REQUEST, "Erro de validação", List.of(ex.getMessage()));
     }
 
+    @ExceptionHandler({org.springframework.security.authentication.BadCredentialsException.class,
+                       org.springframework.security.core.AuthenticationException.class})
+    public ResponseEntity<ApiResponse<Void>> tratarAutenticacao(Exception ex) {
+        return responder(HttpStatus.UNAUTHORIZED, "E-mail ou senha inválidos.", null);
+    }
+
     @ExceptionHandler(RecursoNaoEncontradoException.class)
     public ResponseEntity<ApiResponse<Void>> tratarRecursoNaoEncontrado(RecursoNaoEncontradoException ex) {
         return responder(HttpStatus.NOT_FOUND, ex.getMessage(), null);
