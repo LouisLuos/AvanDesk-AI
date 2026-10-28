@@ -1,339 +1,135 @@
-openapi: 3.1.0
+openapi: 3.0.0
 info:
-  title: OpenAPI definition
-  version: v0
+  title: Nexo MVP API (Rede Lúmen Diagnósticos)
+  version: 1.0.0
+  description: API RESTful do MVP da plataforma Nexo para gerenciamento de chamados de TI e atendimento ambulatorial da Rede Lúmen Diagnósticos.
 servers:
-- url: http://localhost:8080
-  description: Generated server url
-paths:
-  /api/v1/unidades/{id}:
-    get:
-      tags:
-      - unidade-controller
-      operationId: buscarPorId
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseUnidadeResponse"
-    put:
-      tags:
-      - unidade-controller
-      operationId: editar
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UnidadeRequest"
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseUnidadeResponse"
-  /api/v1/unidades:
-    get:
-      tags:
-      - unidade-controller
-      operationId: listar
-      parameters:
-      - name: ativo
-        in: query
-        required: false
-        schema:
-          type: boolean
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseListUnidadeResponse"
-    post:
-      tags:
-      - unidade-controller
-      operationId: cadastrar
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UnidadeRequest"
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseUnidadeResponse"
-  /api/v1/chamados:
-    post:
-      tags:
-      - chamado-controller
-      operationId: registrar
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ChamadoRequest"
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseChamadoResponse"
-  /api/v1/unidades/{id}/desativar:
-    patch:
-      tags:
-      - unidade-controller
-      operationId: desativar
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseUnidadeResponse"
-  /health:
-    get:
-      tags:
-      - health-controller
-      operationId: health
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                type: object
-                additionalProperties: {}
-  /api/v1/sistemas-equipamentos:
-    get:
-      tags:
-      - sistema-equipamento-controller
-      operationId: listarAtivos
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseListSistemaEquipamentoResponse"
-  /api/v1/categorias:
-    get:
-      tags:
-      - categoria-controller
-      operationId: listarAtivas
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/ApiResponseListCategoriaResponse"
+  - url: /api/v1
+    description: Servidor Local (API v1)
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
+    ApiResponse:
+      type: object
+      properties:
+        status_code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Operação realizada com sucesso"
+        data:
+          type: object
+          nullable: true
+          description: "O payload principal da resposta (varia conforme o endpoint)"
+        errors:
+          type: array
+          nullable: true
+          items:
+            type: string
+          example: null
+    ApiResponseError:
+      type: object
+      properties:
+        status_code:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: "Erro de validação"
+        data:
+          type: object
+          nullable: true
+          example: null
+        errors:
+          type: array
+          nullable: true
+          items:
+            type: string
+          example:
+            - "Campo 'unidade_id' é obrigatório."
     UnidadeRequest:
       type: object
+      required: [nome, identificacao]
       properties:
         nome:
           type: string
           maxLength: 120
-          minLength: 0
+          example: "U.03 Boa Viagem"
         identificacao:
           type: string
           maxLength: 20
-          minLength: 0
           pattern: "^[A-Za-z0-9-]*$"
+          example: "LUM-BVG"
         localizacao:
           type: string
           maxLength: 255
-          minLength: 0
+          nullable: true
+          example: "Rua Boa Viagem, 123"
         atendimento_24h:
           type: boolean
-      required:
-      - identificacao
-      - nome
-    ApiResponseUnidadeResponse:
-      type: object
-      properties:
-        statusCode:
-          type: integer
-          format: int32
-        message:
-          type: string
-        data:
-          $ref: "#/components/schemas/UnidadeResponse"
-        errors:
-          type: array
-          items:
-            type: string
+          example: false
     UnidadeResponse:
       type: object
       properties:
         id:
           type: string
           format: uuid
+          example: "a1f0c3e2-0001-4000-8000-000000000001"
         nome:
           type: string
+          example: "U.03 Boa Viagem"
         identificacao:
           type: string
+          example: "LUM-BVG"
         localizacao:
           type: string
+          nullable: true
+          example: "Rua Boa Viagem, 123"
         atendimento_24h:
           type: boolean
+          example: false
         ativo:
           type: boolean
-    ChamadoRequest:
-      type: object
-      properties:
-        unidadeId:
-          type: string
-          format: uuid
-        canalOrigem:
-          type: string
-          enum:
-          - LIGACAO
-          - PRESENCIAL
-          - WHATSAPP
-          - EMAIL
-        solicitante:
-          $ref: "#/components/schemas/SolicitanteRequest"
-        descricao:
-          type: string
-          maxLength: 2000
-          minLength: 10
-        categoriaId:
-          type: string
-          format: uuid
-        sistemaEquipamentoId:
-          type: string
-          format: uuid
-        registroIniciadoEm:
-          type: string
-          format: date-time
-      required:
-      - canalOrigem
-      - categoriaId
-      - descricao
-      - solicitante
-      - unidadeId
-    SolicitanteRequest:
-      type: object
-      properties:
-        nome:
-          type: string
-          maxLength: 120
-          minLength: 0
-        contato:
-          type: string
-          maxLength: 254
-          minLength: 0
-      required:
-      - contato
-    ApiResponseChamadoResponse:
-      type: object
-      properties:
-        statusCode:
-          type: integer
-          format: int32
-        message:
-          type: string
-        data:
-          $ref: "#/components/schemas/ChamadoResponse"
-        errors:
-          type: array
-          items:
-            type: string
+          example: true
     ChamadoResponse:
       type: object
       properties:
         id:
           type: string
           format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
         codigo:
           type: string
+          example: LUM-2026-000123
         status:
           type: string
-          enum:
-          - ABERTO
-          - EM_TRIAGEM
-          - EM_ATENDIMENTO
-          - AGUARDANDO
-          - RESOLVIDO
-          - REABERTO
-          - FECHADO
-          - CANCELADO
-          - MESCLADO
-        dataCriacao:
+          enum: [ABERTO, EM_TRIAGEM, EM_ATENDIMENTO, AGUARDANDO, RESOLVIDO, REABERTO, FECHADO, CANCELADO, MESCLADO]
+          example: ABERTO
+        data_criacao:
           type: string
           format: date-time
-        origemDado:
+          example: "2026-10-07T14:30:00Z"
+        origem_dado:
           type: string
-          enum:
-          - REAL
-          - TESTE
-          - SIMULADO
-    ApiResponseListUnidadeResponse:
+          enum: [REAL, TESTE, SIMULADO]
+          description: "Definido pelo servidor conforme o ambiente (REAL em produção); o cliente nunca envia."
+          example: TESTE
+    ItemListaResponse:
       type: object
+      description: "Item das listas do formulário de registro (categorias e sistemas/equipamentos)."
       properties:
-        statusCode:
-          type: integer
-          format: int32
-        message:
+        id:
           type: string
-        data:
-          type: array
-          items:
-            $ref: "#/components/schemas/UnidadeResponse"
-        errors:
-          type: array
-          items:
-            type: string
-    ApiResponseListSistemaEquipamentoResponse:
-      type: object
-      properties:
-        statusCode:
-          type: integer
-          format: int32
-        message:
+          format: uuid
+        nome:
           type: string
-        data:
-          type: array
-          items:
-            $ref: "#/components/schemas/SistemaEquipamentoResponse"
-        errors:
-          type: array
-          items:
-            type: string
-    SistemaEquipamentoResponse:
+          example: Equipamento de apoio
+    UsuarioResponse:
       type: object
       properties:
         id:
@@ -341,27 +137,589 @@ components:
           format: uuid
         nome:
           type: string
-    ApiResponseListCategoriaResponse:
-      type: object
-      properties:
-        statusCode:
-          type: integer
-          format: int32
-        message:
+          example: "Analista Dev Um"
+        email:
           type: string
-        data:
-          type: array
-          items:
-            $ref: "#/components/schemas/CategoriaResponse"
-        errors:
-          type: array
-          items:
+          example: "analista1@lumen.local"
+        perfil:
+          type: string
+          enum: [ANALISTA_SUPORTE, LIDERANCA_TI]
+          example: ANALISTA_SUPORTE
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      summary: Autenticar no sistema (HU09)
+      tags:
+        - Autenticação
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, senha]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: analista1@lumen.local
+                senha:
+                  type: string
+                  example: nexo-dev-2026
+      responses:
+        '200':
+          description: Login realizado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      access_token:
+                        type: string
+                      usuario:
+                        $ref: '#/components/schemas/UsuarioResponse'
+        '400':
+          description: Erro de validação dos campos de entrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Credenciais inválidas ou usuário inativo (mensagem genérica anti-enumeração)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 401
+                message: "E-mail ou senha inválidos."
+                data: null
+                errors: null
+  /auth/logout:
+    post:
+      summary: Encerrar sessão do usuário (HU09)
+      tags:
+        - Autenticação
+      responses:
+        '200':
+          description: Logout realizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status_code: 200
+                message: "Logout realizado com sucesso"
+                data: null
+                errors: null
+  /unidades:
+    get:
+      summary: Listar unidades diagnósticas (HU11)
+      tags:
+        - Unidades
+      parameters:
+        - in: query
+          name: ativo
+          required: false
+          description: Filtra unidades pela situação ativa/inativa.
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Lista de unidades ordenada alfabeticamente por nome
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UnidadeResponse'
+    post:
+      summary: Cadastrar nova unidade diagnóstica (HU11)
+      tags:
+        - Unidades
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnidadeRequest'
+      responses:
+        '201':
+          description: Unidade cadastrada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UnidadeResponse'
+        '400':
+          description: Erro de validação ou identificação duplicada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+  /unidades/{id}:
+    get:
+      summary: Buscar unidade por ID (HU11)
+      tags:
+        - Unidades
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
             type: string
-    CategoriaResponse:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        nome:
-          type: string
+            format: uuid
+      responses:
+        '200':
+          description: Unidade encontrada
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UnidadeResponse'
+        '404':
+          description: Unidade não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+    put:
+      summary: Editar unidade existente (HU11)
+      tags:
+        - Unidades
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnidadeRequest'
+      responses:
+        '200':
+          description: Unidade atualizada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UnidadeResponse'
+        '400':
+          description: Erro de validação ou identificação duplicada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Unidade não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+  /unidades/{id}/desativar:
+    patch:
+      summary: Desativar unidade logicamente (HU11)
+      tags:
+        - Unidades
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Unidade desativada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UnidadeResponse'
+        '404':
+          description: Unidade não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+  /categorias:
+    get:
+      summary: Listar as Categorias Ativas (HU01)
+      description: "Opções do campo categoria no registro de chamado, ordenadas por nome."
+      tags:
+        - Catálogo
+      responses:
+        '200':
+          description: Categorias ativas
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ItemListaResponse'
+  /sistemas-equipamentos:
+    get:
+      summary: Listar os Sistemas e Equipamentos Ativos (HU01)
+      description: "Opções do campo sistema/equipamento no registro de chamado, ordenadas por nome."
+      tags:
+        - Catálogo
+      responses:
+        '200':
+          description: Sistemas e equipamentos ativos
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ItemListaResponse'
+  /chamados:
+    post:
+      summary: Registrar um Chamado (HU01)
+      tags:
+        - Chamados
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [unidade_id, canal_origem, solicitante, descricao, categoria_id]
+              properties:
+                unidade_id:
+                  type: string
+                  format: uuid
+                canal_origem:
+                  type: string
+                  enum: [LIGACAO, PRESENCIAL, WHATSAPP, EMAIL]
+                solicitante:
+                  type: object
+                  required: [contato]
+                  properties:
+                    nome:
+                      type: string
+                      maxLength: 120
+                    contato:
+                      type: string
+                      maxLength: 254
+                      description: "Telefone (vira E.164; +55 quando vem sem DDI) ou e-mail (gravado em minúsculas)."
+                      example: "+5581999999999"
+                descricao:
+                  type: string
+                  minLength: 10
+                  maxLength: 2000
+                categoria_id:
+                  type: string
+                  format: uuid
+                  description: "Id de uma categoria ativa (GET /categorias)."
+                sistema_equipamento_id:
+                  type: string
+                  format: uuid
+                  description: "Opcional. Id de um sistema/equipamento ativo (GET /sistemas-equipamentos)."
+                registro_iniciado_em:
+                  type: string
+                  format: date-time
+                  description: "Opcional. Quando a tela de registro foi aberta, em UTC (métrica M11). Valor no futuro ou de mais de 2 h antes da abertura é descartado, sem recusar o chamado."
+                  example: "2026-10-07T14:29:15Z"
+      responses:
+        '201':
+          description: Chamado criado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChamadoResponse'
+        '400':
+          description: "Erro de validação: campo obrigatório ausente, valor fora da lista, contato inválido ou unidade, categoria ou sistema/equipamento inativo"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Unidade, categoria ou sistema/equipamento não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 404
+                message: "Unidade não encontrada."
+                data: null
+                errors: null
+  /chamados/{id}:
+    get:
+      summary: Consultar o Chamado e Histórico (HU02)
+      tags:
+        - Chamados
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalhes do chamado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      codigo:
+                        type: string
+                      status:
+                        type: string
+                      unidade:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          nome:
+                            type: string
+                      historico:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id_evento:
+                              type: string
+                            tipo:
+                              type: string
+                            data:
+                              type: string
+                              format: date-time
+                            autor:
+                              type: string
+  /chamados/{id}/atualizacoes:
+    post:
+      summary: Adicionar Atualização ao Histórico (HU02)
+      tags:
+        - Chamados
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                descricao:
+                  type: string
+                visibilidade:
+                  type: string
+                  enum: [INTERNA, PUBLICA]
+      responses:
+        '201':
+          description: Atualização adicionada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id_evento:
+                        type: string
+                        format: uuid
+                      tipo:
+                        type: string
+                      data:
+                        type: string
+                        format: date-time
+  /chamados/{id}/vinculos:
+    post:
+      summary: Vincular Relato Duplicado (HU03)
+      tags:
+        - Chamados
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                registro_contato_id:
+                  type: string
+                  format: uuid
+                motivo:
+                  type: string
+      responses:
+        '200':
+          description: Relato vinculado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id_evento:
+                        type: string
+                        format: uuid
+  /chamados/{id}/prioridade:
+    patch:
+      summary: Definir a Prioridade do Chamado (HU04)
+      tags:
+        - Chamados
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                severidade:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+                urgencia:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+                impacto_operacional:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+      responses:
+        '200':
+          description: Prioridade calculada e definida
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                      prioridade_calculada:
+                        type: string
+                      id_evento:
+                        type: string
+                        format: uuid
+  /analistas:
+    post:
+      summary: Cadastrar Novo Analista (HU10)
+      tags:
+        - Analistas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nome:
+                  type: string
+                  example: Carlos Silva
+                email:
+                  type: string
+                  example: carlos.silva@lumendiagnosticos.com.br
+                senha:
+                  type: string
+                  example: senha-inicial-segura
+                perfil:
+                  type: string
+                  example: ANALISTA_SUPORTE
+      responses:
+        '201':
+          description: Analista criado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UsuarioResponse'
+        '400':
+          description: Erro de validação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
