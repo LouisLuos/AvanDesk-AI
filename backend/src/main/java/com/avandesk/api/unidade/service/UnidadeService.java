@@ -24,7 +24,7 @@ public class UnidadeService {
     public UnidadeResponse cadastrar(UnidadeRequest request) {
         String identificacao = normalizarIdentificacao(request.identificacao());
         if (unidadeRepository.existsByIdentificacao(identificacao)) {
-            throw conflitoIdentificacao(identificacao);
+            throw identificacaoDuplicada(identificacao);
         }
 
         Unidade unidade = new Unidade();
@@ -50,7 +50,7 @@ public class UnidadeService {
         Unidade unidade = buscarEntidade(id);
         String identificacao = normalizarIdentificacao(request.identificacao());
         if (unidadeRepository.existsByIdentificacaoAndIdNot(identificacao, id)) {
-            throw conflitoIdentificacao(identificacao);
+            throw identificacaoDuplicada(identificacao);
         }
 
         preencher(unidade, request, identificacao);
@@ -90,13 +90,10 @@ public class UnidadeService {
     }
 
     private static String normalizarLocalizacao(String localizacao) {
-        if (localizacao == null || localizacao.isBlank()) {
-            return null;
-        }
-        return localizacao.trim();
+        return localizacao == null || localizacao.isBlank() ? null : localizacao.trim();
     }
 
-    private static RegraNegocioException conflitoIdentificacao(String identificacao) {
+    private static RegraNegocioException identificacaoDuplicada(String identificacao) {
         return new RegraNegocioException("Já existe uma unidade com a identificação '%s'.".formatted(identificacao));
     }
 }
