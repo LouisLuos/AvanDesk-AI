@@ -59,6 +59,7 @@ env/
 
 # IDE & Editors
 .idea/
+AGENTS.md
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
