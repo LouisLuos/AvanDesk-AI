@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Testes de integração da camada Web/MVC para autenticação e login (HU09, QA2-02, RNF-010).
+ * Testes de integração da camada Web/MVC para autenticação, login e logout (HU09, QA2-02, RNF-010).
  */
 @WebMvcTest(AuthController.class)
 @Import(SecurityConfig.class)
@@ -124,5 +124,14 @@ class AuthControllerTest {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.status_code").value(400))
             .andExpect(jsonPath("$.message").value("Erro de validação"));
+    }
+
+    @Test
+    @DisplayName("HU09 / 200 OK: Deve realizar logout e retornar envelope ApiResponse de confirmação")
+    void deveRealizarLogoutERetornar200() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status_code").value(200))
+            .andExpect(jsonPath("$.message").value("Logout realizado com sucesso"));
     }
 }
