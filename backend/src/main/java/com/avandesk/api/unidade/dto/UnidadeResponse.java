@@ -1,6 +1,7 @@
 package com.avandesk.api.unidade.dto;
 
 import com.avandesk.api.unidade.entity.Unidade;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.UUID;
 
@@ -9,7 +10,7 @@ public record UnidadeResponse(
     String nome,
     String identificacao,
     String localizacao,
-    boolean atendimento24h,
+    @JsonProperty("atendimento_24h") boolean atendimento24h,
     boolean ativo
 ) {
 

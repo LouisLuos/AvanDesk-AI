@@ -12,6 +12,16 @@ INSERT INTO usuarios (id, nome, email, senha_hash, perfil) VALUES
     ('00000000-0000-0000-0000-0000000000a3', 'Lideranca Dev',     'lideranca@lumen.local', '$2a$10$wP24GU5mL0ysN//Ga3xCOusMZmd/oxAXXqlRX4XQtK7LUhWPLYAa.', 'LIDERANCA_TI')
 ON CONFLICT (id) DO NOTHING;
 
+-- Unidades iniciais de desenvolvimento para abertura de chamados (HU11 / HU01)
+INSERT INTO unidades (id, nome, identificacao, localizacao, atendimento_24h, ativo) VALUES
+    ('a1f0c3e2-0001-4000-8000-000000000001', 'U.03 Boa Viagem',     'LUM-BVG', 'Rua Boa Viagem, 123',          FALSE, TRUE),
+    ('a1f0c3e2-0002-4000-8000-000000000002', 'U.07 Recife Centro',  'LUM-RCT', 'Av Agamenon Magalhaes, 400',   TRUE,  TRUE),
+    ('a1f0c3e2-0003-4000-8000-000000000003', 'U.11 Boa Vista',      'LUM-BVT', 'Rua da Aurora, 50',            FALSE, TRUE),
+    ('a1f0c3e2-0004-4000-8000-000000000004', 'U.14 Jaboatão',       'LUM-JBT', 'Av Barreto de Menezes, 200',   FALSE, TRUE),
+    ('a1f0c3e2-0006-4000-8000-000000000006', 'Sede Administrativa', 'LUM-SED', 'Rua do Bom Jesus, 10',         FALSE, TRUE),
+    ('a1f0c3e2-0005-4000-8000-000000000005', 'U.20 Caruaru',        'LUM-CRU', NULL,                           FALSE, FALSE)
+ON CONFLICT (identificacao) DO NOTHING;
+
 -- Listas provisorias, iguais as do codigo do front, ate a Sarah e o Pedro revisarem
 INSERT INTO categorias (nome) VALUES
     ('Equipamento de apoio'),
