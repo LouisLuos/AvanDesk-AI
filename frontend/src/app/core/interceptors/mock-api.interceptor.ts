@@ -5,7 +5,7 @@ import {
   HttpResponse,
   HttpStatusCode,
 } from '@angular/common/http';
-import { Observable, delay, mergeMap, of, throwError, timer } from 'rxjs';
+import { Observable, delay, of, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { ApiResponse } from '../../shared/models/api-response.model';
 import {
@@ -25,8 +25,10 @@ import { USUARIO_ATUAL } from '../../shared/utils/usuario-atual';
 
 /**
  * API simulada em memória para desenvolver o frontend antes do backend ficar pronto.
- * Ativada por `environment.useMocks`. Responde no mesmo formato ApiResponse do contrato.
- * Dados fictícios — nenhum dado real de paciente ou colaborador.
+ * Ativada por `environment.useMocks`. Quando `useMocks = false` (modo integração),
+ * repassa todos os endpoints já implementados no backend (/auth/login, /unidades,
+ * /categorias, /sistemas-equipamentos e POST /chamados) para o servidor real, mantendo
+ * apenas o fallback provisório de GET /chamados e GET /chamados/:id até a HU14 e HU02.
  */
 
 const LATENCIA_MS = 400;
@@ -139,11 +141,77 @@ const sistemasEquipamentos: ItemLista[] = [
 
 export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
   const apiIndex = req.url.indexOf(environment.apiUrl);
-  if (!environment.useMocks || apiIndex === -1) {
+  if (apiIndex === -1) {
     return next(req);
   }
 
   const caminho = req.url.substring(apiIndex + environment.apiUrl.length);
+
+  // Endpoints ainda não implementados no backend (HU14: GET /chamados e HU02: GET /chamados/:id)
+  if (caminho === '/chamados' && req.method === 'GET') {
+    return sucesso(
+      HttpStatusCode.Ok,
+      'Chamados recuperados',
+      chamados.map((c) => ({ ...c })),
+    ).pipe(delay(LATENCIA_MS));
+  }
+
+  const detalheMatch = caminho.match(/^\/chamados\/([^/]+)$/);
+  if (detalheMatch && req.method === 'GET') {
+    return obterDetalheChamado(detalheMatch[1]);
+  }
+
+  // Quando o modo simulado está desligado (useMocks = false), todas as rotas de backend já prontas
+  // (/auth/login, /unidades, /categorias, /sistemas-equipamentos e POST /chamados) vão ao servidor real.
+  if (!environment.useMocks) {
+    if (caminho === '/unidades' && req.method === 'GET') {
+      return next(req).pipe(
+        tap((evento) => {
+          if (evento instanceof HttpResponse) {
+            const corpo = evento.body as ApiResponse<Unidade[]> | null;
+            if (corpo?.data?.length) {
+              for (const u of corpo.data) {
+                const idx = unidades.findIndex((item) => item.id === u.id);
+                if (idx >= 0) unidades[idx] = { ...u };
+                else unidades.push({ ...u });
+              }
+            }
+          }
+        }),
+      );
+    }
+
+    if (caminho === '/chamados' && req.method === 'POST') {
+      const payload = req.body as ChamadoRequest | null;
+      return next(req).pipe(
+        tap((evento) => {
+          if (evento instanceof HttpResponse && payload) {
+            const corpo = evento.body as ApiResponse<ChamadoResponse> | null;
+            const criado = corpo?.data;
+            if (criado) {
+              const unidade = unidades.find((u) => u.id === payload.unidade_id);
+              chamados.unshift({
+                id: criado.id,
+                codigo: criado.codigo,
+                titulo: payload.descricao.trim().split('\n')[0].slice(0, 80),
+                unidade: { id: payload.unidade_id, nome: unidade?.nome ?? 'Unidade' },
+                canal_origem: payload.canal_origem,
+                status: (criado.status as StatusChamado) ?? 'ABERTO',
+                prioridade: payload.prioridade ?? null,
+                sla: { situacao: 'TRIAGEM', rotulo: 'Triagem · 0 min', progresso: 0 },
+                responsavel: payload.atribuir_a_mim
+                  ? { id: USUARIO_ATUAL.id, nome: USUARIO_ATUAL.nome }
+                  : null,
+                atualizado_em: criado.data_criacao,
+              });
+            }
+          }
+        }),
+      );
+    }
+
+    return next(req);
+  }
 
   if (caminho === '/unidades') {
     if (req.method === 'GET') return listarUnidades(req);
@@ -162,17 +230,8 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
     return loginMock(req);
   }
 
-  if (caminho === '/chamados' && req.method === 'GET') {
-    return sucesso(
-      HttpStatusCode.Ok,
-      'Chamados recuperados',
-      chamados.map((c) => ({ ...c })),
-    ).pipe(delay(LATENCIA_MS));
-  }
-
-  const detalheMatch = caminho.match(/^\/chamados\/([^/]+)$/);
-  if (detalheMatch && req.method === 'GET') {
-    return obterDetalheChamado(detalheMatch[1]);
+  if (caminho === '/auth/logout' && req.method === 'POST') {
+    return sucesso(HttpStatusCode.Ok, 'Logout realizado com sucesso', null);
   }
 
   if (caminho === '/chamados' && req.method === 'POST') {
@@ -313,7 +372,7 @@ function loginMock(req: HttpRequest<unknown>): Observable<HttpResponse<unknown>>
     usuario: {
       id: USUARIO_ATUAL.id,
       nome: USUARIO_ATUAL.nome,
-      email: body.email.includes('@') ? body.email : `${body.email}@lumendiagnosticos.com.br`,
+      email: body.email.includes('@') ? body.email : `${body.email}@lumen.local`,
       perfil: USUARIO_ATUAL.perfil,
     },
   }).pipe(delay(LATENCIA_MS));
