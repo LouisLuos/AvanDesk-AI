@@ -195,11 +195,11 @@ flowchart TD
 - [x] **[BD]** `V3__cria_tabela_usuarios.sql` (BCrypt + perfil) e seed de dev (`R__dados_dev.sql`).
 - [x] **[FE]** Tela de login (`features/auth/login`, 5 testes Vitest).
 - [x] **[FE]** `TokenStorageService` e `authInterceptor` (anexa o Bearer token quando existir).
-- [ ] **[BE]** `POST /api/v1/auth/login` gerando JWT com claims de ID, e-mail e perfil.
-- [ ] **[BE]** Filtro JWT no Spring Security (`JwtAuthenticationFilter`) substituindo o HTTP Basic temporário.
+- [x] **[BE]** `POST /api/v1/auth/login` gerando JWT com claims de ID, e-mail e perfil.
+- [x] **[BE]** Filtro JWT no Spring Security (`JwtAuthenticationFilter`) substituindo o HTTP Basic temporário.
 - [ ] **[FE]** Guarda de rotas (`AuthGuard`) impedindo acesso à fila sem login e logout ativo.
-- [ ] **[QA]** Testes automatizados de login: sucesso com credenciais válidas e validação de claims do JWT (ID, sub, perfil, expiração de 1h).
-- [ ] **[QA]** Testes negativos de autenticação: senha errada (401 com mensagem genérica anti-enumeração), usuário inativo (`ativo = false`) e token expirado/adulterado.
+- [x] **[QA]** Testes automatizados de login: sucesso com credenciais válidas e validação de claims do JWT (ID, sub, perfil, expiração de 1h).
+- [x] **[QA]** Testes negativos de autenticação: senha errada (401 com mensagem genérica anti-enumeração), usuário inativo (`ativo = false`) e token expirado/adulterado.
 - [ ] **[QA]** Testes de sessão no frontend: interceptor Bearer, redirecionamento para `/login` no 401 e limpeza do storage no logout.
 
 ### 🏷️ [HU14] Listar e buscar chamados
