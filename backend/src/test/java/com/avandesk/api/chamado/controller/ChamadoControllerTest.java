@@ -9,6 +9,7 @@ import com.avandesk.api.chamado.dto.EventoHistoricoResponse;
 import com.avandesk.api.chamado.dto.FilaChamadosResponse;
 import com.avandesk.api.chamado.dto.FiltroChamados;
 import com.avandesk.api.chamado.dto.RegistroContatoResponse;
+import com.avandesk.api.chamado.dto.ResponsavelResponse;
 import com.avandesk.api.chamado.dto.SolicitanteResponse;
 import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.DirecaoContato;
@@ -49,6 +50,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -227,46 +229,101 @@ class ChamadoControllerTest {
         verifyNoInteractions(chamadoService);
     }
 
+    // ---------- atribuir responsável (HU12) ----------
+
+    @Test
+    @WithMockUser
+    void deveAtribuirResponsavelComSucesso() throws Exception {
+        UUID chamadoId = UUID.randomUUID();
+        UUID responsavelId = UUID.randomUUID();
+        ChamadoDetalheResponse resposta = new ChamadoDetalheResponse(
+            chamadoId, "LUM-2026-000001", StatusChamado.ABERTO, null,
+            "Impressora de etiquetas da coleta não imprime.", CanalOrigem.LIGACAO,
+            new UnidadeResumoResponse(UUID.randomUUID(), "U.03 Boa Viagem"),
+            new CategoriaResponse(UUID.randomUUID(), "Equipamento de apoio"),
+            null, new SolicitanteResponse("Recepção Boa Viagem", "+5581999999999"),
+            new ResponsavelResponse(responsavelId, "Analista Dev Um"), null,
+            Instant.parse("2026-10-22T14:30:00Z"), Instant.parse("2026-10-22T14:35:00Z"),
+            OrigemDado.TESTE, List.of(), List.of()
+        );
+
+        when(chamadoService.atribuirResponsavel(chamadoId, responsavelId)).thenReturn(resposta);
+
+        mockMvc.perform(patch("/api/v1/chamados/" + chamadoId + "/responsavel")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"responsavel_id": "%s"}
+                    """.formatted(responsavelId)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status_code").value(200))
+            .andExpect(jsonPath("$.message").value("Responsável atribuído com sucesso"))
+            .andExpect(jsonPath("$.data.id").value(chamadoId.toString()))
+            .andExpect(jsonPath("$.data.responsavel.id").value(responsavelId.toString()))
+            .andExpect(jsonPath("$.data.responsavel.nome").value("Analista Dev Um"));
+
+        verify(chamadoService).atribuirResponsavel(chamadoId, responsavelId);
+    }
+
+    @Test
+    @WithMockUser
+    void deveRecusarAtribuirSemResponsavelIdCom400() throws Exception {
+        UUID chamadoId = UUID.randomUUID();
+
+        mockMvc.perform(patch("/api/v1/chamados/" + chamadoId + "/responsavel")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status_code").value(400));
+
+        verifyNoInteractions(chamadoService);
+    }
+
     // ---------- fila de chamados (HU14) ----------
 
     @Test
     @WithMockUser
     void deveListarAFilaNoEnvelopePadraoEmSnakeCase() throws Exception {
         UUID id = UUID.randomUUID();
+        Instant abertoEm = Instant.parse("2026-10-22T14:30:00Z");
         ChamadoResumoResponse linha = new ChamadoResumoResponse(
             id, "LUM-2026-000162", "Impressora de etiquetas parada",
             new UnidadeResumoResponse(UUID.randomUUID(), "U.03 Boa Viagem"),
             new CategoriaResponse(UUID.randomUUID(), "Equipamento de apoio"),
             CanalOrigem.LIGACAO, StatusChamado.ABERTO, null, null,
-            Instant.parse("2026-10-29T12:00:00Z"), Instant.parse("2026-10-29T12:30:00Z"));
-        Map<StatusChamado, Long> totais = new EnumMap<>(StatusChamado.class);
-        totais.put(StatusChamado.ABERTO, 1L);
-        when(filaChamadosService.listar(any(), eq(false), eq(0), eq(20)))
-            .thenReturn(new FilaChamadosResponse(List.of(linha), 0, 20, 1, 1, totais));
+            abertoEm, abertoEm);
+        FilaChamadosResponse fila = new FilaChamadosResponse(
+            List.of(linha), 0, 20, 1, 1, new EnumMap<>(Map.of(StatusChamado.ABERTO, 1L)));
+
+        when(filaChamadosService.listar(any(FiltroChamados.class), eq(false), eq(0), eq(20)))
+            .thenReturn(fila);
 
         mockMvc.perform(get("/api/v1/chamados"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status_code").value(200))
-            .andExpect(jsonPath("$.data.itens[0].codigo").value("LUM-2026-000162"))
-            .andExpect(jsonPath("$.data.itens[0].canal_origem").value("LIGACAO"))
-            .andExpect(jsonPath("$.data.itens[0].responsavel").value(nullValue()))
-            .andExpect(jsonPath("$.data.itens[0].aberto_em").value(endsWith("Z")))
-            .andExpect(jsonPath("$.data.itens[0].atualizado_em").value("2026-10-29T12:30:00Z"))
+            .andExpect(jsonPath("$.data.pagina").value(0))
+            .andExpect(jsonPath("$.data.tamanho").value(20))
             .andExpect(jsonPath("$.data.total_itens").value(1))
             .andExpect(jsonPath("$.data.total_paginas").value(1))
-            .andExpect(jsonPath("$.data.totais_por_status.ABERTO").value(1));
+            .andExpect(jsonPath("$.data.totais_por_status.ABERTO").value(1))
+            .andExpect(jsonPath("$.data.itens[0].id").value(id.toString()))
+            .andExpect(jsonPath("$.data.itens[0].codigo").value("LUM-2026-000162"))
+            .andExpect(jsonPath("$.data.itens[0].unidade.nome").value("U.03 Boa Viagem"))
+            .andExpect(jsonPath("$.data.itens[0].categoria.nome").value("Equipamento de apoio"))
+            .andExpect(jsonPath("$.data.itens[0].responsavel").value(nullValue()))
+            .andExpect(jsonPath("$.data.itens[0].aberto_em").value("2026-10-22T14:30:00Z"));
     }
 
     @Test
     @WithMockUser
-    void deveRepassarTodosOsFiltrosEStatusRepetidoAoServico() throws Exception {
+    void devePassarFiltrosParaOServico() throws Exception {
         UUID unidadeId = UUID.randomUUID();
         UUID responsavelId = UUID.randomUUID();
         when(filaChamadosService.listar(any(), eq(true), eq(1), eq(50))).thenReturn(paginaVazia());
 
         mockMvc.perform(get("/api/v1/chamados")
-                .param("page", "1").param("size", "50")
-                .param("status", "ABERTO").param("status", "EM_TRIAGEM")
+                .param("page", "1")
+                .param("size", "50")
+                .param("status", "ABERTO", "EM_TRIAGEM")
                 .param("unidade_id", unidadeId.toString())
                 .param("prioridade", "ALTA")
                 .param("canal_origem", "WHATSAPP")

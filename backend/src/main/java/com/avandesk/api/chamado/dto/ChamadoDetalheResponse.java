@@ -41,6 +41,10 @@ public record ChamadoDetalheResponse(
     /** Os contatos e os eventos já chegam em ordem de ocorrido_em. */
     public static ChamadoDetalheResponse de(Chamado chamado, List<RegistroContato> contatos,
                                             List<EventoHistorico> eventos) {
+        Prioridade prioridade = chamado.getPrioridadeFinal() != null
+            ? chamado.getPrioridadeFinal()
+            : chamado.getPrioridadeSugerida();
+
         return new ChamadoDetalheResponse(
             chamado.getId(),
             chamado.getCodigo(),
@@ -55,7 +59,7 @@ public record ChamadoDetalheResponse(
                 : SistemaEquipamentoResponse.de(chamado.getSistemaEquipamento()),
             SolicitanteResponse.de(chamado.getSolicitante()),
             ResponsavelResponse.de(chamado.getResponsavel()),
-            chamado.getPrioridadeFinal(),
+            prioridade,
             chamado.getAbertoEm(),
             chamado.getPrimeiraRespostaEm(),
             chamado.getOrigemDado(),

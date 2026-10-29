@@ -74,7 +74,6 @@ public class ChamadoService {
         Solicitante solicitante = solicitanteService.identificarOuCriar(
             request.solicitante().nome(), request.solicitante().contato());
 
-
         Instant abertoEm = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
         Chamado chamado = new Chamado();
@@ -89,6 +88,9 @@ public class ChamadoService {
         chamado.setAbertoEm(abertoEm);
         chamado.setRegistroIniciadoEm(validarInicioRegistro(request.registroIniciadoEm(), abertoEm));
         chamado.setOrigemDado(nexoProperties.origemDado());
+        if (request.prioridade() != null) {
+            chamado.setPrioridadeFinal(request.prioridade());
+        }
         chamadoRepository.save(chamado);
 
         RegistroContato contato = new RegistroContato();
@@ -112,7 +114,6 @@ public class ChamadoService {
 
         return ChamadoResponse.de(chamado);
     }
-
 
     @Transactional(readOnly = true)
     public ChamadoDetalheResponse detalhar(UUID id) {

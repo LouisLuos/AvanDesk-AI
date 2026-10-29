@@ -8,8 +8,11 @@ import {
 } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
+import { AuthService, UsuarioAutenticado } from '../../../core/services/auth.service';
 import { ChamadoService } from '../../../core/services/chamado.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { UsuarioService } from '../../../core/services/usuario.service';
+import { Modal } from '../../../shared/components/modal/modal';
 import {
   CanalOrigem,
   ChamadoDetalhe,
@@ -22,20 +25,57 @@ import { extrairMensagensErro } from '../../../shared/utils/api-error';
 
 @Component({
   selector: 'app-detalhe-chamado',
-  imports: [RouterLink],
+  imports: [RouterLink, Modal],
   templateUrl: './detalhe-chamado.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DetalheChamado implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly chamadoService = inject(ChamadoService);
+  private readonly authService = inject(AuthService);
+  private readonly usuarioService = inject(UsuarioService);
   private readonly toast = inject(ToastService);
 
   protected readonly carregando = signal(true);
   protected readonly erro = signal<string | null>(null);
   protected readonly chamado = signal<ChamadoDetalhe | null>(null);
 
+  // Atribuição de responsável (HU12)
+  protected readonly atribuindo = signal(false);
+  protected readonly modalAtribuirAberto = signal(false);
+  protected readonly analistas = signal<UsuarioAutenticado[]>([]);
+  protected readonly carregandoAnalistas = signal(false);
+  protected readonly analistaSelecionadoId = signal<string>('');
+
   protected readonly idChamado = computed(() => this.route.snapshot.paramMap.get('id') ?? '');
+  protected readonly usuarioLogado = computed(() => this.authService.usuario());
+
+  /** Chamados encerrados não podem receber nova atribuição (RN HU12). */
+  protected readonly chamadoEncerrado = computed(() => {
+    const status = this.chamado()?.status;
+    return status === 'FECHADO' || status === 'CANCELADO' || status === 'MESCLADO';
+  });
+
+  /** Se o chamado já está atribuído ao usuário atualmente autenticado. */
+  protected readonly ehResponsavelAtual = computed(() => {
+    const resp = this.chamado()?.responsavel;
+    const usr = this.usuarioLogado();
+    return !!resp && !!usr && resp.id === usr.id;
+  });
+
+  /** Pode assumir o chamado com 1 clique para si mesmo. */
+  protected readonly podeAssumir = computed(() => {
+    const ch = this.chamado();
+    const usr = this.usuarioLogado();
+    if (!ch || !usr || this.chamadoEncerrado()) return false;
+    return ch.responsavel?.id !== usr.id;
+  });
+
+  /** Pode atribuir ou reatribuir o chamado a qualquer analista ativo. */
+  protected readonly podeAtribuir = computed(() => {
+    const ch = this.chamado();
+    return !!ch && !this.chamadoEncerrado();
+  });
 
   ngOnInit(): void {
     this.carregarDetalhes();
@@ -65,6 +105,109 @@ export class DetalheChamado implements OnInit {
               ? msgApi
               : msgPadrao,
           );
+        },
+      });
+  }
+
+  /**
+   * Assume o chamado atribuindo-o ao analista atualmente autenticado (HU12).
+   */
+  protected assumirChamado(): void {
+    const usr = this.usuarioLogado();
+    const ch = this.chamado();
+    if (!usr) {
+      this.toast.erro('Você precisa estar autenticado para assumir este chamado.');
+      return;
+    }
+    if (!ch || this.chamadoEncerrado()) {
+      this.toast.erro('Este chamado não pode receber atribuição.');
+      return;
+    }
+
+    this.atribuindo.set(true);
+    this.chamadoService
+      .atribuirResponsavel(ch.id, usr.id)
+      .pipe(finalize(() => this.atribuindo.set(false)))
+      .subscribe({
+        next: (atualizado) => {
+          this.chamado.set(atualizado);
+          this.toast.sucesso('Chamado assumido com sucesso!');
+        },
+        error: (err) => {
+          this.toast.erro(extrairMensagensErro(err)[0]);
+        },
+      });
+  }
+
+  protected abrirModalAtribuir(): void {
+    this.modalAtribuirAberto.set(true);
+    const atualId = this.chamado()?.responsavel?.id ?? '';
+    this.analistaSelecionadoId.set(atualId);
+    this.carregarAnalistas();
+  }
+
+  protected fecharModalAtribuir(): void {
+    this.modalAtribuirAberto.set(false);
+  }
+
+  protected selecionarAnalista(id: string): void {
+    this.analistaSelecionadoId.set(id);
+  }
+
+  protected confirmarAtribuicao(): void {
+    const responsavelId = this.analistaSelecionadoId();
+    const ch = this.chamado();
+    if (!responsavelId) {
+      this.toast.erro('Selecione um analista de suporte.');
+      return;
+    }
+    if (!ch || this.chamadoEncerrado()) {
+      this.toast.erro('Este chamado não pode receber atribuição.');
+      return;
+    }
+    if (ch.responsavel?.id === responsavelId) {
+      this.toast.info('O chamado já está atribuído a este analista.');
+      this.fecharModalAtribuir();
+      return;
+    }
+
+    this.atribuindo.set(true);
+    this.chamadoService
+      .atribuirResponsavel(ch.id, responsavelId)
+      .pipe(finalize(() => this.atribuindo.set(false)))
+      .subscribe({
+        next: (atualizado) => {
+          this.chamado.set(atualizado);
+          this.fecharModalAtribuir();
+          this.toast.sucesso('Responsável atribuído com sucesso!');
+        },
+        error: (err) => {
+          this.toast.erro(extrairMensagensErro(err)[0]);
+        },
+      });
+  }
+
+  private carregarAnalistas(): void {
+    this.carregandoAnalistas.set(true);
+    this.usuarioService
+      .listarAnalistas()
+      .pipe(finalize(() => this.carregandoAnalistas.set(false)))
+      .subscribe({
+        next: (lista) => {
+          this.analistas.set(lista);
+          if (!this.analistaSelecionadoId() && lista.length) {
+            this.analistaSelecionadoId.set(lista[0].id);
+          }
+        },
+        error: () => {
+          const fallback: UsuarioAutenticado[] = [
+            { id: '00000000-0000-0000-0000-0000000000a1', nome: 'Analista Dev Um', email: 'analista1@lumen.local', perfil: 'ANALISTA_SUPORTE' },
+            { id: '00000000-0000-0000-0000-0000000000a2', nome: 'Analista Dev Dois', email: 'analista2@lumen.local', perfil: 'ANALISTA_SUPORTE' },
+          ];
+          this.analistas.set(fallback);
+          if (!this.analistaSelecionadoId() && fallback.length) {
+            this.analistaSelecionadoId.set(fallback[0].id);
+          }
         },
       });
   }

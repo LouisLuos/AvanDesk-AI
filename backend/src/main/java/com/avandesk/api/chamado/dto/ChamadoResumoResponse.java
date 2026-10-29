@@ -14,7 +14,7 @@ import java.util.UUID;
  * Uma linha da fila de chamados (HU14). Sem SLA por enquanto: o cálculo do prazo é de outra HU.
  *
  * @param titulo       primeira linha da descrição, com até {@value #TAMANHO_TITULO} caracteres
- * @param prioridade   prioridade final definida pelo analista; nula enquanto não houver triagem
+ * @param prioridade   prioridade final definida pelo analista ou sugerida; nula se ainda não avaliada
  * @param responsavel  nulo quando o chamado não tem responsável ("Não atribuído")
  * @param atualizadoEm último evento do histórico; sem eventos, a data de abertura
  */
@@ -35,6 +35,10 @@ public record ChamadoResumoResponse(
     static final int TAMANHO_TITULO = 80;
 
     public static ChamadoResumoResponse de(Chamado chamado, Instant ultimaAtualizacao) {
+        Prioridade prioridade = chamado.getPrioridadeFinal() != null
+            ? chamado.getPrioridadeFinal()
+            : chamado.getPrioridadeSugerida();
+
         return new ChamadoResumoResponse(
             chamado.getId(),
             chamado.getCodigo(),
@@ -43,7 +47,7 @@ public record ChamadoResumoResponse(
             chamado.getCategoria() == null ? null : CategoriaResponse.de(chamado.getCategoria()),
             chamado.getCanalOrigem(),
             chamado.getStatus(),
-            chamado.getPrioridadeFinal(),
+            prioridade,
             ResponsavelResponse.de(chamado.getResponsavel()),
             chamado.getAbertoEm(),
             ultimaAtualizacao != null ? ultimaAtualizacao : chamado.getAbertoEm()

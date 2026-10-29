@@ -1,6 +1,7 @@
 package com.avandesk.api.chamado.dto;
 
 import com.avandesk.api.chamado.entity.CanalOrigem;
+import com.avandesk.api.chamado.entity.Prioridade;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -30,6 +31,8 @@ public record ChamadoRequest(
     UUID categoriaId,
 
     UUID sistemaEquipamentoId,
+
+    Prioridade prioridade,
 
     Instant registroIniciadoEm,
 

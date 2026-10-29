@@ -66,4 +66,16 @@ export class ChamadoService {
       .get<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(`${this.baseUrl}/${id}`)
       .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
   }
+
+  /**
+   * PATCH /chamados/{id}/responsavel — atribui ou reatribui o chamado a um analista ativo (HU12).
+   */
+  atribuirResponsavel(id: string, responsavelId: string): Observable<ChamadoDetalhe> {
+    return this.http
+      .patch<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/responsavel`,
+        { responsavel_id: responsavelId },
+      )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
 }

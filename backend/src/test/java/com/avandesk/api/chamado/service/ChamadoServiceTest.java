@@ -19,6 +19,7 @@ import com.avandesk.api.chamado.entity.TipoEvento;
 import com.avandesk.api.chamado.repository.ChamadoRepository;
 import com.avandesk.api.chamado.repository.RegistroContatoRepository;
 import com.avandesk.api.core.config.NexoProperties;
+import com.avandesk.api.core.exception.OperacaoNaoPermitidaException;
 import com.avandesk.api.core.exception.RecursoNaoEncontradoException;
 import com.avandesk.api.core.exception.RegraNegocioException;
 import com.avandesk.api.unidade.entity.Unidade;
@@ -42,6 +43,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -290,6 +292,112 @@ class ChamadoServiceTest {
 
         assertThrows(RecursoNaoEncontradoException.class, () -> chamadoService.detalhar(chamadoId));
         verifyNoInteractions(registroContatoRepository, eventoHistoricoService);
+    }
+
+    // ---------- atribuirResponsavel (HU12) ----------
+
+    @Test
+    void deveAtribuirResponsavelComSucessoEGravarEvento() {
+        UUID chamadoId = UUID.randomUUID();
+        UUID responsavelId = UUID.randomUUID();
+        Chamado chamado = new Chamado();
+        chamado.setId(chamadoId);
+        chamado.setStatus(StatusChamado.ABERTO);
+
+        Usuario novoResponsavel = new Usuario();
+        novoResponsavel.setId(responsavelId);
+        novoResponsavel.setNome("Novo Analista");
+
+        when(chamadoRepository.findDetalheById(chamadoId)).thenReturn(Optional.of(chamado));
+        when(usuarioService.obterAnalistaAtivo(responsavelId)).thenReturn(novoResponsavel);
+        when(usuarioLogadoService.obterUsuarioLogado()).thenReturn(autor);
+        when(registroContatoRepository.findByChamadoIdOrderByOcorridoEmAsc(chamadoId)).thenReturn(List.of());
+        when(eventoHistoricoService.listarDoChamado(chamadoId)).thenReturn(List.of());
+
+        ChamadoDetalheResponse response = chamadoService.atribuirResponsavel(chamadoId, responsavelId);
+
+        assertEquals(responsavelId, response.responsavel().id());
+        assertEquals("Novo Analista", response.responsavel().nome());
+        assertNotNull(chamado.getPrimeiraRespostaEm());
+        verify(eventoHistoricoService).registrar(eq(chamado), eq(TipoEvento.CHAMADO_ATRIBUIDO), eq(autor), anyMap());
+    }
+
+    @Test
+    void deveReatribuirResponsavelGuardandoAnteriorNoEvento() {
+        UUID chamadoId = UUID.randomUUID();
+        UUID anteriorId = UUID.randomUUID();
+        UUID novoId = UUID.randomUUID();
+
+        Usuario anterior = new Usuario();
+        anterior.setId(anteriorId);
+        anterior.setNome("Analista Anterior");
+
+        Chamado chamado = new Chamado();
+        chamado.setId(chamadoId);
+        chamado.setStatus(StatusChamado.EM_ATENDIMENTO);
+        chamado.setResponsavel(anterior);
+
+        Usuario novo = new Usuario();
+        novo.setId(novoId);
+        novo.setNome("Novo Analista");
+
+        when(chamadoRepository.findDetalheById(chamadoId)).thenReturn(Optional.of(chamado));
+        when(usuarioService.obterAnalistaAtivo(novoId)).thenReturn(novo);
+        when(usuarioLogadoService.obterUsuarioLogado()).thenReturn(autor);
+
+        chamadoService.atribuirResponsavel(chamadoId, novoId);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> dadosCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(eventoHistoricoService).registrar(eq(chamado), eq(TipoEvento.CHAMADO_ATRIBUIDO), eq(autor), dadosCaptor.capture());
+        Map<String, Object> dados = dadosCaptor.getValue();
+        assertEquals(novoId.toString(), dados.get("responsavel_id"));
+        assertEquals("Novo Analista", dados.get("responsavel_nome"));
+        assertEquals(anteriorId.toString(), dados.get("responsavel_anterior_id"));
+        assertEquals("Analista Anterior", dados.get("responsavel_anterior_nome"));
+    }
+
+    @Test
+    void deveRecusarAtribuirAoMesmoResponsavelCom422() {
+        UUID chamadoId = UUID.randomUUID();
+        UUID responsavelId = UUID.randomUUID();
+
+        Usuario responsavel = new Usuario();
+        responsavel.setId(responsavelId);
+
+        Chamado chamado = new Chamado();
+        chamado.setId(chamadoId);
+        chamado.setStatus(StatusChamado.EM_ATENDIMENTO);
+        chamado.setResponsavel(responsavel);
+
+        when(chamadoRepository.findDetalheById(chamadoId)).thenReturn(Optional.of(chamado));
+        when(usuarioService.obterAnalistaAtivo(responsavelId)).thenReturn(responsavel);
+
+        OperacaoNaoPermitidaException ex = assertThrows(
+            OperacaoNaoPermitidaException.class,
+            () -> chamadoService.atribuirResponsavel(chamadoId, responsavelId)
+        );
+        assertEquals("O chamado já está com este responsável.", ex.getMessage());
+        verifyNoInteractions(eventoHistoricoService);
+    }
+
+    @Test
+    void deveRecusarAtribuirChamadoEncerradoCom422() {
+        UUID chamadoId = UUID.randomUUID();
+        UUID responsavelId = UUID.randomUUID();
+
+        Chamado chamado = new Chamado();
+        chamado.setId(chamadoId);
+        chamado.setStatus(StatusChamado.FECHADO);
+
+        when(chamadoRepository.findDetalheById(chamadoId)).thenReturn(Optional.of(chamado));
+
+        OperacaoNaoPermitidaException ex = assertThrows(
+            OperacaoNaoPermitidaException.class,
+            () -> chamadoService.atribuirResponsavel(chamadoId, responsavelId)
+        );
+        assertTrue(ex.getMessage().contains("Não é possível atribuir um chamado com status FECHADO"));
+        verifyNoInteractions(usuarioService, eventoHistoricoService);
     }
 
     // ---------- apoio ----------

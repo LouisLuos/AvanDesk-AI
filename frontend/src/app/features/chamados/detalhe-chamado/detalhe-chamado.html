@@ -56,6 +56,10 @@
             >
               {{ rotuloPrioridade(prio) }}
             </span>
+          } @else {
+            <span class="inline-flex items-center rounded bg-[#f1f3f8] px-2.5 py-1 text-xs font-medium text-[#6b7280]">
+              Prioridade em definição
+            </span>
           }
 
           <span class="inline-flex items-center gap-1.5 rounded bg-[#f1f3f8] px-2.5 py-1 text-xs font-medium text-[#4b5563]">
@@ -71,8 +75,58 @@
         </p>
       </div>
 
-      <!-- Barra de Ações (Fiel ao Mockup) -->
+      <!-- Barra de Ações (Fiel ao Mockup e HU12) -->
       <div class="flex flex-wrap items-center gap-2">
+        @if (podeAssumir()) {
+          <button
+            type="button"
+            id="btn-assumir-chamado"
+            (click)="assumirChamado()"
+            [disabled]="atribuindo()"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-[#2d5bff] px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#1e3fcc] disabled:opacity-50"
+          >
+            @if (atribuindo()) {
+              <span class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+            } @else {
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            }
+            Assumir chamado
+          </button>
+        }
+
+        @if (ehResponsavelAtual()) {
+          <span
+            id="badge-atribuido-voce"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-[#22c55e]/30 bg-[#22c55e]/10 px-3 py-2 text-xs font-medium text-[#15803d]"
+          >
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Atribuído a você
+          </span>
+        }
+
+        @if (podeAtribuir()) {
+          <button
+            type="button"
+            id="btn-abrir-atribuir"
+            (click)="abrirModalAtribuir()"
+            [disabled]="atribuindo()"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-[#2d5bff] bg-white px-3.5 py-2 text-xs font-semibold text-[#2d5bff] shadow-xs transition hover:bg-[#e8edff]/50 disabled:opacity-50"
+          >
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            {{ item.responsavel ? 'Reatribuir' : 'Atribuir a analista' }}
+          </button>
+        }
+
         <button
           type="button"
           (click)="acaoNaoDisponivel('Avaliar prioridade', 'Leva 2 (HU04)')"
@@ -198,104 +252,111 @@
 
         <!-- Card Evidências -->
         <section class="rounded-xl border border-[#e2e5ec] bg-white p-6 shadow-xs" aria-labelledby="secao-evidencias-titulo">
-          <h2 id="secao-evidencias-titulo" class="text-sm font-bold text-[#14161b]">
-            Evidências
-          </h2>
+          <div class="flex items-center justify-between">
+            <h2 id="secao-evidencias-titulo" class="text-sm font-bold text-[#14161b]">
+              Evidências anexadas ({{ item.evidencias.length }})
+            </h2>
+            <button
+              type="button"
+              (click)="acaoNaoDisponivel('Anexar nova evidência', 'Leva 2')"
+              class="text-xs font-semibold text-[#2d5bff] hover:underline"
+            >
+              + Adicionar
+            </button>
+          </div>
 
           @if (item.evidencias.length) {
-            <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <ul class="mt-4 divide-y divide-[#e2e5ec] text-xs">
               @for (evidencia of item.evidencias; track evidencia.id) {
-                <div class="flex items-center gap-3 rounded-lg border border-[#e2e5ec] bg-[#f8f9fc] p-3 transition hover:bg-[#e8edff]/30">
-                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[#e2e5ec] bg-white text-[#9aa2b1]">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                      <circle cx="9" cy="9" r="2" />
-                      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                <li class="flex items-center justify-between py-2.5">
+                  <div class="flex items-center gap-2">
+                    <svg class="h-4 w-4 text-[#6b7280]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                      <polyline points="14 2 14 8 20 8" />
                     </svg>
+                    <span class="font-medium text-[#14161b]">{{ evidencia.nome }}</span>
                   </div>
-                  <div class="min-w-0 flex-1 leading-tight">
-                    <p class="truncate text-xs font-semibold text-[#14161b]">{{ evidencia.nome }}</p>
-                    <p class="mt-0.5 text-[11px] text-[#6b7280]">Enviado às {{ evidencia.enviadoAs }}</p>
-                  </div>
-                </div>
+                  <span class="text-[11px] text-[#6b7280] tabular-nums">{{ evidencia.enviadoAs }}</span>
+                </li>
               }
-            </div>
+            </ul>
           } @else {
-            <p class="mt-3 text-xs text-[#9aa2b1]">Nenhuma evidência anexada a este chamado.</p>
+            <p class="mt-3 text-xs text-[#6b7280]">Nenhuma evidência anexada a este chamado.</p>
           }
         </section>
 
-        <!-- Card Histórico (Linha do Tempo Cronológica — HU02) -->
-        <section class="rounded-xl border border-[#e2e5ec] bg-white p-6 shadow-xs" aria-labelledby="secao-historico-titulo">
+        <!-- Card Linha do Tempo (Timeline Cronológica - HU02) -->
+        <section class="rounded-xl border border-[#e2e5ec] bg-white p-6 shadow-xs" aria-labelledby="secao-timeline-titulo">
           <div class="flex items-center justify-between">
-            <h2 id="secao-historico-titulo" class="text-sm font-bold text-[#14161b]">
-              Histórico
+            <h2 id="secao-timeline-titulo" class="text-sm font-bold text-[#14161b]">
+              Linha do tempo
             </h2>
-            <span class="text-[11px] text-[#6b7280]">
-              Ordem cronológica · Horário local
-            </span>
+            <span class="text-[11px] text-[#6b7280] font-medium">Ordem cronológica</span>
           </div>
 
-          @if (item.historico.length) {
-            <div class="relative mt-6 space-y-6 pl-6 before:absolute before:bottom-2 before:left-2 before:top-2 before:w-0.5 before:bg-[#e2e5ec]">
+          <div class="relative mt-6 pl-6">
+            <!-- Linha vertical conectando os dots -->
+            <div class="absolute left-2.5 top-2 bottom-2 w-0.5 bg-[#e2e5ec]" aria-hidden="true"></div>
+
+            <ol class="space-y-6">
               @for (evento of item.historico; track evento.id) {
-                <div class="relative">
-                  <!-- Ponto Colorido da Linha do Tempo -->
+                <li class="relative flex items-start gap-3">
+                  <!-- Ponto circular (Dot) -->
                   <span
-                    class="absolute -left-[27px] top-1 h-3 w-3 rounded-full border-2 border-white ring-1 ring-[#e2e5ec]"
-                    [class]="evento.estiloDot || 'bg-[#94a3b8]'"
+                    class="absolute -left-6 mt-1 flex h-3 w-3 rounded-full border-2 border-white ring-2 ring-[#e2e5ec]"
+                    [class]="evento.estiloDot || 'bg-[#2d5bff]'"
                     aria-hidden="true"
                   ></span>
 
-                  <div class="flex flex-wrap items-baseline gap-2">
-                    <p class="text-xs font-semibold text-[#14161b]">
-                      {{ evento.titulo }}
-                    </p>
-                    <span class="text-[11px] text-[#9aa2b1] tabular-nums" [attr.title]="evento.dataCompleta">
-                      {{ evento.dataCompleta || evento.hora }}
-                    </span>
-                  </div>
+                  <div class="flex-1">
+                    <div class="flex flex-wrap items-center justify-between gap-1">
+                      <h3 class="text-xs font-semibold text-[#14161b]">
+                        {{ evento.titulo }}
+                      </h3>
+                      <time
+                        class="text-[11px] text-[#6b7280] tabular-nums"
+                        [attr.title]="evento.dataCompleta"
+                      >
+                        {{ evento.hora }}
+                      </time>
+                    </div>
 
-                  @if (evento.descricao) {
-                    <p class="mt-0.5 text-xs text-[#6b7280]">
-                      {{ evento.descricao }}
-                    </p>
-                  } @else if (evento.autor) {
-                    <p class="mt-0.5 text-xs text-[#6b7280]">
-                      Por {{ evento.autor }}
-                    </p>
-                  }
-                </div>
+                    @if (evento.descricao) {
+                      <p class="mt-1 text-xs text-[#4b5563] leading-relaxed whitespace-pre-line">
+                        {{ evento.descricao }}
+                      </p>
+                    }
+
+                    @if (evento.autor) {
+                      <p class="mt-1 text-[11px] text-[#6b7280]">
+                        Por <span class="font-medium text-[#14161b]">{{ evento.autor }}</span>
+                      </p>
+                    }
+                  </div>
+                </li>
               }
-            </div>
-          } @else {
-            <p class="mt-4 text-xs text-[#9aa2b1]">Nenhum evento registrado no histórico deste chamado.</p>
-          }
+            </ol>
+          </div>
         </section>
       </div>
 
-      <!-- Coluna Direita: SLA, Detalhes e Relatos Vinculados -->
+      <!-- Coluna Direita: Metas de SLA, Detalhes e Ações Rápidas -->
       <div class="space-y-6">
-        <!-- Card Prazo de Referência (SLA) -->
+        <!-- Card Metas e Prazos (SLA) -->
         <section class="rounded-xl border border-[#e2e5ec] bg-white p-6 shadow-xs" aria-labelledby="secao-sla-titulo">
           <h2 id="secao-sla-titulo" class="text-sm font-bold text-[#14161b]">
-            Prazo de referência
+            Metas e prazos
           </h2>
-          <p class="mt-1 text-[11px] leading-tight text-[#6b7280]">
-            Meta para prioridade {{ item.prioridade ? rotuloPrioridade(item.prioridade) : 'em definição na triagem' }}. É uma referência interna, não um compromisso formal.
-          </p>
 
-          <div class="mt-5 space-y-4">
+          <div class="mt-4 space-y-4">
             @for (etapa of item.slaItens; track etapa.etapa) {
               <div>
                 <div class="flex items-center justify-between text-xs">
-                  <span class="font-semibold text-[#363b47]">{{ etapa.etapa }}</span>
-                  <span class="text-[#6b7280]">Meta: {{ etapa.meta }}</span>
+                  <span class="font-medium text-[#14161b]">{{ etapa.etapa }}</span>
+                  <span class="text-[11px] text-[#6b7280] font-mono">{{ etapa.meta }}</span>
                 </div>
-                <div class="mt-1.5 flex items-center justify-between text-[11px]">
-                  <span class="font-medium text-[#14161b]">{{ etapa.situacaoTexto }}</span>
-                </div>
-                <div class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[#e2e5ec]">
+                <p class="mt-0.5 text-[11px] text-[#6b7280]">{{ etapa.situacaoTexto }}</p>
+                <div class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[#f1f3f8]">
                   <div
                     class="h-full rounded-full transition-all duration-500"
                     [class]="etapa.estiloBarra"
@@ -318,7 +379,7 @@
           </div>
         </section>
 
-        <!-- Card Detalhes (HU05 — Status e Responsável) -->
+        <!-- Card Detalhes (HU05 — Status e Responsável, HU12) -->
         <section class="rounded-xl border border-[#e2e5ec] bg-white p-6 shadow-xs" aria-labelledby="secao-detalhes-titulo">
           <h2 id="secao-detalhes-titulo" class="text-sm font-bold text-[#14161b]">
             Detalhes
@@ -366,7 +427,17 @@
                   </span>
                   <span class="font-semibold text-[#14161b]">{{ resp.nome }}</span>
                 } @else {
-                  <span class="font-medium text-[#9aa2b1]">Não atribuído</span>
+                  <span class="font-medium text-[#dc2626]">Não atribuído</span>
+                }
+                @if (podeAtribuir()) {
+                  <button
+                    type="button"
+                    (click)="abrirModalAtribuir()"
+                    class="ml-1 text-[11px] font-medium text-[#2d5bff] hover:underline"
+                    title="Alterar responsável"
+                  >
+                    Alterar
+                  </button>
                 }
               </dd>
             </div>
@@ -410,5 +481,84 @@
         }
       </div>
     </div>
+
+    <!-- Modal Atribuir Responsável (HU12) -->
+    <app-modal
+      [aberto]="modalAtribuirAberto()"
+      [titulo]="item.responsavel ? 'Reatribuir chamado' : 'Atribuir chamado a analista'"
+      (fechar)="fecharModalAtribuir()"
+    >
+      <div class="space-y-4">
+        <p class="text-xs text-[#4b5563]">
+          Selecione o analista de suporte responsável pelo atendimento do chamado
+          <strong class="text-[#14161b]">{{ item.codigo }}</strong>:
+        </p>
+
+        @if (carregandoAnalistas()) {
+          <div class="flex items-center justify-center py-8">
+            <div class="h-6 w-6 animate-spin rounded-full border-2 border-[#2d5bff] border-t-transparent"></div>
+          </div>
+        } @else if (!analistas().length) {
+          <div class="rounded-lg bg-[#f1f3f8] p-4 text-center text-xs text-[#6b7280]">
+            Nenhum analista de suporte ativo encontrado.
+          </div>
+        } @else {
+          <div class="max-h-60 space-y-2 overflow-y-auto pr-1" role="radiogroup" aria-label="Analistas disponíveis">
+            @for (analista of analistas(); track analista.id) {
+              <label
+                class="flex cursor-pointer items-center justify-between rounded-lg border p-3 transition"
+                [class]="
+                  analistaSelecionadoId() === analista.id
+                    ? 'border-[#2d5bff] bg-[#e8edff]/30 text-[#14161b]'
+                    : 'border-[#e2e5ec] bg-white hover:bg-[#f8f9fc]'
+                "
+              >
+                <div class="flex items-center gap-3">
+                  <span class="flex h-7 w-7 items-center justify-center rounded-full bg-[#e8edff] text-[10px] font-bold text-[#1e3fcc]">
+                    {{ iniciais(analista.nome) }}
+                  </span>
+                  <div>
+                    <p class="text-xs font-semibold text-[#14161b]">{{ analista.nome }}</p>
+                    <p class="text-[11px] text-[#6b7280]">{{ analista.email }}</p>
+                  </div>
+                </div>
+
+                <input
+                  type="radio"
+                  name="analistaResponsavel"
+                  [value]="analista.id"
+                  [checked]="analistaSelecionadoId() === analista.id"
+                  (change)="selecionarAnalista(analista.id)"
+                  class="h-4 w-4 text-[#2d5bff] focus:ring-[#2d5bff]"
+                />
+              </label>
+            }
+          </div>
+        }
+
+        <div class="flex justify-end gap-2 border-t border-[#e2e5ec] pt-4">
+          <button
+            type="button"
+            (click)="fecharModalAtribuir()"
+            [disabled]="atribuindo()"
+            class="rounded-lg border border-[#e2e5ec] bg-white px-4 py-2 text-xs font-semibold text-[#363b47] transition hover:bg-[#f8f9fc] disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            id="btn-confirmar-atribuicao"
+            (click)="confirmarAtribuicao()"
+            [disabled]="atribuindo() || !analistaSelecionadoId()"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-[#2d5bff] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#1e3fcc] disabled:opacity-50"
+          >
+            @if (atribuindo()) {
+              <span class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+            }
+            Confirmar atribuição
+          </button>
+        </div>
+      </div>
+    </app-modal>
   }
 </div>
