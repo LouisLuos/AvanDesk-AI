@@ -292,8 +292,10 @@ export class NovoChamado implements OnInit {
       EM_TRIAGEM: 'bg-[#14b8a6]/10 text-[#14b8a6]',
       EM_ATENDIMENTO: 'bg-[#0ea5e9]/10 text-[#0ea5e9]',
       AGUARDANDO: 'bg-[#f0a202]/10 text-[#f0a202]',
-      REABERTO: 'bg-[#e5484d]/10 text-[#e5484d]',
       RESOLVIDO: 'bg-[#22c55e]/10 text-[#22c55e]',
+      REABERTO: 'bg-[#e5484d]/10 text-[#e5484d]',
+      FECHADO: 'bg-[#64748b]/10 text-[#64748b]',
+      CANCELADO: 'bg-[#94a3b8]/15 text-[#64748b]',
       MESCLADO: 'bg-[#8b5cf6]/10 text-[#8b5cf6]',
     };
     return estilos[status] ?? 'bg-[#e2e5ec] text-[#363b47]';
@@ -305,8 +307,10 @@ export class NovoChamado implements OnInit {
       EM_TRIAGEM: 'Em Triagem',
       EM_ATENDIMENTO: 'Em Atendimento',
       AGUARDANDO: 'Aguardando',
-      REABERTO: 'Reaberto',
       RESOLVIDO: 'Resolvido',
+      REABERTO: 'Reaberto',
+      FECHADO: 'Fechado',
+      CANCELADO: 'Cancelado',
       MESCLADO: 'Mesclado',
     };
     return labels[status] ?? status;

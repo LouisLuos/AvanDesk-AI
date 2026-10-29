@@ -2,7 +2,9 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } 
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
+import { AuthService } from '../../../core/services/auth.service';
 import { ChamadoService } from '../../../core/services/chamado.service';
+import { CustomDropdown } from '../../../shared/components/custom-dropdown/custom-dropdown';
 import {
   CANAIS_ORIGEM,
   CanalOrigem,
@@ -33,8 +35,10 @@ const ESTILO_STATUS: Record<StatusChamado, string> = {
   EM_TRIAGEM: 'bg-[#14b8a6]/10 text-[#14b8a6]',
   EM_ATENDIMENTO: 'bg-[#0ea5e9]/10 text-[#0ea5e9]',
   AGUARDANDO: 'bg-[#f0a202]/10 text-[#f0a202]',
-  REABERTO: 'bg-[#e5484d]/10 text-[#e5484d]',
   RESOLVIDO: 'bg-[#22c55e]/10 text-[#22c55e]',
+  REABERTO: 'bg-[#e5484d]/10 text-[#e5484d]',
+  FECHADO: 'bg-[#64748b]/10 text-[#64748b]',
+  CANCELADO: 'bg-[#94a3b8]/15 text-[#64748b]',
   MESCLADO: 'bg-[#8b5cf6]/10 text-[#8b5cf6]',
 };
 
@@ -54,8 +58,6 @@ const ESTILO_SLA: Record<SituacaoSla, { texto: string; barra: string }> = {
   INCORPORADO: { texto: 'text-[#6b7280]', barra: '' },
 };
 
-import { CustomDropdown } from '../../../shared/components/custom-dropdown/custom-dropdown';
-
 @Component({
   selector: 'app-fila-chamados',
   imports: [RouterLink, CustomDropdown],
@@ -64,6 +66,7 @@ import { CustomDropdown } from '../../../shared/components/custom-dropdown/custo
 })
 export class FilaChamados implements OnInit {
   private readonly chamadoService = inject(ChamadoService);
+  private readonly authService = inject(AuthService);
 
   protected readonly canais = CANAIS_ORIGEM;
   protected readonly statusOpcoes = STATUS_CHAMADO;
@@ -131,6 +134,7 @@ export class FilaChamados implements OnInit {
     const prioridade = this.filtroPrioridade();
     const canal = this.filtroCanal();
     const meus = this.somenteMeus();
+    const idUsuarioAtual = this.authService.usuario()?.id ?? USUARIO_ATUAL.id;
 
     return this.chamados().filter((c) => {
       if (unidade && c.unidade.id !== unidade) return false;
@@ -138,7 +142,9 @@ export class FilaChamados implements OnInit {
       if (canal && c.canal_origem !== canal) return false;
       if (prioridade === SEM_PRIORIDADE && c.prioridade !== null) return false;
       if (prioridade && prioridade !== SEM_PRIORIDADE && c.prioridade !== prioridade) return false;
-      if (meus && c.responsavel?.id !== USUARIO_ATUAL.id) return false;
+      if (meus && c.responsavel?.id !== idUsuarioAtual && c.responsavel?.id !== USUARIO_ATUAL.id) {
+        return false;
+      }
       if (termo && !this.normalizar(`${c.codigo} ${c.titulo}`).includes(termo)) return false;
       return true;
     });
