@@ -16,6 +16,7 @@
 | 6 | [Documentação da API](./06-documentacao-api-mvp.md) | Especificação dos endpoints REST e contratos da API |
 | 7 | [Contrato OpenAPI (YAML)](./openapi-mvp.yaml) | Especificação OpenAPI 3.0 dos endpoints |
 | 8 | [Convenções de Git Flow & Commits](../.github/convencoes-git-workflow-lumen.md) | Padrões de branches, commits e fluxo de Pull Request |
+| 9 | [Architecture Decision Records (ADRs)](./adr/README.md) | Decisões arquiteturais registradas (ex.: [ADR-001 — Modularização Package-by-Feature](./adr/ADR-001-modularizacao-package-by-feature.md)) |
 
 ---
 
@@ -24,4 +25,4 @@
 - **User Stories** seguem o padrão **INVEST** (Independent, Negotiable, Valuable, Estimable, Small, Testable).
 - **Prioridades** usam a escala **MoSCoW** (Must, Should, Could, Won't).
 - **Estimativas** usam **Story Points** (Fibonacci: 1, 2, 3, 5, 8, 13).
-- **IDs** seguem o padrão `RF-XXX` (Requisitos Funcionais), `RNF-XXX` (Requisitos Não Funcionais), `US-XXX` (User Stories), `T-XXX` (Tasks).
+- **IDs** seguem o padrão `RF-XXX` (Requisitos Funcionais), `RNF-XXX` (Requisitos Não Funcionais), `US-XXX` (User Stories), `T-XXX` (Tasks), `ADR-XXX` (Architecture Decision Records).

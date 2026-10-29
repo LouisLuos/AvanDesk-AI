@@ -206,12 +206,15 @@ AvanDesk-AI/
 │   ├── src/
 │   │   ├── main/
 │   │   │   ├── java/com/avandesk/api/
-│   │   │   │   ├── controller/
-│   │   │   │   │   └── HealthController.java
-│   │   │   │   └── ApiApplication.java
+│   │   │   │   ├── core/                   ← Configs, exceções globais, ApiResponse e health
+│   │   │   │   ├── usuario/                ← Autenticação JWT, usuários e segurança
+│   │   │   │   ├── chamado/                ← Ciclo de vida de chamados, histórico e solicitantes
+│   │   │   │   ├── unidade/                ← Gestão de unidades diagnósticas
+│   │   │   │   ├── catalogo/               ← Categorias e sistemas/equipamentos
+│   │   │   │   └── AvanDeskApiApplication.java
 │   │   │   └── resources/
-│   │   │       ├── db/migration/
-│   │   │       │   └── V1__init_schema.sql
+│   │   │       ├── db/migration/           ← Migrations versionadas (Flyway)
+│   │   │       ├── db/seed/                ← Seeds de desenvolvimento
 │   │   │       ├── application.yml
 │   │   │       └── application-prod.yml
 │   │   └── test/
@@ -231,6 +234,9 @@ AvanDesk-AI/
 │   ├── proxy.conf.json
 │   └── package.json
 ├── docs/
+│   ├── adr/
+│   │   ├── README.md
+│   │   └── ADR-001-modularizacao-package-by-feature.md
 │   ├── 01-analise-de-dominio-Nexo.md
 │   ├── 02-requisitos-funcionais.md
 │   ├── 03-requisitos-nao-funcionais.md
@@ -252,6 +258,7 @@ AvanDesk-AI/
 
 * 📑 [Convenções de Git Flow, Branches e Commits](./.github/convencoes-git-workflow-lumen.md)
 * 📋 [Template Oficial de Pull Request](./.github/pull_request_template.md)
+* 🏛️ [Architecture Decision Records (ADRs)](./docs/adr/README.md) — incl. [ADR-001: Modularização Package-by-Feature](./docs/adr/ADR-001-modularizacao-package-by-feature.md)
 * 🛠️ [Plano de Setup do Ambiente](./docs/plano-setup-ambiente.md)
 * ⚙️ [Definição Técnica & Ambiente](./docs/definicao-tecnica-ambiente.md)
 * 📊 [Análise de Domínio](./docs/01-analise-de-dominio-Nexo.md)
