@@ -13,6 +13,7 @@ import com.avandesk.api.chamado.entity.OrigemDado;
 import com.avandesk.api.chamado.entity.StatusChamado;
 import com.avandesk.api.chamado.entity.TipoEvento;
 import com.avandesk.api.chamado.service.ChamadoService;
+import com.avandesk.api.chamado.service.FilaChamadosService;
 import com.avandesk.api.core.config.SecurityConfig;
 import com.avandesk.api.core.exception.RecursoNaoEncontradoException;
 import com.avandesk.api.unidade.dto.UnidadeResumoResponse;
@@ -61,6 +62,9 @@ class ChamadoControllerTest {
 
     @MockitoBean
     private ChamadoService chamadoService;
+
+    @MockitoBean
+    private FilaChamadosService filaChamadosService;
 
     @MockitoBean
     private JwtService jwtService;
