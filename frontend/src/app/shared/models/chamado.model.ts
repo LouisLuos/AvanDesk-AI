@@ -268,15 +268,53 @@ export interface ResponsavelChamado {
   nome: string;
 }
 
+/** Uma linha da fila (GET /chamados, HU14). */
 export interface ChamadoResumo {
   id: string;
   codigo: string;
+  /** Primeira linha da descrição, com até 80 caracteres. */
   titulo: string;
   unidade: { id: string; nome: string };
+  categoria: ItemLista | null;
   canal_origem: CanalOrigem;
   status: StatusChamado;
+  /** Prioridade final; nula enquanto não houver triagem. */
   prioridade: PrioridadeChamado | null;
-  sla: SlaChamado;
+  /** Ainda não vem da API (o cálculo de SLA é de outra HU); só o modo simulado preenche. */
+  sla?: SlaChamado | null;
+  /** Nulo quando o chamado não tem responsável ("Não atribuído"). */
   responsavel: ResponsavelChamado | null;
+  aberto_em: string;
+  /** Último evento do histórico; sem eventos, a data de abertura. */
   atualizado_em: string;
+}
+
+/** Itens por página da fila (HU14). */
+export const TAMANHO_PAGINA_FILA = 20;
+
+/** Filtros da fila (GET /chamados). Todos opcionais; os informados se somam. */
+export interface FiltrosFila {
+  status?: StatusChamado[];
+  unidade_id?: string;
+  prioridade?: PrioridadeChamado;
+  sem_prioridade?: boolean;
+  canal_origem?: CanalOrigem;
+  responsavel_id?: string;
+  sem_responsavel?: boolean;
+  /** O servidor identifica o usuário pelo token. */
+  meus?: boolean;
+  /** Código exato (LUM-AAAA-NNNNNN), sem diferenciar maiúsculas. */
+  codigo?: string;
+}
+
+/** Página da fila, do mais recente para o mais antigo (GET /chamados). */
+export interface FilaChamados {
+  itens: ChamadoResumo[];
+  /** Número da página, começando em 0. */
+  pagina: number;
+  tamanho: number;
+  total_itens: number;
+  total_paginas: number;
+  /** Contagem com os mesmos filtros, menos o de status. Sempre traz os 9 status. */
+  totais_por_status: Record<StatusChamado, number>;
 }
