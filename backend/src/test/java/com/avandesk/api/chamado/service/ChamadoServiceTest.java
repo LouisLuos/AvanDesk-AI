@@ -25,6 +25,7 @@ import com.avandesk.api.unidade.entity.Unidade;
 import com.avandesk.api.unidade.service.UnidadeService;
 import com.avandesk.api.usuario.entity.Usuario;
 import com.avandesk.api.usuario.service.UsuarioLogadoService;
+import com.avandesk.api.usuario.service.UsuarioService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -81,6 +82,9 @@ class ChamadoServiceTest {
     @Mock
     private UsuarioLogadoService usuarioLogadoService;
 
+    @Mock
+    private UsuarioService usuarioService;
+
     private ChamadoService chamadoService;
 
     private final UUID unidadeId = UUID.randomUUID();
@@ -94,7 +98,7 @@ class ChamadoServiceTest {
     void configurar() {
         chamadoService = new ChamadoService(chamadoRepository, registroContatoRepository, eventoHistoricoService,
             unidadeService, categoriaService, sistemaEquipamentoService, solicitanteService, usuarioLogadoService,
-            new NexoProperties(OrigemDado.TESTE));
+            usuarioService, new NexoProperties(OrigemDado.TESTE));
         autor.setEmail("analista1@lumen.local");
     }
 

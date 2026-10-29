@@ -5,6 +5,7 @@ import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
 import com.avandesk.api.chamado.dto.FilaChamadosResponse;
 import com.avandesk.api.chamado.dto.FiltroChamados;
+import com.avandesk.api.chamado.dto.ResponsavelRequest;
 import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.Prioridade;
 import com.avandesk.api.chamado.entity.StatusChamado;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -69,5 +71,12 @@ public class ChamadoController {
     public ResponseEntity<ApiResponse<ChamadoDetalheResponse>> detalhar(@PathVariable UUID id) {
         ChamadoDetalheResponse chamado = chamadoService.detalhar(id);
         return ResponseEntity.ok(ApiResponse.sucesso(HttpStatus.OK, "Detalhes do chamado recuperados", chamado));
+    }
+
+    @PatchMapping("/{id}/responsavel")
+    public ResponseEntity<ApiResponse<ChamadoDetalheResponse>> atribuirResponsavel(
+        @PathVariable UUID id, @Valid @RequestBody ResponsavelRequest request) {
+        ChamadoDetalheResponse chamado = chamadoService.atribuirResponsavel(id, request.responsavelId());
+        return ResponseEntity.ok(ApiResponse.sucesso(HttpStatus.OK, "Responsável atribuído com sucesso", chamado));
     }
 }

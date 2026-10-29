@@ -16,11 +16,13 @@ import com.avandesk.api.chamado.entity.TipoEvento;
 import com.avandesk.api.chamado.repository.ChamadoRepository;
 import com.avandesk.api.chamado.repository.RegistroContatoRepository;
 import com.avandesk.api.core.config.NexoProperties;
+import com.avandesk.api.core.exception.OperacaoNaoPermitidaException;
 import com.avandesk.api.core.exception.RecursoNaoEncontradoException;
 import com.avandesk.api.unidade.entity.Unidade;
 import com.avandesk.api.unidade.service.UnidadeService;
 import com.avandesk.api.usuario.entity.Usuario;
 import com.avandesk.api.usuario.service.UsuarioLogadoService;
+import com.avandesk.api.usuario.service.UsuarioService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,6 +32,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -50,6 +53,7 @@ public class ChamadoService {
     private final SistemaEquipamentoService sistemaEquipamentoService;
     private final SolicitanteService solicitanteService;
     private final UsuarioLogadoService usuarioLogadoService;
+    private final UsuarioService usuarioService;
     private final NexoProperties nexoProperties;
 
     @Transactional
@@ -102,11 +106,53 @@ public class ChamadoService {
 
     @Transactional(readOnly = true)
     public ChamadoDetalheResponse detalhar(UUID id) {
-        Chamado chamado = chamadoRepository.findDetalheById(id)
+        return montarDetalhe(buscarParaDetalhe(id));
+    }
+
+    @Transactional
+    public ChamadoDetalheResponse atribuirResponsavel(UUID id, UUID responsavelId) {
+        Chamado chamado = buscarParaDetalhe(id);
+        if (chamado.getStatus().encerrado()) {
+            throw new OperacaoNaoPermitidaException(
+                "Não é possível atribuir um chamado com status %s.".formatted(chamado.getStatus()));
+        }
+        Usuario responsavel = usuarioService.obterAnalistaAtivo(responsavelId);
+        Usuario anterior = chamado.getResponsavel();
+        if (anterior != null && anterior.getId().equals(responsavel.getId())) {
+            throw new OperacaoNaoPermitidaException("O chamado já está com este responsável.");
+        }
+        Usuario autor = usuarioLogadoService.obterUsuarioLogado();
+
+        chamado.setResponsavel(responsavel);
+        registrarPrimeiraResposta(chamado);
+
+        Map<String, Object> dados = new LinkedHashMap<>();
+        dados.put("responsavel_id", responsavel.getId().toString());
+        dados.put("responsavel_nome", responsavel.getNome());
+        if (anterior != null) {
+            dados.put("responsavel_anterior_id", anterior.getId().toString());
+            dados.put("responsavel_anterior_nome", anterior.getNome());
+        }
+        eventoHistoricoService.registrar(chamado, TipoEvento.CHAMADO_ATRIBUIDO, autor, dados);
+
+        return montarDetalhe(chamado);
+    }
+
+    private Chamado buscarParaDetalhe(UUID id) {
+        return chamadoRepository.findDetalheById(id)
             .orElseThrow(() -> new RecursoNaoEncontradoException("Chamado não encontrado."));
-        List<RegistroContato> contatos = registroContatoRepository.findByChamadoIdOrderByOcorridoEmAsc(id);
-        List<EventoHistorico> eventos = eventoHistoricoService.listarDoChamado(id);
+    }
+
+    private ChamadoDetalheResponse montarDetalhe(Chamado chamado) {
+        List<RegistroContato> contatos = registroContatoRepository.findByChamadoIdOrderByOcorridoEmAsc(chamado.getId());
+        List<EventoHistorico> eventos = eventoHistoricoService.listarDoChamado(chamado.getId());
         return ChamadoDetalheResponse.de(chamado, contatos, eventos);
+    }
+
+    private static void registrarPrimeiraResposta(Chamado chamado) {
+        if (chamado.getPrimeiraRespostaEm() == null) {
+            chamado.setPrimeiraRespostaEm(Instant.now().truncatedTo(ChronoUnit.MICROS));
+        }
     }
 
     private String gerarCodigo(Instant abertoEm) {
