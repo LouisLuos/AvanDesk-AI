@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Subscription, finalize } from 'rxjs';
+import { Subject, Subscription, debounceTime, distinctUntilChanged, finalize } from 'rxjs';
 import { ChamadoService } from '../../../core/services/chamado.service';
 import { UnidadeService } from '../../../core/services/unidade.service';
 import { CustomDropdown } from '../../../shared/components/custom-dropdown/custom-dropdown';

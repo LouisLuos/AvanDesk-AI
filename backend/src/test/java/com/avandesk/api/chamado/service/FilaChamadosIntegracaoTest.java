@@ -190,6 +190,24 @@ class FilaChamadosIntegracaoTest {
     }
 
     @Test
+    void deveBuscarPeloNomeOuDescricaoDoChamado() {
+        emTransacaoDesfeita(dados -> {
+            Unidade unidade = dados.unidade();
+            Chamado impressora = dados.chamado(unidade, StatusChamado.ABERTO, AGORA);
+            impressora.setDescricao("Impressora de etiquetas travando na recepcao");
+            chamadoRepository.save(impressora);
+
+            Chamado rede = dados.chamado(unidade, StatusChamado.ABERTO, AGORA);
+            rede.setDescricao("Rede Wi-Fi sem sinal no laboratorio");
+            chamadoRepository.save(rede);
+
+            FiltroChamados filtro = new FiltroChamados(null, unidade.getId(), null, null, null, false, false, "impressora");
+
+            assertEquals(List.of(impressora.getCodigo()), codigos(listar(filtro, false, 0, 20)));
+        });
+    }
+
+    @Test
     void devePaginarSemRepetirNemPerderChamados() {
         emTransacaoDesfeita(dados -> {
             Unidade unidade = dados.unidade();

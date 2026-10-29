@@ -59,9 +59,14 @@ public final class ChamadoSpecification {
         return (root, query, cb) -> cb.equal(root.get("unidade").get("id"), unidadeId);
     }
 
-    /** A prioridade da fila é a final, definida pelo analista (a sugerida é só apoio). */
+    /**
+     * Filtra pela prioridade final avaliada ou sugerida.
+     */
     static Specification<Chamado> comPrioridade(Prioridade prioridade) {
-        return (root, query, cb) -> cb.equal(root.get("prioridadeFinal"), prioridade);
+        return (root, query, cb) -> cb.or(
+            cb.equal(root.get("prioridadeFinal"), prioridade),
+            cb.and(cb.isNull(root.get("prioridadeFinal")), cb.equal(root.get("prioridadeSugerida"), prioridade))
+        );
     }
 
     static Specification<Chamado> doCanal(CanalOrigem canal) {
@@ -76,14 +81,23 @@ public final class ChamadoSpecification {
         return (root, query, cb) -> cb.isNull(root.get("responsavel"));
     }
 
-    /** Chamados ainda sem prioridade final, ou seja, aguardando triagem. */
+    /** Chamados ainda sem prioridade definida (nem final nem sugerida). */
     static Specification<Chamado> semPrioridade() {
-        return (root, query, cb) -> cb.isNull(root.get("prioridadeFinal"));
+        return (root, query, cb) -> cb.and(
+            cb.isNull(root.get("prioridadeFinal")),
+            cb.isNull(root.get("prioridadeSugerida"))
+        );
     }
 
-    /** Busca exata: o código é gravado em maiúsculas (LUM-AAAA-NNNNNN). */
-    static Specification<Chamado> comCodigo(String codigo) {
-        String normalizado = codigo.trim().toUpperCase(Locale.ROOT);
-        return (root, query, cb) -> cb.equal(root.get("codigo"), normalizado);
+    /**
+     * Busca flexível por código (exato ou parcial) ou por palavras no nome/descrição do chamado (case-insensitive).
+     */
+    static Specification<Chamado> comCodigo(String termo) {
+        String normalizado = termo.trim().toLowerCase(Locale.ROOT);
+        String likePattern = "%" + normalizado + "%";
+        return (root, query, cb) -> cb.or(
+            cb.like(cb.lower(root.get("codigo")), likePattern),
+            cb.like(cb.lower(root.get("descricao")), likePattern)
+        );
     }
 }

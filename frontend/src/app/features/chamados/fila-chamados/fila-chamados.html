@@ -44,7 +44,7 @@
   <!-- Filtros -->
   <div role="search" class="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center" aria-label="Filtrar chamados">
     <div class="relative w-full lg:w-72">
-      <label for="filtro-busca" class="sr-only">Buscar pelo código do chamado</label>
+      <label for="filtro-busca" class="sr-only">Buscar pelo nome ou código do chamado</label>
       <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="11" cy="11" r="8" />
         <path d="m21 21-4.3-4.3" />
@@ -52,7 +52,7 @@
       <input
         id="filtro-busca"
         type="search"
-        placeholder="Buscar pelo código (ex.: LUM-2026-000127)"
+        placeholder="Buscar por nome ou código..."
         autocomplete="off"
         [value]="busca()"
         (input)="digitarBusca(valorInput($event))"

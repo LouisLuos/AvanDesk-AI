@@ -1,4 +1,4 @@
-﻿import {
+import {
   HttpErrorResponse,
   HttpInterceptorFn,
   HttpRequest,
@@ -339,7 +339,7 @@ function listarChamados(req: HttpRequest<unknown>): Observable<HttpResponse<unkn
   const responsavel = p.get('meus') === 'true' ? USUARIO_ATUAL.id : p.get('responsavel_id');
   const semResponsavel = p.get('sem_responsavel') === 'true';
   const semPrioridade = p.get('sem_prioridade') === 'true';
-  const codigo = p.get('codigo')?.trim().toUpperCase();
+  const termo = (p.get('termo') ?? p.get('codigo') ?? '').trim().toLowerCase();
   const pagina = Number(p.get('page') ?? 0);
   const tamanho = Number(p.get('size') ?? 20);
 
@@ -351,7 +351,7 @@ function listarChamados(req: HttpRequest<unknown>): Observable<HttpResponse<unkn
       (!canal || c.canal_origem === canal) &&
       (!responsavel || c.responsavel?.id === responsavel) &&
       (!semResponsavel || c.responsavel === null) &&
-      (!codigo || c.codigo === codigo),
+      (!termo || c.codigo.toLowerCase().includes(termo) || c.titulo.toLowerCase().includes(termo)),
   );
   const filtrados = semFiltroDeStatus
     .filter((c) => !status.length || status.includes(c.status))

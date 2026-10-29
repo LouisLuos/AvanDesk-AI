@@ -41,6 +41,7 @@ export class ChamadoService {
       sem_responsavel: filtros.sem_responsavel,
       meus: filtros.meus,
       codigo: filtros.codigo?.trim(),
+      termo: filtros.codigo?.trim(),
     };
     for (const [nome, valor] of Object.entries(valores)) {
       if (valor) params = params.set(nome, valor);

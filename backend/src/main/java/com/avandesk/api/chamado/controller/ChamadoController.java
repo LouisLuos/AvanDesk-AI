@@ -60,10 +60,12 @@ public class ChamadoController {
         @RequestParam(name = "sem_responsavel", defaultValue = "false") boolean semResponsavel,
         @RequestParam(name = "sem_prioridade", defaultValue = "false") boolean semPrioridade,
         @RequestParam(name = "meus", defaultValue = "false") boolean meus,
-        @RequestParam(name = "codigo", required = false) String codigo
+        @RequestParam(name = "codigo", required = false) String codigo,
+        @RequestParam(name = "termo", required = false) String termo
     ) {
+        String textoBusca = termo != null && !termo.isBlank() ? termo : codigo;
         FiltroChamados filtro = new FiltroChamados(
-            status, unidadeId, prioridade, canalOrigem, responsavelId, semResponsavel, semPrioridade, codigo);
+            status, unidadeId, prioridade, canalOrigem, responsavelId, semResponsavel, semPrioridade, textoBusca);
         FilaChamadosResponse fila = filaChamadosService.listar(filtro, meus, pagina, tamanho);
         return ResponseEntity.ok(ApiResponse.sucesso(HttpStatus.OK, "Chamados recuperados com sucesso", fila));
     }
