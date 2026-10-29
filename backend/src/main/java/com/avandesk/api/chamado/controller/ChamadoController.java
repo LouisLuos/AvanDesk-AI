@@ -6,6 +6,7 @@ import com.avandesk.api.chamado.dto.ChamadoResponse;
 import com.avandesk.api.chamado.dto.FilaChamadosResponse;
 import com.avandesk.api.chamado.dto.FiltroChamados;
 import com.avandesk.api.chamado.dto.ResponsavelRequest;
+import com.avandesk.api.chamado.dto.StatusRequest;
 import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.Prioridade;
 import com.avandesk.api.chamado.entity.StatusChamado;
@@ -78,5 +79,12 @@ public class ChamadoController {
         @PathVariable UUID id, @Valid @RequestBody ResponsavelRequest request) {
         ChamadoDetalheResponse chamado = chamadoService.atribuirResponsavel(id, request.responsavelId());
         return ResponseEntity.ok(ApiResponse.sucesso(HttpStatus.OK, "Responsável atribuído com sucesso", chamado));
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<ApiResponse<ChamadoDetalheResponse>> alterarStatus(
+        @PathVariable UUID id, @Valid @RequestBody StatusRequest request) {
+        ChamadoDetalheResponse chamado = chamadoService.alterarStatus(id, request);
+        return ResponseEntity.ok(ApiResponse.sucesso(HttpStatus.OK, "Status do chamado atualizado com sucesso", chamado));
     }
 }

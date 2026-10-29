@@ -7,11 +7,14 @@ import com.avandesk.api.catalogo.service.SistemaEquipamentoService;
 import com.avandesk.api.chamado.dto.ChamadoDetalheResponse;
 import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
+import com.avandesk.api.chamado.dto.StatusRequest;
 import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.DirecaoContato;
 import com.avandesk.api.chamado.entity.EventoHistorico;
+import com.avandesk.api.chamado.entity.MotivoEspera;
 import com.avandesk.api.chamado.entity.RegistroContato;
 import com.avandesk.api.chamado.entity.Solicitante;
+import com.avandesk.api.chamado.entity.StatusChamado;
 import com.avandesk.api.chamado.entity.TipoEvento;
 import com.avandesk.api.chamado.repository.ChamadoRepository;
 import com.avandesk.api.chamado.repository.RegistroContatoRepository;
@@ -138,6 +141,82 @@ public class ChamadoService {
         return montarDetalhe(chamado);
     }
 
+    @Transactional
+    public ChamadoDetalheResponse alterarStatus(UUID id, StatusRequest request) {
+        Chamado chamado = buscarParaDetalhe(id);
+        StatusChamado anterior = chamado.getStatus();
+        StatusChamado destino = request.status();
+        validarTransicao(anterior, destino);
+
+        Map<String, Object> dados = new LinkedHashMap<>();
+        dados.put("status_anterior", anterior.name());
+        TipoEvento tipo = switch (destino) {
+            case EM_TRIAGEM -> TipoEvento.TRIAGEM_INICIADA;
+            case EM_ATENDIMENTO -> iniciarAtendimento(chamado);
+            case AGUARDANDO -> colocarEmEspera(chamado, request.motivoEspera(), dados);
+            case CANCELADO -> cancelar(chamado, request.motivoCancelamento(), dados);
+            default -> throw new OperacaoNaoPermitidaException(
+                "O status %s tem operação própria e não pode ser definido por aqui.".formatted(destino));
+        };
+        Usuario autor = usuarioLogadoService.obterUsuarioLogado();
+
+        chamado.setStatus(destino);
+        registrarPrimeiraResposta(chamado);
+        eventoHistoricoService.registrar(chamado, tipo, autor, dados);
+
+        return montarDetalhe(chamado);
+    }
+
+    private static void validarTransicao(StatusChamado atual, StatusChamado destino) {
+        if (atual.encerrado()) {
+            throw new OperacaoNaoPermitidaException(
+                "Não é possível alterar o status de um chamado %s.".formatted(atual));
+        }
+        if (atual == destino) {
+            throw new OperacaoNaoPermitidaException("O chamado já está com status %s.".formatted(atual));
+        }
+        if (!atual.podeIrPara(destino)) {
+            throw new OperacaoNaoPermitidaException("Não é possível ir de %s para %s.".formatted(atual, destino));
+        }
+    }
+
+    private static TipoEvento iniciarAtendimento(Chamado chamado) {
+        return switch (chamado.getStatus()) {
+            case EM_TRIAGEM -> {
+                if (chamado.getResponsavel() == null) {
+                    throw new OperacaoNaoPermitidaException("Atribua um responsável antes de iniciar o atendimento.");
+                }
+                yield TipoEvento.CHAMADO_TRIADO;
+            }
+            case AGUARDANDO -> {
+                chamado.setMotivoEspera(null);
+                chamado.setEsperaIniciadaEm(null);
+                yield TipoEvento.RETORNO_RECEBIDO;
+            }
+            default -> throw new OperacaoNaoPermitidaException(
+                "A retomada de chamado %s ainda não está disponível.".formatted(chamado.getStatus()));
+        };
+    }
+
+    private static TipoEvento colocarEmEspera(Chamado chamado, MotivoEspera motivo, Map<String, Object> dados) {
+        if (motivo == null) {
+            throw new OperacaoNaoPermitidaException("Informe o motivo_espera para colocar o chamado em AGUARDANDO.");
+        }
+        chamado.setMotivoEspera(motivo);
+        chamado.setEsperaIniciadaEm(agora());
+        dados.put("motivo_espera", motivo.name());
+        return TipoEvento.CHAMADO_AGUARDANDO;
+    }
+
+    private static TipoEvento cancelar(Chamado chamado, String motivo, Map<String, Object> dados) {
+        if (motivo == null || motivo.isBlank()) {
+            throw new OperacaoNaoPermitidaException("Informe o motivo_cancelamento para cancelar o chamado.");
+        }
+        chamado.setMotivoCancelamento(motivo.trim());
+        dados.put("motivo_cancelamento", motivo.trim());
+        return TipoEvento.CHAMADO_CANCELADO;
+    }
+
     private Chamado buscarParaDetalhe(UUID id) {
         return chamadoRepository.findDetalheById(id)
             .orElseThrow(() -> new RecursoNaoEncontradoException("Chamado não encontrado."));
@@ -151,8 +230,12 @@ public class ChamadoService {
 
     private static void registrarPrimeiraResposta(Chamado chamado) {
         if (chamado.getPrimeiraRespostaEm() == null) {
-            chamado.setPrimeiraRespostaEm(Instant.now().truncatedTo(ChronoUnit.MICROS));
+            chamado.setPrimeiraRespostaEm(agora());
         }
+    }
+
+    private static Instant agora() {
+        return Instant.now().truncatedTo(ChronoUnit.MICROS);
     }
 
     private String gerarCodigo(Instant abertoEm) {
