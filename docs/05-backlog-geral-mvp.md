@@ -204,7 +204,7 @@ flowchart TD
 
 ### 🏷️ [HU14] Listar e buscar chamados
 
-- **Status:** ⏳ A iniciar (FE pronto com mock) · **Responsáveis:** Aguinaldo (BE), Pedro (FE), Marcos (QA)
+- **Status:** 🔄 Em andamento (BE pronto; FE a integrar com a API) · **Responsáveis:** Aguinaldo (BE), Pedro (FE), Marcos (QA)
 - **RF:** RF-003 · **Métricas:** M02, apoio a M03
 
 **História:** Como analista de suporte, quero listar e buscar chamados com filtros, para encontrar rapidamente os atendimentos que preciso tratar ou consultar.
@@ -224,14 +224,14 @@ flowchart TD
 
 **Tarefas técnicas**
 - [x] **[FE]** Tela da fila com filtros e badges (`features/chamados/fila-chamados`, 5 testes Vitest).
-- [ ] **[BE]** `ChamadoSpecification` (Spring Data JPA) para filtros dinâmicos.
-- [ ] **[BE]** `GET /api/v1/chamados` com `Pageable` e filtros opcionais (`unidade_id`, `status`, `prioridade`, `responsavel_id`, `codigo`).
-- [ ] **[BE]** Atualizar `openapi-mvp.yaml` e `06-documentacao-api-mvp.md` com o contrato paginado.
+- [x] **[BE]** `ChamadoSpecification` (Spring Data JPA) para filtros dinâmicos.
+- [x] **[BE]** `GET /api/v1/chamados` com `Pageable` e filtros opcionais (`unidade_id`, `status`, `prioridade`, `responsavel_id`, `codigo`), mais `canal_origem`, `sem_responsavel`, `meus` (pelo token) e `totais_por_status` para os cartões (`FilaChamadosService`).
+- [x] **[BE]** Atualizar `openapi-mvp.yaml` e `06-documentacao-api-mvp.md` com o contrato paginado.
 - [ ] **[FE]** Ajustar `ChamadoService.listar()` ao formato paginado e desligar o mock da fila.
-- [ ] **[QA]** Teste de integração de filtros combinados: status + unidade + prioridade + responsável (interseção correta).
-- [ ] **[QA]** Teste do filtro rápido "Meus chamados": assegurar que filtra exatamente pelo ID do analista autenticado no JWT.
-- [ ] **[QA]** Teste de performance de listagem (RNF-004): carga com 1.000 chamados no banco garantindo tempo de resposta p95 < 1.000 ms.
-- [ ] **[QA]** Teste de paginação e ordenação: validar consistência de `page`, `size` e ordenação `aberto_em DESC`.
+- [x] **[QA]** Teste de integração de filtros combinados: status + unidade + prioridade + responsável (interseção correta) (`FilaChamadosIntegracaoTest`).
+- [x] **[QA]** Teste do filtro rápido "Meus chamados": assegurar que filtra exatamente pelo ID do analista autenticado no JWT (`FilaChamadosIntegracaoTest`).
+- [x] **[QA]** Teste de performance de listagem (RNF-004): carga com 1.000 chamados no banco garantindo tempo de resposta p95 < 1.000 ms (`FilaChamadosPerformanceTest`; medido localmente: 24 ms).
+- [x] **[QA]** Teste de paginação e ordenação: validar consistência de `page`, `size` e ordenação `aberto_em DESC` (`FilaChamadosIntegracaoTest`).
 
 ### 🏷️ [HU02] Consultar o histórico do chamado — ✅ Concluído
 

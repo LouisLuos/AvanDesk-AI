@@ -235,6 +235,102 @@ components:
               detalhes:
                 type: object
                 additionalProperties: true
+    ChamadoResumoResponse:
+      type: object
+      description: "Uma linha da fila de chamados (HU14). Ainda sem SLA: o cálculo do prazo é de outra HU."
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+          example: LUM-2026-000162
+        titulo:
+          type: string
+          description: "Primeira linha da descrição, com até 80 caracteres (cortada com '…')."
+          example: Impressora de etiquetas da coleta parada
+        unidade:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            nome:
+              type: string
+              example: U.03 Boa Viagem
+        categoria:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/ItemListaResponse'
+        canal_origem:
+          type: string
+          enum: [LIGACAO, PRESENCIAL, WHATSAPP, EMAIL]
+        status:
+          type: string
+          enum: [ABERTO, EM_TRIAGEM, EM_ATENDIMENTO, AGUARDANDO, RESOLVIDO, REABERTO, FECHADO, CANCELADO, MESCLADO]
+        prioridade:
+          type: string
+          nullable: true
+          enum: [ALTA, MEDIA, BAIXA]
+          description: "Prioridade final definida pelo analista; nula enquanto não houver triagem."
+        responsavel:
+          type: object
+          nullable: true
+          description: "Nulo quando o chamado não tem responsável (\"Não atribuído\")."
+          properties:
+            id:
+              type: string
+              format: uuid
+            nome:
+              type: string
+              example: Analista Dev Um
+        aberto_em:
+          type: string
+          format: date-time
+          example: "2026-10-29T12:00:00Z"
+        atualizado_em:
+          type: string
+          format: date-time
+          description: "Último evento do histórico; sem eventos, a data de abertura."
+          example: "2026-10-29T12:30:00Z"
+    FilaChamadosResponse:
+      type: object
+      description: "Página da fila de chamados (HU14), do mais recente para o mais antigo."
+      properties:
+        itens:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChamadoResumoResponse'
+        pagina:
+          type: integer
+          description: "Número da página, começando em 0."
+          example: 0
+        tamanho:
+          type: integer
+          example: 20
+        total_itens:
+          type: integer
+          format: int64
+          example: 31
+        total_paginas:
+          type: integer
+          example: 2
+        totais_por_status:
+          type: object
+          description: "Quantos chamados de cada status atendem aos filtros, ignorando o filtro de status (cartões do topo). Sempre traz os 9 status, mesmo com zero."
+          additionalProperties:
+            type: integer
+            format: int64
+          example:
+            ABERTO: 12
+            EM_TRIAGEM: 5
+            EM_ATENDIMENTO: 9
+            AGUARDANDO: 4
+            RESOLVIDO: 1
+            REABERTO: 0
+            FECHADO: 0
+            CANCELADO: 0
+            MESCLADO: 0
     ItemListaResponse:
       type: object
       description: "Item das listas do formulário de registro (categorias e sistemas/equipamentos)."
@@ -532,6 +628,114 @@ paths:
                     items:
                       $ref: '#/components/schemas/ItemListaResponse'
   /chamados:
+    get:
+      summary: Listar e buscar chamados na fila (HU14)
+      description: |
+        Fila paginada, do mais recente para o mais antigo (aberto_em DESC, id para desempatar). A ordem é fixa.
+        Todos os filtros são opcionais e se somam: cada filtro informado restringe mais o resultado.
+        Valor inválido em um filtro (ex.: status=XPTO) responde 400.
+      tags:
+        - Chamados
+      parameters:
+        - in: query
+          name: page
+          required: false
+          description: Número da página, começando em 0.
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: size
+          required: false
+          description: Itens por página (1 a 100).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: status
+          required: false
+          description: Um ou mais status. Para vários, repita o parâmetro (status=ABERTO&status=EM_TRIAGEM).
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [ABERTO, EM_TRIAGEM, EM_ATENDIMENTO, AGUARDANDO, RESOLVIDO, REABERTO, FECHADO, CANCELADO, MESCLADO]
+        - in: query
+          name: unidade_id
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: prioridade
+          required: false
+          description: Prioridade final.
+          schema:
+            type: string
+            enum: [ALTA, MEDIA, BAIXA]
+        - in: query
+          name: canal_origem
+          required: false
+          schema:
+            type: string
+            enum: [LIGACAO, PRESENCIAL, WHATSAPP, EMAIL]
+        - in: query
+          name: responsavel_id
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: sem_responsavel
+          required: false
+          description: Só chamados sem responsável (responsavel_id IS NULL).
+          schema:
+            type: boolean
+            default: false
+        - in: query
+          name: meus
+          required: false
+          description: Só chamados do usuário autenticado, identificado pelo token (o cliente não envia o id). Junto com um responsavel_id de outra pessoa, o resultado é vazio.
+          schema:
+            type: boolean
+            default: false
+        - in: query
+          name: codigo
+          required: false
+          description: Código exato do chamado (LUM-AAAA-NNNNNN), sem diferenciar maiúsculas.
+          schema:
+            type: string
+            example: LUM-2026-000162
+      responses:
+        '200':
+          description: Página da fila com os totais por status
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/FilaChamadosResponse'
+        '400':
+          description: Paginação fora dos limites ou valor inválido em um filtro
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 400
+                message: "Erro de validação"
+                data: null
+                errors: ["O parâmetro 'size' deve estar entre 1 e 100."]
+        '401':
+          description: Sem token ou token inválido
     post:
       summary: Registrar um Chamado (HU01)
       tags:

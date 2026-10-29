@@ -1,7 +1,7 @@
 # 📄 Documentação da API - MVP (Nexo)
 
 > **Projeto:** Nexo - Plataforma de Gerenciamento de Chamados (Rede Lúmen Diagnósticos)  
-> **Referência:** Histórias de Usuário HU01 a HU05, HU09, HU10 e HU11
+> **Referência:** Histórias de Usuário HU01 a HU05, HU09, HU10, HU11 e HU14
 
 Esta documentação descreve os endpoints da API RESTful projetada para atender aos fluxos do MVP. O design foi concebido com base nas regras de negócio hospitalares da Rede Lúmen: chamados não devem transitar dados clínicos sensíveis (LGPD / RN01), devem estar associados a uma unidade válida e a auditoria do histórico é estritamente imutável.
 
@@ -384,7 +384,78 @@ Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 e
 
 ---
 
-## 6. Evolução do Ciclo de Atendimento (HU03, HU04, HU10, HU12, HU13 — Planejados)
+## 6. Listar e Buscar Chamados na Fila (HU14)
+
+Lista os chamados de forma paginada, **do mais recente para o mais antigo** (`aberto_em DESC`, com `id` para desempatar). A ordem é fixa: o cliente não escolhe o campo. Todos os filtros são opcionais e **se somam** (cada filtro informado restringe mais o resultado). A resposta também traz os totais por status para os cartões do topo da tela.
+
+* **Endpoint:** `GET /chamados` (ex.: `GET /chamados?meus=true&status=EM_ATENDIMENTO`)
+* **Autenticação:** Bearer Token (Analista de Suporte ou Liderança de TI)
+
+### Query Parameters
+
+| Parâmetro | Tipo | Padrão | Descrição |
+| :--- | :--- | :---: | :--- |
+| `page` | `integer` | `0` | Número da página, começando em 0. |
+| `size` | `integer` | `20` | Itens por página, de 1 a 100. |
+| `status` | `string` (repetível) | — | Um ou mais status. Para vários, repita: `status=ABERTO&status=EM_TRIAGEM`. |
+| `unidade_id` | `uuid` | — | Chamados de uma unidade. |
+| `prioridade` | `string` | — | Prioridade **final**: `ALTA`, `MEDIA` ou `BAIXA`. |
+| `canal_origem` | `string` | — | `LIGACAO`, `PRESENCIAL`, `WHATSAPP` ou `EMAIL`. |
+| `responsavel_id` | `uuid` | — | Chamados atribuídos a um analista. |
+| `sem_responsavel` | `boolean` | `false` | Só chamados sem responsável (`responsavel_id IS NULL`), para triagem. |
+| `meus` | `boolean` | `false` | Só chamados do usuário autenticado. O servidor identifica o usuário pelo token; o cliente não envia o id. Junto com um `responsavel_id` de outra pessoa, o resultado é vazio. |
+| `codigo` | `string` | — | Código exato (`LUM-AAAA-NNNNNN`), sem diferenciar maiúsculas. |
+
+### Response: `200 OK`
+
+```json
+{
+  "status_code": 200,
+  "message": "Chamados recuperados com sucesso",
+  "data": {
+    "itens": [
+      {
+        "id": "7f1c2b9e-5d3a-4c1e-9b2f-0a8d6e4c3b21",
+        "codigo": "LUM-2026-000162",
+        "titulo": "Impressora de etiquetas da coleta parada",
+        "unidade": { "id": "a1f0c3e2-0001-4000-8000-000000000001", "nome": "U.03 Boa Viagem" },
+        "categoria": { "id": "c4e0a000-0002-4000-8000-000000000002", "nome": "Equipamento de apoio" },
+        "canal_origem": "LIGACAO",
+        "status": "ABERTO",
+        "prioridade": null,
+        "responsavel": null,
+        "aberto_em": "2026-10-29T12:00:00Z",
+        "atualizado_em": "2026-10-29T12:30:00Z"
+      }
+    ],
+    "pagina": 0,
+    "tamanho": 20,
+    "total_itens": 31,
+    "total_paginas": 2,
+    "totais_por_status": {
+      "ABERTO": 12, "EM_TRIAGEM": 5, "EM_ATENDIMENTO": 9, "AGUARDANDO": 4, "RESOLVIDO": 1,
+      "REABERTO": 0, "FECHADO": 0, "CANCELADO": 0, "MESCLADO": 0
+    }
+  },
+  "errors": null
+}
+```
+
+* **`titulo`:** primeira linha da descrição, com até 80 caracteres (cortada com `…`).
+* **`prioridade`:** prioridade final; `null` enquanto não houver triagem.
+* **`responsavel`:** `null` quando o chamado não tem responsável ("Não atribuído").
+* **`atualizado_em`:** data do último evento do histórico; sem eventos, a data de abertura.
+* **`totais_por_status`:** contagem com os mesmos filtros, **menos o de status**, para os cartões continuarem mostrando todos os status. Os 9 status sempre aparecem, mesmo com zero.
+* **SLA:** ainda não vem na resposta. O cálculo de prazo é de outra HU; a tela exibe "—".
+
+### Erros
+
+* `400 Bad Request`: `page` negativo, `size` fora de 1 a 100 (`"O parâmetro 'size' deve estar entre 1 e 100."`) ou valor inválido em um filtro (ex.: `status=XPTO`, `unidade_id` que não é UUID).
+* `401 Unauthorized`: sem token ou com token inválido.
+
+---
+
+## 7. Evolução do Ciclo de Atendimento (HU03, HU04, HU10, HU12, HU13 — Planejados)
 
 * **`PATCH /chamados/{id}/responsavel`** (`HU12`): assumir ou reatribuir o chamado a um analista ativo.
 * **`PATCH /chamados/{id}/status`** (`HU12`): atualizar status respeitando a máquina de estados do domínio.
