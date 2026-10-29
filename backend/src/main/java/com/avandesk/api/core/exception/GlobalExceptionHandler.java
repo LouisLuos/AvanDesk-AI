@@ -22,6 +22,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return responder(HttpStatus.BAD_REQUEST, "Erro de validação", List.of(ex.getMessage()));
     }
 
+    @ExceptionHandler(OperacaoNaoPermitidaException.class)
+    public ResponseEntity<ApiResponse<Void>> tratarOperacaoNaoPermitida(OperacaoNaoPermitidaException ex) {
+        return responder(HttpStatus.UNPROCESSABLE_CONTENT, "Operação não permitida", List.of(ex.getMessage()));
+    }
+
     @ExceptionHandler({org.springframework.security.authentication.BadCredentialsException.class,
                        org.springframework.security.core.AuthenticationException.class})
     public ResponseEntity<ApiResponse<Void>> tratarAutenticacao(Exception ex) {
