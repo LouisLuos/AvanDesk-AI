@@ -179,8 +179,9 @@ export class NovoChamado implements OnInit {
     this.registroIniciadoEm = new Date();
     this.carregarUnidades();
     this.carregarListas();
-    this.chamadoService.listar().subscribe({
-      next: (lista) => this.chamadosExistentes.set(lista),
+    // Possíveis duplicidades: compara com os chamados mais recentes da fila (até 100).
+    this.chamadoService.listar({}, 0, 100).subscribe({
+      next: (fila) => this.chamadosExistentes.set(fila.itens),
       error: () => this.chamadosExistentes.set([]),
     });
   }

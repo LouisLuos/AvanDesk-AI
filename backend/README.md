@@ -118,4 +118,6 @@ curl -X POST http://localhost:8080/api/v1/auth/logout \
 | `PATCH /api/v1/unidades/{id}/desativar` | Bearer JWT | Desativa logicamente uma unidade (`HU11`) |
 | `GET /api/v1/categorias` | Bearer JWT | Lista categorias de problema ativas ordenadas por nome (`HU01`) |
 | `GET /api/v1/sistemas-equipamentos` | Bearer JWT | Lista sistemas/equipamentos ativos ordenados por nome (`HU01`) |
+| `GET /api/v1/chamados` | Bearer JWT | Fila paginada (`page`, `size` até 100), mais recentes primeiro, com filtros `status`, `unidade_id`, `prioridade`, `canal_origem`, `responsavel_id`, `sem_responsavel`, `sem_prioridade`, `meus` e `codigo`, e totais por status (`HU14`) |
 | `POST /api/v1/chamados` | Bearer JWT | Registra chamado com contato inicial, eventos imutáveis e M11 (`HU01`) |
+| `GET /api/v1/chamados/{id}` | Bearer JWT | Detalhe do chamado com contatos, responsável e histórico (`HU02`, `HU05`) |
