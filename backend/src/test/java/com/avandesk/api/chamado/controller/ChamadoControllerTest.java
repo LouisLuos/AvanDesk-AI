@@ -4,18 +4,23 @@ import com.avandesk.api.catalogo.dto.CategoriaResponse;
 import com.avandesk.api.chamado.dto.ChamadoDetalheResponse;
 import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
+import com.avandesk.api.chamado.dto.ChamadoResumoResponse;
 import com.avandesk.api.chamado.dto.EventoHistoricoResponse;
+import com.avandesk.api.chamado.dto.FilaChamadosResponse;
+import com.avandesk.api.chamado.dto.FiltroChamados;
 import com.avandesk.api.chamado.dto.RegistroContatoResponse;
 import com.avandesk.api.chamado.dto.SolicitanteResponse;
 import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.DirecaoContato;
 import com.avandesk.api.chamado.entity.OrigemDado;
+import com.avandesk.api.chamado.entity.Prioridade;
 import com.avandesk.api.chamado.entity.StatusChamado;
 import com.avandesk.api.chamado.entity.TipoEvento;
 import com.avandesk.api.chamado.service.ChamadoService;
 import com.avandesk.api.chamado.service.FilaChamadosService;
 import com.avandesk.api.core.config.SecurityConfig;
 import com.avandesk.api.core.exception.RecursoNaoEncontradoException;
+import com.avandesk.api.core.exception.RegraNegocioException;
 import com.avandesk.api.unidade.dto.UnidadeResumoResponse;
 import com.avandesk.api.usuario.service.JwtService;
 import org.junit.jupiter.api.Test;
@@ -27,14 +32,20 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import org.mockito.ArgumentCaptor;
+
 import java.time.Instant;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -214,5 +225,113 @@ class ChamadoControllerTest {
             .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(chamadoService);
+    }
+
+    // ---------- fila de chamados (HU14) ----------
+
+    @Test
+    @WithMockUser
+    void deveListarAFilaNoEnvelopePadraoEmSnakeCase() throws Exception {
+        UUID id = UUID.randomUUID();
+        ChamadoResumoResponse linha = new ChamadoResumoResponse(
+            id, "LUM-2026-000162", "Impressora de etiquetas parada",
+            new UnidadeResumoResponse(UUID.randomUUID(), "U.03 Boa Viagem"),
+            new CategoriaResponse(UUID.randomUUID(), "Equipamento de apoio"),
+            CanalOrigem.LIGACAO, StatusChamado.ABERTO, null, null,
+            Instant.parse("2026-10-29T12:00:00Z"), Instant.parse("2026-10-29T12:30:00Z"));
+        Map<StatusChamado, Long> totais = new EnumMap<>(StatusChamado.class);
+        totais.put(StatusChamado.ABERTO, 1L);
+        when(filaChamadosService.listar(any(), eq(false), eq(0), eq(20)))
+            .thenReturn(new FilaChamadosResponse(List.of(linha), 0, 20, 1, 1, totais));
+
+        mockMvc.perform(get("/api/v1/chamados"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status_code").value(200))
+            .andExpect(jsonPath("$.data.itens[0].codigo").value("LUM-2026-000162"))
+            .andExpect(jsonPath("$.data.itens[0].canal_origem").value("LIGACAO"))
+            .andExpect(jsonPath("$.data.itens[0].responsavel").value(nullValue()))
+            .andExpect(jsonPath("$.data.itens[0].aberto_em").value(endsWith("Z")))
+            .andExpect(jsonPath("$.data.itens[0].atualizado_em").value("2026-10-29T12:30:00Z"))
+            .andExpect(jsonPath("$.data.total_itens").value(1))
+            .andExpect(jsonPath("$.data.total_paginas").value(1))
+            .andExpect(jsonPath("$.data.totais_por_status.ABERTO").value(1));
+    }
+
+    @Test
+    @WithMockUser
+    void deveRepassarTodosOsFiltrosEStatusRepetidoAoServico() throws Exception {
+        UUID unidadeId = UUID.randomUUID();
+        UUID responsavelId = UUID.randomUUID();
+        when(filaChamadosService.listar(any(), eq(true), eq(1), eq(50))).thenReturn(paginaVazia());
+
+        mockMvc.perform(get("/api/v1/chamados")
+                .param("page", "1").param("size", "50")
+                .param("status", "ABERTO").param("status", "EM_TRIAGEM")
+                .param("unidade_id", unidadeId.toString())
+                .param("prioridade", "ALTA")
+                .param("canal_origem", "WHATSAPP")
+                .param("responsavel_id", responsavelId.toString())
+                .param("sem_responsavel", "true")
+                .param("meus", "true")
+                .param("codigo", "lum-2026-000162"))
+            .andExpect(status().isOk());
+
+        ArgumentCaptor<FiltroChamados> filtro = ArgumentCaptor.forClass(FiltroChamados.class);
+        verify(filaChamadosService).listar(filtro.capture(), eq(true), eq(1), eq(50));
+        assertEquals(new FiltroChamados(List.of(StatusChamado.ABERTO, StatusChamado.EM_TRIAGEM), unidadeId,
+            Prioridade.ALTA, CanalOrigem.WHATSAPP, responsavelId, true, "lum-2026-000162"), filtro.getValue());
+    }
+
+    @Test
+    @WithMockUser
+    void deveUsarPagina0Tamanho20ESemFiltrosPorPadrao() throws Exception {
+        when(filaChamadosService.listar(any(), eq(false), eq(0), eq(20))).thenReturn(paginaVazia());
+
+        mockMvc.perform(get("/api/v1/chamados")).andExpect(status().isOk());
+
+        verify(filaChamadosService).listar(
+            new FiltroChamados(null, null, null, null, null, false, null), false, 0, 20);
+    }
+
+    @Test
+    @WithMockUser
+    void deveRecusarStatusInexistenteCom400() throws Exception {
+        mockMvc.perform(get("/api/v1/chamados").param("status", "XPTO"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status_code").value(400))
+            .andExpect(jsonPath("$.message").value("Requisição inválida"));
+
+        verifyNoInteractions(filaChamadosService);
+    }
+
+    @Test
+    @WithMockUser
+    void deveRecusarUnidadeQueNaoEUuidCom400() throws Exception {
+        mockMvc.perform(get("/api/v1/chamados").param("unidade_id", "boa-viagem"))
+            .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(filaChamadosService);
+    }
+
+    @Test
+    @WithMockUser
+    void deveDevolver400DoServicoQuandoOTamanhoEstaForaDoLimite() throws Exception {
+        when(filaChamadosService.listar(any(), eq(false), eq(0), eq(500)))
+            .thenThrow(new RegraNegocioException("O parâmetro 'size' deve estar entre 1 e 100."));
+
+        mockMvc.perform(get("/api/v1/chamados").param("size", "500"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.errors[0]").value("O parâmetro 'size' deve estar entre 1 e 100."));
+    }
+
+    @Test
+    void deveExigirLoginParaListar() throws Exception {
+        mockMvc.perform(get("/api/v1/chamados")).andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(filaChamadosService);
+    }
+
+    private static FilaChamadosResponse paginaVazia() {
+        return new FilaChamadosResponse(List.of(), 0, 20, 0, 0, new EnumMap<>(StatusChamado.class));
     }
 }
