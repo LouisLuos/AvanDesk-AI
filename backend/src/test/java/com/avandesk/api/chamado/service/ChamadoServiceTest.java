@@ -3,12 +3,14 @@ package com.avandesk.api.chamado.service;
 import com.avandesk.api.catalogo.entity.Categoria;
 import com.avandesk.api.catalogo.service.CategoriaService;
 import com.avandesk.api.catalogo.service.SistemaEquipamentoService;
+import com.avandesk.api.chamado.dto.ChamadoDetalheResponse;
 import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
 import com.avandesk.api.chamado.dto.SolicitanteRequest;
 import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.DirecaoContato;
+import com.avandesk.api.chamado.entity.EventoHistorico;
 import com.avandesk.api.chamado.entity.OrigemDado;
 import com.avandesk.api.chamado.entity.RegistroContato;
 import com.avandesk.api.chamado.entity.Solicitante;
@@ -29,10 +31,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -211,6 +216,76 @@ class ChamadoServiceTest {
         chamadoService.registrar(request("Impressora de etiquetas parada.", Instant.now().minusSeconds(3 * 3600)));
 
         assertNull(chamadoSalvo().getRegistroIniciadoEm());
+    }
+
+    // ---------- detalhar (HU02 / HU05) ----------
+
+    @Test
+    void deveDetalharChamadoComContatosEHistoricoOrdenados() {
+        UUID chamadoId = UUID.randomUUID();
+        unidade.setId(unidadeId);
+        unidade.setNome("U.03 Boa Viagem");
+        categoria.setId(categoriaId);
+        categoria.setNome("Equipamento de apoio");
+        solicitante.setNome("Recepção Boa Viagem");
+        solicitante.setTelefone("+5581999999999");
+        autor.setNome("Analista Dev Um");
+
+        Chamado chamado = new Chamado();
+        chamado.setId(chamadoId);
+        chamado.setCodigo("LUM-2026-000001");
+        chamado.setUnidade(unidade);
+        chamado.setCategoria(categoria);
+        chamado.setSolicitante(solicitante);
+        chamado.setCanalOrigem(CanalOrigem.LIGACAO);
+        chamado.setDescricao("Impressora de etiquetas parada.");
+        chamado.setStatus(StatusChamado.ABERTO);
+        chamado.setAbertoEm(Instant.parse("2026-10-29T12:00:00Z"));
+        chamado.setOrigemDado(OrigemDado.TESTE);
+
+        RegistroContato contato = new RegistroContato();
+        contato.setId(UUID.randomUUID());
+        contato.setChamado(chamado);
+        contato.setSolicitante(solicitante);
+        contato.setCanal(CanalOrigem.LIGACAO);
+        contato.setDirecao(DirecaoContato.RECEBIDO);
+        contato.setConteudo("Impressora de etiquetas parada.");
+        contato.setOcorridoEm(chamado.getAbertoEm());
+        contato.setRegistradoPor(autor);
+
+        EventoHistorico evento = new EventoHistorico(
+            chamado,
+            TipoEvento.CHAMADO_ABERTO,
+            chamado.getAbertoEm(),
+            autor,
+            Map.of("canal", "LIGACAO"),
+            chamado.getOrigemDado()
+        );
+        ReflectionTestUtils.setField(evento, "id", UUID.randomUUID());
+
+        when(chamadoRepository.findDetalheById(chamadoId)).thenReturn(Optional.of(chamado));
+        when(registroContatoRepository.findByChamadoIdOrderByOcorridoEmAsc(chamadoId)).thenReturn(List.of(contato));
+        when(eventoHistoricoService.listarDoChamado(chamadoId)).thenReturn(List.of(evento));
+
+        ChamadoDetalheResponse detalhe = chamadoService.detalhar(chamadoId);
+
+        assertEquals(chamadoId, detalhe.id());
+        assertEquals("LUM-2026-000001", detalhe.codigo());
+        assertEquals(StatusChamado.ABERTO, detalhe.status());
+        assertNull(detalhe.responsavel());
+        assertEquals(1, detalhe.registrosContato().size());
+        assertEquals(1, detalhe.historico().size());
+        assertEquals(TipoEvento.CHAMADO_ABERTO, detalhe.historico().getFirst().tipo());
+        assertEquals("Analista Dev Um", detalhe.historico().getFirst().autor());
+    }
+
+    @Test
+    void deveLancar404AoDetalharChamadoInexistente() {
+        UUID chamadoId = UUID.randomUUID();
+        when(chamadoRepository.findDetalheById(chamadoId)).thenReturn(Optional.empty());
+
+        assertThrows(RecursoNaoEncontradoException.class, () -> chamadoService.detalhar(chamadoId));
+        verifyNoInteractions(registroContatoRepository, eventoHistoricoService);
     }
 
     // ---------- apoio ----------
