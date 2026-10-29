@@ -26,9 +26,9 @@ import { USUARIO_ATUAL } from '../../shared/utils/usuario-atual';
 /**
  * API simulada em memória para desenvolver o frontend antes do backend ficar pronto.
  * Ativada por `environment.useMocks`. Quando `useMocks = false` (modo integração),
- * repassa todos os endpoints já implementados no backend (/auth/login, /unidades,
- * /categorias, /sistemas-equipamentos e POST /chamados) para o servidor real, mantendo
- * apenas o fallback provisório de GET /chamados e GET /chamados/:id até a HU14 e HU02.
+ * repassa todos os endpoints já implementados no backend (/auth/*, /unidades*,
+ * /categorias, /sistemas-equipamentos, POST /chamados e GET /chamados/{uuid}) para o servidor real,
+ * mantendo apenas o fallback provisório de GET /chamados e sementes chm-* até a HU14.
  */
 
 const LATENCIA_MS = 400;
@@ -147,7 +147,7 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
 
   const caminho = req.url.substring(apiIndex + environment.apiUrl.length);
 
-  // Endpoints ainda não implementados no backend (HU14: GET /chamados e HU02: GET /chamados/:id)
+  // Endpoint ainda não implementado no backend (HU14: GET /chamados)
   if (caminho === '/chamados' && req.method === 'GET') {
     return sucesso(
       HttpStatusCode.Ok,
@@ -158,11 +158,20 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
 
   const detalheMatch = caminho.match(/^\/chamados\/([^/]+)$/);
   if (detalheMatch && req.method === 'GET') {
-    return obterDetalheChamado(detalheMatch[1]);
+    const idParam = detalheMatch[1];
+    const ehUuidReal = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      idParam,
+    );
+    // Na HU02/HU05, GET /api/v1/chamados/{id} está pronto no backend para UUIDs reais;
+    // sementes locais provisórias da fila (chm-*) continuam usando o fallback em memória até a HU14.
+    if (!environment.useMocks && ehUuidReal) {
+      return next(req);
+    }
+    return obterDetalheChamado(idParam);
   }
 
   // Quando o modo simulado está desligado (useMocks = false), todas as rotas de backend já prontas
-  // (/auth/login, /unidades, /categorias, /sistemas-equipamentos e POST /chamados) vão ao servidor real.
+  // (/auth/*, /unidades*, /categorias, /sistemas-equipamentos, POST /chamados e GET /chamados/{id}) vão ao servidor real.
   if (!environment.useMocks) {
     if (caminho === '/unidades' && req.method === 'GET') {
       return next(req).pipe(
@@ -196,7 +205,7 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
                 titulo: payload.descricao.trim().split('\n')[0].slice(0, 80),
                 unidade: { id: payload.unidade_id, nome: unidade?.nome ?? 'Unidade' },
                 canal_origem: payload.canal_origem,
-                status: (criado.status as StatusChamado) ?? 'ABERTO',
+                status: criado.status ?? 'ABERTO',
                 prioridade: payload.prioridade ?? null,
                 sla: { situacao: 'TRIAGEM', rotulo: 'Triagem · 0 min', progresso: 0 },
                 responsavel: payload.atribuir_a_mim

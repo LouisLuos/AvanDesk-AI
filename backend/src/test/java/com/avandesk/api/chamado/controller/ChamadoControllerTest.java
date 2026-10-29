@@ -1,11 +1,22 @@
 package com.avandesk.api.chamado.controller;
 
-import com.avandesk.api.core.config.SecurityConfig;
+import com.avandesk.api.catalogo.dto.CategoriaResponse;
+import com.avandesk.api.chamado.dto.ChamadoDetalheResponse;
 import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
+import com.avandesk.api.chamado.dto.EventoHistoricoResponse;
+import com.avandesk.api.chamado.dto.RegistroContatoResponse;
+import com.avandesk.api.chamado.dto.SolicitanteResponse;
+import com.avandesk.api.chamado.entity.CanalOrigem;
+import com.avandesk.api.chamado.entity.DirecaoContato;
 import com.avandesk.api.chamado.entity.OrigemDado;
 import com.avandesk.api.chamado.entity.StatusChamado;
+import com.avandesk.api.chamado.entity.TipoEvento;
 import com.avandesk.api.chamado.service.ChamadoService;
+import com.avandesk.api.core.config.SecurityConfig;
+import com.avandesk.api.core.exception.RecursoNaoEncontradoException;
+import com.avandesk.api.unidade.dto.UnidadeResumoResponse;
+import com.avandesk.api.usuario.service.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -16,12 +27,16 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.endsWith;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -47,6 +62,9 @@ class ChamadoControllerTest {
     @MockitoBean
     private ChamadoService chamadoService;
 
+    @MockitoBean
+    private JwtService jwtService;
+
     @Test
     @WithMockUser
     void deveResponder201NoEnvelopePadraoAoRegistrar() throws Exception {
@@ -62,6 +80,79 @@ class ChamadoControllerTest {
             .andExpect(jsonPath("$.data.status").value("ABERTO"))
             .andExpect(jsonPath("$.data.origem_dado").value("TESTE"))
             .andExpect(jsonPath("$.data.data_criacao").value(endsWith("Z")));
+    }
+
+    @Test
+    @WithMockUser
+    void deveResponder200ComDetalheContatosEHistoricoEmSnakeCase() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID unidadeId = UUID.randomUUID();
+        UUID categoriaId = UUID.randomUUID();
+        UUID contatoId = UUID.randomUUID();
+        UUID eventoId = UUID.randomUUID();
+        Instant abertoEm = Instant.parse("2026-10-22T14:30:00Z");
+
+        ChamadoDetalheResponse detalhe = new ChamadoDetalheResponse(
+            id,
+            "LUM-2026-000001",
+            StatusChamado.ABERTO,
+            null,
+            "Impressora de etiquetas da coleta não imprime.",
+            CanalOrigem.LIGACAO,
+            new UnidadeResumoResponse(unidadeId, "U.03 Boa Viagem"),
+            new CategoriaResponse(categoriaId, "Equipamento de apoio"),
+            null,
+            new SolicitanteResponse("Recepção Boa Viagem", "+5581999999999"),
+            null,
+            null,
+            abertoEm,
+            null,
+            OrigemDado.TESTE,
+            List.of(new RegistroContatoResponse(
+                contatoId,
+                CanalOrigem.LIGACAO,
+                DirecaoContato.RECEBIDO,
+                "Impressora de etiquetas da coleta não imprime.",
+                abertoEm,
+                new SolicitanteResponse("Recepção Boa Viagem", "+5581999999999"),
+                "Analista Dev Um"
+            )),
+            List.of(new EventoHistoricoResponse(
+                eventoId,
+                TipoEvento.CHAMADO_ABERTO,
+                abertoEm,
+                "Analista Dev Um",
+                Map.of("canal", "LIGACAO")
+            ))
+        );
+
+        when(chamadoService.detalhar(id)).thenReturn(detalhe);
+
+        mockMvc.perform(get("/api/v1/chamados/{id}", id))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status_code").value(200))
+            .andExpect(jsonPath("$.data.id").value(id.toString()))
+            .andExpect(jsonPath("$.data.codigo").value("LUM-2026-000001"))
+            .andExpect(jsonPath("$.data.status").value("ABERTO"))
+            .andExpect(jsonPath("$.data.canal_origem").value("LIGACAO"))
+            .andExpect(jsonPath("$.data.unidade.nome").value("U.03 Boa Viagem"))
+            .andExpect(jsonPath("$.data.responsavel").value(nullValue()))
+            .andExpect(jsonPath("$.data.registros_contato[0].id").value(contatoId.toString()))
+            .andExpect(jsonPath("$.data.historico[0].id_evento").value(eventoId.toString()))
+            .andExpect(jsonPath("$.data.historico[0].tipo").value("CHAMADO_ABERTO"));
+    }
+
+    @Test
+    @WithMockUser
+    void deveResponder404QuandoChamadoNaoExistirAoDetalhar() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(chamadoService.detalhar(id))
+            .thenThrow(new RecursoNaoEncontradoException("Chamado não encontrado."));
+
+        mockMvc.perform(get("/api/v1/chamados/{id}", id))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.status_code").value(404))
+            .andExpect(jsonPath("$.message").value("Chamado não encontrado."));
     }
 
     @Test

@@ -119,6 +119,122 @@ components:
           enum: [REAL, TESTE, SIMULADO]
           description: "Definido pelo servidor conforme o ambiente (REAL em produção); o cliente nunca envia."
           example: TESTE
+    ChamadoDetalheResponse:
+      type: object
+      description: "Detalhe completo do chamado (HU02 + HU05): status, responsável, contatos e linha do tempo cronológica em UTC."
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+          example: LUM-2026-000123
+        status:
+          type: string
+          enum: [ABERTO, EM_TRIAGEM, EM_ATENDIMENTO, AGUARDANDO, RESOLVIDO, REABERTO, FECHADO, CANCELADO, MESCLADO]
+        motivo_espera:
+          type: string
+          nullable: true
+          enum: [FORNECEDOR, SOLICITANTE, PECA_EQUIPAMENTO]
+        descricao:
+          type: string
+        canal_origem:
+          type: string
+          enum: [LIGACAO, PRESENCIAL, WHATSAPP, EMAIL]
+        unidade:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            nome:
+              type: string
+        categoria:
+          $ref: '#/components/schemas/ItemListaResponse'
+        sistema_equipamento:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/ItemListaResponse'
+        solicitante:
+          type: object
+          properties:
+            nome:
+              type: string
+              nullable: true
+            contato:
+              type: string
+        responsavel:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            nome:
+              type: string
+        prioridade:
+          type: string
+          nullable: true
+          enum: [ALTA, MEDIA, BAIXA]
+        aberto_em:
+          type: string
+          format: date-time
+        primeira_resposta_em:
+          type: string
+          format: date-time
+          nullable: true
+        origem_dado:
+          type: string
+          enum: [REAL, TESTE, SIMULADO]
+        registros_contato:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              canal:
+                type: string
+                enum: [LIGACAO, PRESENCIAL, WHATSAPP, EMAIL]
+              direcao:
+                type: string
+                enum: [RECEBIDO, ENVIADO]
+              conteudo:
+                type: string
+              ocorrido_em:
+                type: string
+                format: date-time
+              solicitante:
+                type: object
+                properties:
+                  nome:
+                    type: string
+                    nullable: true
+                  contato:
+                    type: string
+              registrado_por:
+                type: string
+                nullable: true
+        historico:
+          type: array
+          items:
+            type: object
+            properties:
+              id_evento:
+                type: string
+                format: uuid
+              tipo:
+                type: string
+              data:
+                type: string
+                format: date-time
+              autor:
+                type: string
+                nullable: true
+              detalhes:
+                type: object
+                additionalProperties: true
     ItemListaResponse:
       type: object
       description: "Item das listas do formulário de registro (categorias e sistemas/equipamentos)."
@@ -494,7 +610,7 @@ paths:
                 errors: null
   /chamados/{id}:
     get:
-      summary: Consultar o Chamado e Histórico (HU02)
+      summary: Consultar o Chamado, Status, Responsável e Histórico (HU02 & HU05)
       tags:
         - Chamados
       parameters:
@@ -506,7 +622,7 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Detalhes do chamado
+          description: Detalhes do chamado, registros de contato e linha do tempo cronológica
           content:
             application/json:
               schema:
@@ -515,36 +631,18 @@ paths:
                   - $ref: '#/components/schemas/ApiResponse'
                 properties:
                   data:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                        format: uuid
-                      codigo:
-                        type: string
-                      status:
-                        type: string
-                      unidade:
-                        type: object
-                        properties:
-                          id:
-                            type: string
-                          nome:
-                            type: string
-                      historico:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            id_evento:
-                              type: string
-                            tipo:
-                              type: string
-                            data:
-                              type: string
-                              format: date-time
-                            autor:
-                              type: string
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '404':
+          description: Chamado não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 404
+                message: "Chamado não encontrado."
+                data: null
+                errors: null
   /chamados/{id}/atualizacoes:
     post:
       summary: Adicionar Atualização ao Histórico (HU02)

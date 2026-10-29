@@ -5,10 +5,12 @@ import { environment } from '../../../environments/environment';
 import { ApiResponse } from '../../shared/models/api-response.model';
 import {
   ChamadoDetalhe,
+  ChamadoDetalheApiResponse,
   ChamadoRequest,
   ChamadoResponse,
   ChamadoResumo,
 } from '../../shared/models/chamado.model';
+import { mapearChamadoDetalhe } from '../../shared/utils/chamado-detalhe.mapper';
 
 @Injectable({ providedIn: 'root' })
 export class ChamadoService {
@@ -29,11 +31,13 @@ export class ChamadoService {
       .pipe(map((res) => res.data as ChamadoResponse));
   }
 
-  /** GET /chamados/{id} — recupera detalhes completos do chamado com histórico (HU02). */
+  /**
+   * GET /chamados/{id} — recupera detalhes completos do chamado com contatos,
+   * status, responsável e linha do tempo cronológica convertida para o fuso local (HU02 e HU05).
+   */
   buscarPorId(id: string): Observable<ChamadoDetalhe> {
     return this.http
-      .get<ApiResponse<ChamadoDetalhe>>(`${this.baseUrl}/${id}`)
-      .pipe(map((res) => res.data as ChamadoDetalhe));
+      .get<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(`${this.baseUrl}/${id}`)
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
   }
 }
-

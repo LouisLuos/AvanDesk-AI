@@ -1,7 +1,7 @@
 # 📄 Documentação da API - MVP (Nexo)
 
 > **Projeto:** Nexo - Plataforma de Gerenciamento de Chamados (Rede Lúmen Diagnósticos)  
-> **Referência:** Histórias de Usuário HU01 a HU04, HU09, HU10 e HU11
+> **Referência:** Histórias de Usuário HU01 a HU05, HU09, HU10 e HU11
 
 Esta documentação descreve os endpoints da API RESTful projetada para atender aos fluxos do MVP. O design foi concebido com base nas regras de negócio hospitalares da Rede Lúmen: chamados não devem transitar dados clínicos sensíveis (LGPD / RN01), devem estar associados a uma unidade válida e a auditoria do histórico é estritamente imutável.
 
@@ -298,12 +298,12 @@ Cria um novo chamado estruturado a partir de uma solicitação recebida por um d
 
 ---
 
-## 5. Consultar o Chamado e Histórico (HU02 — Planejado Sprint 2)
+## 5. Consultar Detalhe, Status, Responsável e Histórico do Chamado (HU02 & HU05)
 
-Recupera os detalhes completos do chamado, incluindo a linha do tempo cronológica com todos os eventos e registros de contato.
+Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 estados do domínio), motivo de espera (quando em `AGUARDANDO`), responsável atual (`null` quando não atribuído), registros de contato e linha do tempo cronológica imutável (`eventos_historico`) em UTC.
 
 * **Endpoint:** `GET /chamados/{id}`
-* **Autenticação:** Bearer Token (Analista)
+* **Autenticação:** Bearer Token (Analista de Suporte ou Liderança de TI)
 
 ### Response: `200 OK`
 
@@ -315,12 +315,44 @@ Recupera os detalhes completos do chamado, incluindo a linha do tempo cronológi
     "id": "123e4567-e89b-12d3-a456-426614174000",
     "codigo": "LUM-2026-000123",
     "status": "ABERTO",
+    "motivo_espera": null,
+    "descricao": "Impressora de etiquetas da coleta parou de imprimir. Há pacientes aguardando na recepção.",
+    "canal_origem": "LIGACAO",
     "unidade": {
       "id": "a1f0c3e2-0001-4000-8000-000000000001",
       "nome": "U.03 Boa Viagem"
     },
+    "categoria": {
+      "id": "c4e0a000-0002-4000-8000-000000000002",
+      "nome": "Equipamento de apoio"
+    },
+    "sistema_equipamento": {
+      "id": "5e5a0000-0003-4000-8000-000000000003",
+      "nome": "Impressora de etiquetas"
+    },
+    "solicitante": {
+      "nome": "Mariana Alves",
+      "contato": "+5581988771234"
+    },
     "responsavel": null,
     "prioridade": null,
+    "aberto_em": "2026-10-07T14:30:00Z",
+    "primeira_resposta_em": null,
+    "origem_dado": "TESTE",
+    "registros_contato": [
+      {
+        "id": "8f14e45f-ceea-467a-9a38-1b2c3d4e5f60",
+        "canal": "LIGACAO",
+        "direcao": "RECEBIDO",
+        "conteudo": "Impressora de etiquetas da coleta parou de imprimir. Há pacientes aguardando na recepção.",
+        "ocorrido_em": "2026-10-07T14:30:00Z",
+        "solicitante": {
+          "nome": "Mariana Alves",
+          "contato": "+5581988771234"
+        },
+        "registrado_por": "Analista Dev Um"
+      }
+    ],
     "historico": [
       {
         "id_evento": "uuid-evento-1",
@@ -330,6 +362,15 @@ Recupera os detalhes completos do chamado, incluindo a linha do tempo cronológi
         "detalhes": {
           "canal": "LIGACAO"
         }
+      },
+      {
+        "id_evento": "uuid-evento-2",
+        "tipo": "REGISTRO_DE_CONTATO_RECEBIDO",
+        "data": "2026-10-07T14:30:00Z",
+        "autor": "Analista Dev Um",
+        "detalhes": {
+          "registro_contato_id": "8f14e45f-ceea-467a-9a38-1b2c3d4e5f60"
+        }
       }
     ]
   },
@@ -337,11 +378,17 @@ Recupera os detalhes completos do chamado, incluindo a linha do tempo cronológi
 }
 ```
 
+### Erros
+
+* `404 Not Found`: quando o `id` informado não corresponde a nenhum chamado registrado (`"Chamado não encontrado."`).
+
 ---
 
-## 6. Evolução do Ciclo de Atendimento (HU03, HU04, HU10 — Planejados)
+## 6. Evolução do Ciclo de Atendimento (HU03, HU04, HU10, HU12, HU13 — Planejados)
 
-* **`POST /chamados/{id}/atualizacoes`** (`HU02`/`HU13`): inclui novos registros de contato ou anotações no histórico do chamado.
+* **`PATCH /chamados/{id}/responsavel`** (`HU12`): assumir ou reatribuir o chamado a um analista ativo.
+* **`PATCH /chamados/{id}/status`** (`HU12`): atualizar status respeitando a máquina de estados do domínio.
+* **`POST /chamados/{id}/contatos`** (`HU13`): inclui novos registros de contato no histórico do chamado.
 * **`POST /chamados/{id}/vinculos`** (`HU03`): associa um registro de contato duplicado a um chamado principal em andamento.
 * **`PATCH /chamados/{id}/prioridade`** (`HU04`): registra a triagem estruturada pela Matriz 3D (`severidade`, `urgencia`, `impacto_operacional`).
 * **`POST /analistas`** (`HU10`): cadastro administrativo de analistas de suporte restrito à Liderança de TI.

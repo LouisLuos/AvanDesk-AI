@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { StatusChamado } from '../../../shared/models/chamado.model';
 import { FilaChamados } from './fila-chamados';
 
 describe('FilaChamados', () => {
@@ -49,5 +50,24 @@ describe('FilaChamados', () => {
 
     expect(component['filtroStatus']()).toBe('');
     expect(component['temFiltroAtivo']()).toBe(false);
+  });
+
+  it('deve possuir rótulo e estilo configurados para todos os 9 status do domínio (HU05)', () => {
+    const todosOs9Status: StatusChamado[] = [
+      'ABERTO',
+      'EM_TRIAGEM',
+      'EM_ATENDIMENTO',
+      'AGUARDANDO',
+      'RESOLVIDO',
+      'REABERTO',
+      'FECHADO',
+      'CANCELADO',
+      'MESCLADO',
+    ];
+
+    for (const status of todosOs9Status) {
+      expect(component['rotuloStatus'](status)).toBeTruthy();
+      expect(component['estiloStatus'](status)).toContain('bg-');
+    }
   });
 });

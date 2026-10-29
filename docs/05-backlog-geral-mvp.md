@@ -1,6 +1,6 @@
 # Backlog Geral do MVP — Nexo
 
-> **Data de atualização:** 27/10/2026  
+> **Data de atualização:** 29/10/2026  
 > **Status geral:** Sprint 1 (Fundações + HU11 + HU01 + Instrumentação 9.5) concluída ✅ · Sprint 2 (Fluxo essencial: Autenticação JWT, Fila, Detalhe, Status e Atribuição) ativa 🎯  
 > **Referência oficial:** [Histórias de Usuário](./04-historias-de-usuario-Nexo.md), [Requisitos Funcionais](./02-requisitos-funcionais.md), [Análise de Domínio](./01-analise-de-dominio-Nexo.md) e Seção 9 do Documento do MVP (Métricas e Instrumentação).
 
@@ -223,7 +223,7 @@ flowchart TD
 - [ ] A partir da lista, é possível abrir o detalhe do chamado.
 
 **Tarefas técnicas**
-- [x] **[FE]** Tela da fila com filtros e badges (`features/chamados/fila-chamados`, 4 testes Vitest).
+- [x] **[FE]** Tela da fila com filtros e badges (`features/chamados/fila-chamados`, 5 testes Vitest).
 - [ ] **[BE]** `ChamadoSpecification` (Spring Data JPA) para filtros dinâmicos.
 - [ ] **[BE]** `GET /api/v1/chamados` com `Pageable` e filtros opcionais (`unidade_id`, `status`, `prioridade`, `responsavel_id`, `codigo`).
 - [ ] **[BE]** Atualizar `openapi-mvp.yaml` e `06-documentacao-api-mvp.md` com o contrato paginado.
@@ -233,9 +233,9 @@ flowchart TD
 - [ ] **[QA]** Teste de performance de listagem (RNF-004): carga com 1.000 chamados no banco garantindo tempo de resposta p95 < 1.000 ms.
 - [ ] **[QA]** Teste de paginação e ordenação: validar consistência de `page`, `size` e ordenação `aberto_em DESC`.
 
-### 🏷️ [HU02] Consultar o histórico do chamado
+### 🏷️ [HU02] Consultar o histórico do chamado — ✅ Concluído
 
-- **Status:** ⏳ A iniciar (FE pronto com mock) · **Responsáveis:** Elis (BE), Pedro (FE), Marcos (QA)
+- **Status:** ✅ Concluído · **Responsáveis:** Elis (BE), Pedro / Luiz (FE), Marcos (QA)
 - **RF:** RF-004 · **Métrica:** M01 (rastreabilidade)
 
 **História:** Como analista de suporte, quero visualizar o histórico completo de um chamado, para entender o que já aconteceu e continuar o atendimento sem depender de mensagens espalhadas.
@@ -246,23 +246,23 @@ flowchart TD
 - O histórico é somente leitura: o banco rejeita UPDATE e DELETE.
 
 **Critérios de aceite**
-- [ ] O histórico reúne os registros de contato associados ao chamado.
-- [ ] Os acontecimentos relevantes do atendimento aparecem na linha do tempo.
-- [ ] O responsável atual está visível.
-- [ ] Um analista que não abriu o chamado consegue entender o histórico.
+- [x] O histórico reúne os registros de contato associados ao chamado.
+- [x] Os acontecimentos relevantes do atendimento aparecem na linha do tempo.
+- [x] O responsável atual está visível.
+- [x] Um analista que não abriu o chamado consegue entender o histórico.
 
 **Tarefas técnicas**
 - [x] **[BD]** `eventos_historico` com trigger de imutabilidade (V5).
-- [x] **[FE]** Tela de detalhe com linha do tempo (`features/chamados/detalhe-chamado`, 3 testes Vitest).
-- [ ] **[BE]** `GET /api/v1/chamados/{id}` retornando dados do chamado, contatos e eventos ordenados.
-- [ ] **[FE]** Conectar `ChamadoService.buscarPorId()` à API real.
-- [ ] **[QA]** Teste de integridade da linha do tempo: conferir ordenação cronológica estrita dos eventos e junção correta dos contatos.
-- [ ] **[QA]** Teste de imutabilidade em banco: validar que tentativa de `UPDATE` ou `DELETE` em `eventos_historico` é abortada pelo trigger.
-- [ ] **[QA]** Teste de timezone e formatação: validação de conversão de timestamp UTC do banco para o fuso local do navegador do usuário.
+- [x] **[FE]** Tela de detalhe com linha do tempo (`features/chamados/detalhe-chamado`, 6 testes Vitest).
+- [x] **[BE]** `GET /api/v1/chamados/{id}` retornando dados do chamado, contatos e eventos ordenados.
+- [x] **[FE]** Conectar `ChamadoService.buscarPorId()` à API real com adaptador de contrato (`mapearChamadoDetalhe`).
+- [x] **[QA]** Teste de integridade da linha do tempo: conferir ordenação cronológica estrita dos eventos e junção correta dos contatos.
+- [x] **[QA]** Teste de imutabilidade em banco: validar que tentativa de `UPDATE` ou `DELETE` em `eventos_historico` é abortada pelo trigger.
+- [x] **[QA]** Teste de timezone e formatação: validação de conversão de timestamp UTC do banco para o fuso local do navegador do usuário.
 
-### 🏷️ [HU05] Acompanhar status e responsável
+### 🏷️ [HU05] Acompanhar status e responsável — ✅ Concluído
 
-- **Status:** ⏳ A iniciar · **Responsáveis:** Elis (BE), Pedro (FE), Marcos (QA)
+- **Status:** ✅ Concluído · **Responsáveis:** Elis (BE), Pedro / Luiz (FE), Marcos (QA)
 - **RF:** RF-015 · **Métrica:** M02
 
 **História:** Como analista de suporte, quero visualizar o status e o responsável de cada chamado, para saber quais atendimentos estão em andamento e quem cuida de cada um.
@@ -273,16 +273,16 @@ flowchart TD
 - A HU05 trata da **visualização**; a ação de mudar status está na HU12.
 
 **Critérios de aceite**
-- [ ] Todo chamado exibe seu status atual.
-- [ ] O analista responsável aparece quando houver.
-- [ ] O ciclo de vida pode ser acompanhado pelo histórico.
+- [x] Todo chamado exibe seu status atual.
+- [x] O analista responsável aparece quando houver.
+- [x] O ciclo de vida pode ser acompanhado pelo histórico.
 
 **Tarefas técnicas**
 - [x] **[BD]** Constraint `ck_chamados_status` e enum `StatusChamado`.
-- [ ] **[BE]** Incluir `status` e `responsavel` (id e nome) nos DTOs da listagem e do detalhe.
-- [ ] **[FE]** Exibir status e responsável com os dados reais da API.
-- [ ] **[QA]** Teste de renderização de estados: validação de cores, badges e labels para os 9 status possíveis do domínio.
-- [ ] **[QA]** Teste de visualização de estado "Não atribuído": validar comportamento quando `responsavel_id` é nulo (sem exceptions na UI).
+- [x] **[BE]** Incluir `status` e `responsavel` (id e nome) nos DTOs da listagem e do detalhe.
+- [x] **[FE]** Exibir status e responsável com os dados reais da API.
+- [x] **[QA]** Teste de renderização de estados: validação de cores, badges e labels para os 9 status possíveis do domínio.
+- [x] **[QA]** Teste de visualização de estado "Não atribuído": validar comportamento quando `responsavel_id` é nulo (sem exceptions na UI).
 
 ### 🏷️ [HU12] Atribuir responsável e atualizar status
 
@@ -576,7 +576,7 @@ A estratégia de testes do Nexo segue a **Pirâmide de Testes de Automação Con
 | **QA4-08** | Backend | Segurança / Upload | Bloqueio de upload de extensões executáveis perigosas (.exe, .sh, .bat) e validação de MIME types permitidos. | MockMultipartFile | RNF-009 |
 | **QA4-09** | CI / Automação | E2E Integrado | Pipeline do GitHub Actions executando todos os testes automatizados de backend e frontend em container limpo. | GitHub Actions Runner | Seção 9.3 |
 
-**Estado atual dos testes:** 44 testes Vitest no frontend (7 arquivos) e, no backend, testes de `ChamadoService`, `EventoHistoricoService`, `SolicitanteService`, `ChamadoController` e integração com rollback do registro de chamado.
+**Estado atual dos testes:** 50 testes Vitest no frontend (7 arquivos) e, no backend, testes de `ChamadoService`, `EventoHistoricoService`, `SolicitanteService`, `ChamadoController`, `AuthController`, `JwtService` e integração com rollback do registro de chamado.
 
 ---
 

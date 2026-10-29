@@ -13,9 +13,12 @@ import { ToastService } from '../../../core/services/toast.service';
 import {
   CanalOrigem,
   ChamadoDetalhe,
+  DirecaoContato,
+  MotivoEspera,
   PrioridadeChamado,
   StatusChamado,
 } from '../../../shared/models/chamado.model';
+import { extrairMensagensErro } from '../../../shared/utils/api-error';
 
 @Component({
   selector: 'app-detalhe-chamado',
@@ -54,7 +57,15 @@ export class DetalheChamado implements OnInit {
       .pipe(finalize(() => this.carregando.set(false)))
       .subscribe({
         next: (dados) => this.chamado.set(dados),
-        error: () => this.erro.set('Não foi possível carregar os detalhes do chamado.'),
+        error: (err) => {
+          const msgApi = extrairMensagensErro(err)[0];
+          const msgPadrao = 'Não foi possível carregar os detalhes do chamado.';
+          this.erro.set(
+            msgApi && msgApi !== 'Ocorreu um erro inesperado. Tente novamente.'
+              ? msgApi
+              : msgPadrao,
+          );
+        },
       });
   }
 
@@ -68,8 +79,10 @@ export class DetalheChamado implements OnInit {
       EM_TRIAGEM: 'Em Triagem',
       EM_ATENDIMENTO: 'Em Atendimento',
       AGUARDANDO: 'Aguardando',
-      REABERTO: 'Reaberto',
       RESOLVIDO: 'Resolvido',
+      REABERTO: 'Reaberto',
+      FECHADO: 'Fechado',
+      CANCELADO: 'Cancelado',
       MESCLADO: 'Mesclado',
     };
     return rotulos[status] ?? status;
@@ -81,11 +94,26 @@ export class DetalheChamado implements OnInit {
       EM_TRIAGEM: 'bg-[#14b8a6]/10 text-[#14b8a6] border-[#14b8a6]/20',
       EM_ATENDIMENTO: 'bg-[#0ea5e9]/10 text-[#0ea5e9] border-[#0ea5e9]/20',
       AGUARDANDO: 'bg-[#f0a202]/10 text-[#f0a202] border-[#f0a202]/20',
-      REABERTO: 'bg-[#e5484d]/10 text-[#e5484d] border-[#e5484d]/20',
       RESOLVIDO: 'bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20',
+      REABERTO: 'bg-[#e5484d]/10 text-[#e5484d] border-[#e5484d]/20',
+      FECHADO: 'bg-[#64748b]/10 text-[#64748b] border-[#64748b]/20',
+      CANCELADO: 'bg-[#94a3b8]/15 text-[#64748b] border-[#94a3b8]/30',
       MESCLADO: 'bg-[#8b5cf6]/10 text-[#8b5cf6] border-[#8b5cf6]/20',
     };
     return estilos[status] ?? 'bg-[#e2e5ec] text-[#363b47] border-transparent';
+  }
+
+  protected rotuloMotivoEspera(motivo: MotivoEspera): string {
+    const rotulos: Record<MotivoEspera, string> = {
+      FORNECEDOR: 'Fornecedor externo',
+      SOLICITANTE: 'Solicitante',
+      PECA_EQUIPAMENTO: 'Peça ou equipamento',
+    };
+    return rotulos[motivo] ?? motivo;
+  }
+
+  protected rotuloDirecaoContato(direcao: DirecaoContato): string {
+    return direcao === 'ENVIADO' ? 'Enviado pelo suporte' : 'Recebido do solicitante';
   }
 
   protected rotuloPrioridade(prioridade: PrioridadeChamado): string {
@@ -116,9 +144,14 @@ export class DetalheChamado implements OnInit {
     return rotulos[canal] ?? canal;
   }
 
+  protected rotuloTipoContato(contato: string): string {
+    return contato?.includes('@') ? 'E-mail' : 'Telefone';
+  }
+
   protected iniciais(nome: string): string {
     return nome
       .split(' ')
+      .filter(Boolean)
       .map((p) => p[0])
       .slice(0, 2)
       .join('')
