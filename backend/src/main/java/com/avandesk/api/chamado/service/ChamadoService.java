@@ -4,16 +4,19 @@ import com.avandesk.api.catalogo.entity.Categoria;
 import com.avandesk.api.catalogo.entity.SistemaEquipamento;
 import com.avandesk.api.catalogo.service.CategoriaService;
 import com.avandesk.api.catalogo.service.SistemaEquipamentoService;
+import com.avandesk.api.chamado.dto.ChamadoDetalheResponse;
 import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
 import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.DirecaoContato;
+import com.avandesk.api.chamado.entity.EventoHistorico;
 import com.avandesk.api.chamado.entity.RegistroContato;
 import com.avandesk.api.chamado.entity.Solicitante;
 import com.avandesk.api.chamado.entity.TipoEvento;
 import com.avandesk.api.chamado.repository.ChamadoRepository;
 import com.avandesk.api.chamado.repository.RegistroContatoRepository;
 import com.avandesk.api.core.config.NexoProperties;
+import com.avandesk.api.core.exception.RecursoNaoEncontradoException;
 import com.avandesk.api.unidade.entity.Unidade;
 import com.avandesk.api.unidade.service.UnidadeService;
 import com.avandesk.api.usuario.entity.Usuario;
@@ -27,7 +30,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -92,6 +97,16 @@ public class ChamadoService {
             Map.of("registro_contato_id", contato.getId().toString()));
 
         return ChamadoResponse.de(chamado);
+    }
+
+
+    @Transactional(readOnly = true)
+    public ChamadoDetalheResponse detalhar(UUID id) {
+        Chamado chamado = chamadoRepository.findDetalheById(id)
+            .orElseThrow(() -> new RecursoNaoEncontradoException("Chamado não encontrado."));
+        List<RegistroContato> contatos = registroContatoRepository.findByChamadoIdOrderByOcorridoEmAsc(id);
+        List<EventoHistorico> eventos = eventoHistoricoService.listarDoChamado(id);
+        return ChamadoDetalheResponse.de(chamado, contatos, eventos);
     }
 
     private String gerarCodigo(Instant abertoEm) {
