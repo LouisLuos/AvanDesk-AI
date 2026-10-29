@@ -10,7 +10,7 @@
   <header class="mb-6">
     <h1 class="text-2xl font-bold tracking-tight text-[#14161b] sm:text-[28px]">Registrar chamado</h1>
     <p class="mt-1 text-xs text-[#6b7280]">
-      Ligação ou atendimento presencial. Preencha o essencial; o restante pode ser completado depois.
+      Ligação, WhatsApp, e-mail ou atendimento presencial. Preencha o essencial; o restante pode ser completado depois.
     </p>
   </header>
 
@@ -58,6 +58,45 @@
             <button
               type="button"
               role="radio"
+              id="canal-whatsapp"
+              [attr.aria-checked]="canalSelecionado() === 'WHATSAPP'"
+              (click)="selecionarCanal('WHATSAPP')"
+              class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-medium shadow-xs transition"
+              [class]="
+                canalSelecionado() === 'WHATSAPP'
+                  ? 'border border-[#2d5bff] bg-[#e8edff] text-[#1e3fcc] font-semibold'
+                  : 'border border-[#e2e5ec] bg-white text-[#363b47] hover:bg-[#f8f9fc]'
+              "
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+              </svg>
+              WhatsApp
+            </button>
+
+            <button
+              type="button"
+              role="radio"
+              id="canal-email"
+              [attr.aria-checked]="canalSelecionado() === 'EMAIL'"
+              (click)="selecionarCanal('EMAIL')"
+              class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-medium shadow-xs transition"
+              [class]="
+                canalSelecionado() === 'EMAIL'
+                  ? 'border border-[#2d5bff] bg-[#e8edff] text-[#1e3fcc] font-semibold'
+                  : 'border border-[#e2e5ec] bg-white text-[#363b47] hover:bg-[#f8f9fc]'
+              "
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect width="20" height="16" x="2" y="4" rx="2" />
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+              </svg>
+              E-mail
+            </button>
+
+            <button
+              type="button"
+              role="radio"
               id="canal-presencial"
               [attr.aria-checked]="canalSelecionado() === 'PRESENCIAL'"
               (click)="selecionarCanal('PRESENCIAL')"
@@ -92,7 +131,13 @@
                 [class.border-[#dc2626]]="invalido('unidadeId')"
               >
                 <option value="" disabled>
-                  {{ carregandoUnidades() ? 'Carregando unidades...' : 'Selecionar unidade...' }}
+                  {{
+                    carregandoUnidades()
+                      ? 'Carregando unidades...'
+                      : erroUnidades()
+                        ? 'Não foi possível carregar as unidades'
+                        : 'Selecionar unidade...'
+                  }}
                 </option>
                 @for (unidade of unidades(); track unidade.id) {
                   <option [value]="unidade.id">{{ unidade.nome }}</option>
@@ -102,15 +147,22 @@
                 <path d="m6 9 6 6 6-6" />
               </svg>
             </div>
-            @if (invalido('unidadeId')) {
+            @if (erroUnidades()) {
+              <p class="mt-1 text-[11px] font-medium text-[#dc2626]" role="alert">
+                Não foi possível carregar as unidades.
+                <button type="button" class="font-semibold underline" (click)="carregarUnidades()">
+                  Tentar novamente
+                </button>
+              </p>
+            } @else if (invalido('unidadeId')) {
               <p class="mt-1 text-[11px] font-medium text-[#dc2626]">Selecione a unidade.</p>
             }
           </div>
 
-          <!-- Telefone do Solicitante -->
+          <!-- Contato do Solicitante (Telefone ou E-mail) -->
           <div>
             <label for="contato" class="mb-1.5 block text-xs font-semibold text-[#363b47]">
-              Telefone do solicitante <span class="text-[#dc2626]">*</span>
+              Telefone ou e-mail do solicitante <span class="text-[#dc2626]">*</span>
             </label>
             <div class="relative">
               <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -120,14 +172,14 @@
                 id="contato"
                 type="text"
                 formControlName="contato"
-                placeholder="+55 81 98877-1234"
+                placeholder="+55 81 98877-1234 ou recepcao@lumen.local"
                 autocomplete="off"
                 class="h-10 w-full rounded-lg border border-[#e2e5ec] bg-white pl-9 pr-3 text-xs text-[#14161b] placeholder:text-[#9aa2b1] shadow-xs transition focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff]"
                 [class.border-[#dc2626]]="invalido('contato')"
               />
             </div>
             @if (invalido('contato')) {
-              <p class="mt-1 text-[11px] font-medium text-[#dc2626]">Informe um telefone com DDD válido.</p>
+              <p class="mt-1 text-[11px] font-medium text-[#dc2626]">Informe um telefone com DDD ou e-mail válido.</p>
             }
           </div>
         </div>

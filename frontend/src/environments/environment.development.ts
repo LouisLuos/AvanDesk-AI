@@ -1,6 +1,6 @@
 export const environment = {
   production: false,
   apiUrl: '/api/v1',
-  /** Liga a API simulada em memória (core/interceptors/mock-api.interceptor.ts). */
-  useMocks: true,
+  /** Desligado para integrar com o backend real via proxy (/api -> localhost:8080). */
+  useMocks: false,
 };

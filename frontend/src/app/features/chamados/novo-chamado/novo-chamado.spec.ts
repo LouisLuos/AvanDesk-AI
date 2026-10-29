@@ -189,6 +189,24 @@ describe('NovoChamado', () => {
     expect(component['form'].controls.unidadeId.value).toBe('u-bvg');
   });
 
+  it('deve avisar quando as unidades não carregam e permitir tentar de novo', () => {
+    abrirTela();
+    pedidoGet('/api/v1/unidades').flush(null, { status: 500, statusText: 'Erro' });
+    pedidoGet('/api/v1/categorias').flush(envelope(CATEGORIAS));
+    pedidoGet('/api/v1/sistemas-equipamentos').flush(envelope(SISTEMAS));
+    pedidoGet('/api/v1/chamados').flush(envelope([]));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Não foi possível carregar as unidades.');
+
+    component['carregarUnidades']();
+    pedidoGet('/api/v1/unidades').flush(envelope(UNIDADES_ATIVAS));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).not.toContain('Não foi possível carregar as unidades.');
+    expect(component['form'].controls.unidadeId.value).toBe('u-bvg');
+  });
+
   // ---------- categorias e sistemas (listas da API) ----------
 
   it('deve montar os selects de categoria e sistema com as listas da API', () => {

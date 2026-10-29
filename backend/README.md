@@ -83,7 +83,7 @@ A API utiliza autenticação stateless via **Bearer Token JWT** assinado com HMA
 
 Esses usuários existem só em desenvolvimento: o perfil `prod` não carrega a pasta `db/seed`.
 
-### Fluxo de Login:
+### Fluxo de Login e Logout:
 1. Obtenha o token de acesso:
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/login \
@@ -96,10 +96,26 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 curl -H "Authorization: Bearer <access_token>" http://localhost:8080/api/v1/unidades
 ```
 
+3. Encerre a sessão:
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/logout \
+  -H "Authorization: Bearer <access_token>"
+```
+
 ## Endpoints Disponíveis
 
-| Endpoint | Descrição |
-|----------|-----------|
-| `GET /health` | Health check da API |
-| `GET /swagger-ui` | Swagger UI (documentação interativa) |
-| `GET /api-docs` | OpenAPI spec (JSON) |
+| Método & Endpoint | Autenticação | Descrição |
+|---|---|---|
+| `GET /health` | Pública | Health check da API |
+| `GET /swagger-ui` | Pública | Swagger UI (documentação interativa) |
+| `GET /api-docs` | Pública | OpenAPI spec (JSON) |
+| `POST /api/v1/auth/login` | Pública | Autentica usuário e emite Bearer token JWT (`HU09`) |
+| `POST /api/v1/auth/logout` | Pública / Bearer | Encerra a sessão ativa do usuário (`HU09`) |
+| `GET /api/v1/unidades` | Bearer JWT | Lista unidades diagnósticas (`?ativo=true\|false`) (`HU11`) |
+| `GET /api/v1/unidades/{id}` | Bearer JWT | Busca unidade diagnóstica por ID (`HU11`) |
+| `POST /api/v1/unidades` | Bearer JWT | Cadastra nova unidade diagnóstica (`HU11`) |
+| `PUT /api/v1/unidades/{id}` | Bearer JWT | Atualiza dados cadastrais de uma unidade (`HU11`) |
+| `PATCH /api/v1/unidades/{id}/desativar` | Bearer JWT | Desativa logicamente uma unidade (`HU11`) |
+| `GET /api/v1/categorias` | Bearer JWT | Lista categorias de problema ativas ordenadas por nome (`HU01`) |
+| `GET /api/v1/sistemas-equipamentos` | Bearer JWT | Lista sistemas/equipamentos ativos ordenados por nome (`HU01`) |
+| `POST /api/v1/chamados` | Bearer JWT | Registra chamado com contato inicial, eventos imutáveis e M11 (`HU01`) |

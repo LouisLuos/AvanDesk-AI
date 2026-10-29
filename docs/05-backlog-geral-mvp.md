@@ -160,8 +160,8 @@ flowchart TD
 | **BE-03** | `POST /api/v1/chamados` transacional com teste de rollback | BE | Elis | ✅ |
 | **FE-01** | Telemetria M11 na tela Novo Chamado | FE | Pedro | ✅ |
 | **FE-02** | Aviso LGPD e selo de modo simulado | FE | Pedro | ✅ |
-| **FE-03** | Testes Vitest da tela Novo Chamado (23 testes) | FE | Pedro | ✅ |
-| **INT-01** | Integração ponta a ponta (front real → backend dev) e validação da M11 via SQL | Integração | Aguinaldo / Luiz | 🎯 Em andamento |
+| **FE-03** | Testes Vitest da tela Novo Chamado (24 testes) | FE | Pedro | ✅ |
+| **INT-01** | Integração ponta a ponta (front real → backend dev) e validação da M11 via SQL | Integração | Aguinaldo / Luiz | ✅ |
 
 ---
 
@@ -169,9 +169,9 @@ flowchart TD
 
 > **Meta da Sprint:** o cliente ver o chamado percorrer o fluxo principal no sistema real com autenticação: **fazer login com sua conta → abrir ou ver o chamado na fila → abrir o detalhe → assumir como responsável → mudar status**, com cada passo registrado no histórico imutável contendo o autor real da ação.
 
-### 🏷️ [HU09] Autenticar no sistema (JWT)
+### 🏷️ [HU09] Autenticar no sistema (JWT) — ✅ Concluído
 
-- **Status:** ⏳ A iniciar no backend (FE pronto com mock) · **Responsáveis:** Elis (BE), Pedro (FE), Luiz (Security)
+- **Status:** ✅ Concluído · **Responsáveis:** Elis (BE), Pedro (FE), Luiz (Security)
 - **RF:** RF-021, RF-022 · **RNF:** RNF-005, RNF-007, RNF-010
 - **Métrica:** pré-requisito da coleta oficial e da Seção 9.5 (autor real dos eventos M01–M08)
 
@@ -185,22 +185,22 @@ flowchart TD
 - `SecurityContext` do Spring preenchido com o e-mail/ID do analista para gravar o `autor_id` legítimo em `eventos_historico`.
 
 **Critérios de aceite**
-- [ ] Entrar com e-mail e senha e receber token JWT assinado.
-- [ ] Usuário não autenticado recebe 401 e não acessa rotas de chamados.
-- [ ] Credenciais inválidas mostram mensagem genérica.
-- [ ] É possível sair (logout) limpando o armazenamento local.
-- [ ] Ações de mutação (abrir, assumir, mudar status) registram o autor autenticado no histórico.
+- [x] Entrar com e-mail e senha e receber token JWT assinado.
+- [x] Usuário não autenticado recebe 401 e não acessa rotas de chamados.
+- [x] Credenciais inválidas mostram mensagem genérica.
+- [x] É possível sair (logout) limpando o armazenamento local.
+- [x] Ações de mutação (abrir, assumir, mudar status) registram o autor autenticado no histórico.
 
 **Tarefas técnicas**
 - [x] **[BD]** `V3__cria_tabela_usuarios.sql` (BCrypt + perfil) e seed de dev (`R__dados_dev.sql`).
 - [x] **[FE]** Tela de login (`features/auth/login`, 5 testes Vitest).
 - [x] **[FE]** `TokenStorageService` e `authInterceptor` (anexa o Bearer token quando existir).
-- [x] **[BE]** `POST /api/v1/auth/login` gerando JWT com claims de ID, e-mail e perfil.
+- [x] **[BE]** `POST /api/v1/auth/login` e `POST /api/v1/auth/logout` gerando JWT com claims de ID, e-mail e perfil.
 - [x] **[BE]** Filtro JWT no Spring Security (`JwtAuthenticationFilter`) substituindo o HTTP Basic temporário.
-- [ ] **[FE]** Guarda de rotas (`AuthGuard`) impedindo acesso à fila sem login e logout ativo.
+- [x] **[FE]** Guarda de rotas (`authGuard`) impedindo acesso à fila sem login e logout ativo.
 - [x] **[QA]** Testes automatizados de login: sucesso com credenciais válidas e validação de claims do JWT (ID, sub, perfil, expiração de 1h).
 - [x] **[QA]** Testes negativos de autenticação: senha errada (401 com mensagem genérica anti-enumeração), usuário inativo (`ativo = false`) e token expirado/adulterado.
-- [ ] **[QA]** Testes de sessão no frontend: interceptor Bearer, redirecionamento para `/login` no 401 e limpeza do storage no logout.
+- [x] **[QA]** Testes de sessão no frontend: interceptor Bearer, redirecionamento para `/login` no 401 e limpeza do storage no logout.
 
 ### 🏷️ [HU14] Listar e buscar chamados
 

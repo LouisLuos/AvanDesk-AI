@@ -2,8 +2,14 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MODO_SIMULADO } from '../../core/config/modo-simulado';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
 import { ToastContainer } from '../../shared/components/toast-container/toast-container';
 import { USUARIO_ATUAL } from '../../shared/utils/usuario-atual';
+
+const ROTULOS_PERFIL: Record<string, string> = {
+  ANALISTA_SUPORTE: 'Analista de suporte',
+  LIDERANCA_TI: 'Liderança de TI',
+};
 
 @Component({
   selector: 'app-main-layout',
@@ -14,17 +20,24 @@ import { USUARIO_ATUAL } from '../../shared/utils/usuario-atual';
 export class MainLayout {
   private readonly router = inject(Router);
   private readonly authService = inject(AuthService);
+  private readonly toast = inject(ToastService);
 
   protected readonly modoSimulado = inject(MODO_SIMULADO);
-  protected readonly usuario = computed(
-    () =>
-      this.authService.usuario() ?? {
+  protected readonly usuario = computed(() => {
+    const autenticado = this.authService.usuario();
+    if (!autenticado) {
+      return {
         id: USUARIO_ATUAL.id,
         nome: USUARIO_ATUAL.nome,
-        email: 'ana.souza@lumendiagnosticos.com.br',
+        email: 'analista1@lumen.local',
         perfil: USUARIO_ATUAL.perfil,
-      },
-  );
+      };
+    }
+    return {
+      ...autenticado,
+      perfil: ROTULOS_PERFIL[autenticado.perfil] ?? autenticado.perfil,
+    };
+  });
 
   protected readonly menu = [
     { rotulo: 'Fila de Chamados', rota: '/chamados', id: 'nav-fila-chamados' },
@@ -50,6 +63,6 @@ export class MainLayout {
 
   protected logout(): void {
     this.authService.logout();
+    this.toast.info('Sessão encerrada com sucesso.');
   }
 }
-
