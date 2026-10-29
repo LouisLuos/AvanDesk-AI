@@ -67,6 +67,10 @@ public class ChamadoService {
             ? null
             : sistemaEquipamentoService.obterAtivoParaNovoChamado(request.sistemaEquipamentoId());
         Usuario autor = usuarioLogadoService.obterUsuarioLogado();
+        boolean atribuirAoAutor = Boolean.TRUE.equals(request.atribuirAMim());
+        if (atribuirAoAutor) {
+            usuarioService.obterAnalistaAtivo(autor.getId());
+        }
         Solicitante solicitante = solicitanteService.identificarOuCriar(
             request.solicitante().nome(), request.solicitante().contato());
 
@@ -102,6 +106,9 @@ public class ChamadoService {
             Map.of("canal", chamado.getCanalOrigem().name()));
         eventoHistoricoService.registrar(chamado, TipoEvento.REGISTRO_DE_CONTATO_RECEBIDO, autor,
             Map.of("registro_contato_id", contato.getId().toString()));
+        if (atribuirAoAutor) {
+            assumirNoRegistro(chamado, autor);
+        }
 
         return ChamadoResponse.de(chamado);
     }
@@ -128,15 +135,8 @@ public class ChamadoService {
 
         chamado.setResponsavel(responsavel);
         registrarPrimeiraResposta(chamado);
-
-        Map<String, Object> dados = new LinkedHashMap<>();
-        dados.put("responsavel_id", responsavel.getId().toString());
-        dados.put("responsavel_nome", responsavel.getNome());
-        if (anterior != null) {
-            dados.put("responsavel_anterior_id", anterior.getId().toString());
-            dados.put("responsavel_anterior_nome", anterior.getNome());
-        }
-        eventoHistoricoService.registrar(chamado, TipoEvento.CHAMADO_ATRIBUIDO, autor, dados);
+        eventoHistoricoService.registrar(chamado, TipoEvento.CHAMADO_ATRIBUIDO, autor,
+            dadosDaAtribuicao(responsavel, anterior));
 
         return montarDetalhe(chamado);
     }
@@ -215,6 +215,30 @@ public class ChamadoService {
         chamado.setMotivoCancelamento(motivo.trim());
         dados.put("motivo_cancelamento", motivo.trim());
         return TipoEvento.CHAMADO_CANCELADO;
+    }
+
+    /** Registro por ligação com "atribuir a mim": passa por EM_TRIAGEM até EM_ATENDIMENTO, com todos os eventos. */
+    private void assumirNoRegistro(Chamado chamado, Usuario analista) {
+        eventoHistoricoService.registrar(chamado, TipoEvento.TRIAGEM_INICIADA, analista,
+            Map.of("status_anterior", StatusChamado.ABERTO.name()));
+        chamado.setResponsavel(analista);
+        eventoHistoricoService.registrar(chamado, TipoEvento.CHAMADO_ATRIBUIDO, analista,
+            dadosDaAtribuicao(analista, null));
+        eventoHistoricoService.registrar(chamado, TipoEvento.CHAMADO_TRIADO, analista,
+            Map.of("status_anterior", StatusChamado.EM_TRIAGEM.name()));
+        chamado.setStatus(StatusChamado.EM_ATENDIMENTO);
+        registrarPrimeiraResposta(chamado);
+    }
+
+    private static Map<String, Object> dadosDaAtribuicao(Usuario responsavel, Usuario anterior) {
+        Map<String, Object> dados = new LinkedHashMap<>();
+        dados.put("responsavel_id", responsavel.getId().toString());
+        dados.put("responsavel_nome", responsavel.getNome());
+        if (anterior != null) {
+            dados.put("responsavel_anterior_id", anterior.getId().toString());
+            dados.put("responsavel_anterior_nome", anterior.getNome());
+        }
+        return dados;
     }
 
     private Chamado buscarParaDetalhe(UUID id) {

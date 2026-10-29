@@ -145,7 +145,7 @@ class ChamadoRegistroIntegracaoTest {
     private ChamadoRequest request(String contato) {
         return new ChamadoRequest(unidade.getId(), CanalOrigem.LIGACAO,
             new SolicitanteRequest("Teste de Integração", contato),
-            "Impressora de etiquetas da coleta não imprime.", categoriaId, null, null);
+            "Impressora de etiquetas da coleta não imprime.", categoriaId, null, null, null);
     }
 
     private long contar(String tabela) {

@@ -315,7 +315,7 @@ class ChamadoServiceTest {
     private ChamadoRequest request(String descricao, Instant registroIniciadoEm) {
         return new ChamadoRequest(unidadeId, CanalOrigem.LIGACAO,
             new SolicitanteRequest("Recepção Boa Viagem", "81999999999"), descricao, categoriaId, null,
-            registroIniciadoEm);
+            registroIniciadoEm, null);
     }
 
     private Chamado chamadoSalvo() {

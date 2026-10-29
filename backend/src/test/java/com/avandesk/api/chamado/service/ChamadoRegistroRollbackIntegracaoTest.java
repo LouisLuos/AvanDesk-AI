@@ -74,7 +74,7 @@ class ChamadoRegistroRollbackIntegracaoTest {
 
         assertThrows(IllegalStateException.class, () -> chamadoService.registrar(new ChamadoRequest(
             unidade.getId(), CanalOrigem.LIGACAO, new SolicitanteRequest("Teste de Rollback", contato),
-            "Impressora de etiquetas da coleta não imprime.", categoriaId, null, null)));
+            "Impressora de etiquetas da coleta não imprime.", categoriaId, null, null, null)));
 
         assertEquals(chamadosAntes, contar("chamados"));
         assertEquals(contatosAntes, contar("registros_contato"));
