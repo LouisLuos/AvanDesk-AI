@@ -204,7 +204,7 @@ flowchart TD
 
 ### 🏷️ [HU14] Listar e buscar chamados
 
-- **Status:** 🔄 Em andamento (BE pronto; FE a integrar com a API) · **Responsáveis:** Aguinaldo (BE), Pedro (FE), Marcos (QA)
+- **Status:** 🔄 Em revisão (BE e FE integrados, PR aberto) · **Responsáveis:** Aguinaldo (BE), Pedro (FE), Marcos (QA)
 - **RF:** RF-003 · **Métricas:** M02, apoio a M03
 
 **História:** Como analista de suporte, quero listar e buscar chamados com filtros, para encontrar rapidamente os atendimentos que preciso tratar ou consultar.
@@ -216,18 +216,18 @@ flowchart TD
 - Busca exata pelo código `LUM-AAAA-NNNNNN`.
 
 **Critérios de aceite**
-- [ ] A lista exibe código, unidade, status, prioridade e responsável.
-- [ ] É possível filtrar por status, unidade, prioridade e responsável.
-- [ ] É possível buscar pelo identificador único.
-- [ ] É possível ver só os chamados atribuídos a mim.
-- [ ] A partir da lista, é possível abrir o detalhe do chamado.
+- [x] A lista exibe código, unidade, status, prioridade e responsável.
+- [x] É possível filtrar por status, unidade, prioridade e responsável (na tela: "Somente meus" e "Somente sem responsável"; o seletor de analista depende da HU10).
+- [x] É possível buscar pelo identificador único.
+- [x] É possível ver só os chamados atribuídos a mim.
+- [x] A partir da lista, é possível abrir o detalhe do chamado.
 
 **Tarefas técnicas**
 - [x] **[FE]** Tela da fila com filtros e badges (`features/chamados/fila-chamados`, 5 testes Vitest).
 - [x] **[BE]** `ChamadoSpecification` (Spring Data JPA) para filtros dinâmicos.
 - [x] **[BE]** `GET /api/v1/chamados` com `Pageable` e filtros opcionais (`unidade_id`, `status`, `prioridade`, `responsavel_id`, `codigo`), mais `canal_origem`, `sem_responsavel`, `sem_prioridade`, `meus` (pelo token) e `totais_por_status` para os cartões (`FilaChamadosService`).
 - [x] **[BE]** Atualizar `openapi-mvp.yaml` e `06-documentacao-api-mvp.md` com o contrato paginado.
-- [ ] **[FE]** Ajustar `ChamadoService.listar()` ao formato paginado e desligar o mock da fila.
+- [x] **[FE]** Ajustar `ChamadoService.listar()` ao formato paginado e desligar o mock da fila (filtros e paginação no servidor, "Somente sem responsável", busca por código, cartões por `totais_por_status`; 15 testes Vitest novos).
 - [x] **[QA]** Teste de integração de filtros combinados: status + unidade + prioridade + responsável (interseção correta) (`FilaChamadosIntegracaoTest`).
 - [x] **[QA]** Teste do filtro rápido "Meus chamados": assegurar que filtra exatamente pelo ID do analista autenticado no JWT (`FilaChamadosIntegracaoTest`).
 - [x] **[QA]** Teste de performance de listagem (RNF-004): carga com 1.000 chamados no banco garantindo tempo de resposta p95 < 1.000 ms (`FilaChamadosPerformanceTest`; medido localmente: 24 ms).
