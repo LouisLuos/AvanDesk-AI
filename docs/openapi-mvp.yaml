@@ -698,6 +698,13 @@ paths:
             type: boolean
             default: false
         - in: query
+          name: sem_prioridade
+          required: false
+          description: Só chamados ainda sem prioridade final (aguardando triagem).
+          schema:
+            type: boolean
+            default: false
+        - in: query
           name: meus
           required: false
           description: Só chamados do usuário autenticado, identificado pelo token (o cliente não envia o id). Junto com um responsavel_id de outra pessoa, o resultado é vazio.

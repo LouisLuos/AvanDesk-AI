@@ -108,7 +108,7 @@ class FilaChamadosIntegracaoTest {
                 analista2);
 
             FiltroChamados filtro = new FiltroChamados(List.of(StatusChamado.EM_ATENDIMENTO), unidade.getId(),
-                Prioridade.ALTA, CanalOrigem.WHATSAPP, analista2.getId(), false, null);
+                Prioridade.ALTA, CanalOrigem.WHATSAPP, analista2.getId(), false, false, null);
 
             assertEquals(List.of(alvo.getCodigo()), codigos(listar(filtro, false, 0, 20)));
         });
@@ -123,7 +123,7 @@ class FilaChamadosIntegracaoTest {
             dados.chamado(unidade, StatusChamado.EM_ATENDIMENTO, AGORA.minusSeconds(10));
 
             FiltroChamados filtro = new FiltroChamados(List.of(StatusChamado.ABERTO, StatusChamado.EM_TRIAGEM),
-                unidade.getId(), null, null, null, false, null);
+                unidade.getId(), null, null, null, false, false, null);
 
             assertEquals(List.of(triagem.getCodigo(), aberto.getCodigo()), codigos(listar(filtro, false, 0, 20)));
         });
@@ -136,11 +136,26 @@ class FilaChamadosIntegracaoTest {
             Chamado semDono = dados.chamado(unidade, StatusChamado.ABERTO, AGORA);
             dados.chamado(unidade, StatusChamado.EM_ATENDIMENTO, AGORA, null, CanalOrigem.LIGACAO, dados.analista1());
 
-            FiltroChamados filtro = new FiltroChamados(null, unidade.getId(), null, null, null, true, null);
+            FiltroChamados filtro = new FiltroChamados(null, unidade.getId(), null, null, null, true, false, null);
             FilaChamadosResponse fila = listar(filtro, false, 0, 20);
 
             assertEquals(List.of(semDono.getCodigo()), codigos(fila));
             assertNull(fila.itens().getFirst().responsavel());
+        });
+    }
+
+    @Test
+    void deveListarSoOsChamadosSemPrioridade() {
+        emTransacaoDesfeita(dados -> {
+            Unidade unidade = dados.unidade();
+            Chamado aguardandoTriagem = dados.chamado(unidade, StatusChamado.ABERTO, AGORA);
+            dados.chamado(unidade, StatusChamado.EM_ATENDIMENTO, AGORA, Prioridade.MEDIA, CanalOrigem.LIGACAO, null);
+
+            FiltroChamados filtro = new FiltroChamados(null, unidade.getId(), null, null, null, false, true, null);
+            FilaChamadosResponse fila = listar(filtro, false, 0, 20);
+
+            assertEquals(List.of(aguardandoTriagem.getCodigo()), codigos(fila));
+            assertNull(fila.itens().getFirst().prioridade());
         });
     }
 
@@ -167,7 +182,7 @@ class FilaChamadosIntegracaoTest {
             Chamado alvo = dados.chamado(unidade, StatusChamado.ABERTO, AGORA);
             dados.chamado(unidade, StatusChamado.ABERTO, AGORA);
 
-            FiltroChamados filtro = new FiltroChamados(null, null, null, null, null, false,
+            FiltroChamados filtro = new FiltroChamados(null, null, null, null, null, false, false,
                 "  " + alvo.getCodigo().toLowerCase() + " ");
 
             assertEquals(List.of(alvo.getCodigo()), codigos(listar(filtro, false, 0, 20)));
@@ -208,7 +223,7 @@ class FilaChamadosIntegracaoTest {
             dados.chamado(unidade, StatusChamado.EM_TRIAGEM, AGORA);
 
             FiltroChamados soTriagem = new FiltroChamados(List.of(StatusChamado.EM_TRIAGEM), unidade.getId(),
-                null, null, null, false, null);
+                null, null, null, false, false, null);
             FilaChamadosResponse fila = listar(soTriagem, false, 0, 20);
 
             assertEquals(1, fila.totalItens());
@@ -245,7 +260,7 @@ class FilaChamadosIntegracaoTest {
     }
 
     private static FiltroChamados daUnidade(Unidade unidade) {
-        return new FiltroChamados(null, unidade.getId(), null, null, null, false, null);
+        return new FiltroChamados(null, unidade.getId(), null, null, null, false, false, null);
     }
 
     private static List<String> codigos(FilaChamadosResponse fila) {

@@ -403,6 +403,7 @@ Lista os chamados de forma paginada, **do mais recente para o mais antigo** (`ab
 | `canal_origem` | `string` | — | `LIGACAO`, `PRESENCIAL`, `WHATSAPP` ou `EMAIL`. |
 | `responsavel_id` | `uuid` | — | Chamados atribuídos a um analista. |
 | `sem_responsavel` | `boolean` | `false` | Só chamados sem responsável (`responsavel_id IS NULL`), para triagem. |
+| `sem_prioridade` | `boolean` | `false` | Só chamados ainda sem prioridade final (aguardando triagem). |
 | `meus` | `boolean` | `false` | Só chamados do usuário autenticado. O servidor identifica o usuário pelo token; o cliente não envia o id. Junto com um `responsavel_id` de outra pessoa, o resultado é vazio. |
 | `codigo` | `string` | — | Código exato (`LUM-AAAA-NNNNNN`), sem diferenciar maiúsculas. |
 

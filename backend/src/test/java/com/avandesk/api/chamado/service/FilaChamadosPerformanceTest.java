@@ -83,8 +83,8 @@ class FilaChamadosPerformanceTest {
             entityManager.flush();
             entityManager.clear();
 
-            FiltroChamados semFiltros = new FiltroChamados(null, null, null, null, null, false, null);
-            FiltroChamados daUnidade = new FiltroChamados(null, unidade.getId(), null, null, null, false, null);
+            FiltroChamados semFiltros = new FiltroChamados(null, null, null, null, null, false, false, null);
+            FiltroChamados daUnidade = new FiltroChamados(null, unidade.getId(), null, null, null, false, false, null);
             for (int i = 0; i < AQUECIMENTO; i++) {
                 filaChamadosService.listar(semFiltros, false, 0, 20);
             }

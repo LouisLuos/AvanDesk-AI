@@ -225,7 +225,7 @@ flowchart TD
 **Tarefas técnicas**
 - [x] **[FE]** Tela da fila com filtros e badges (`features/chamados/fila-chamados`, 5 testes Vitest).
 - [x] **[BE]** `ChamadoSpecification` (Spring Data JPA) para filtros dinâmicos.
-- [x] **[BE]** `GET /api/v1/chamados` com `Pageable` e filtros opcionais (`unidade_id`, `status`, `prioridade`, `responsavel_id`, `codigo`), mais `canal_origem`, `sem_responsavel`, `meus` (pelo token) e `totais_por_status` para os cartões (`FilaChamadosService`).
+- [x] **[BE]** `GET /api/v1/chamados` com `Pageable` e filtros opcionais (`unidade_id`, `status`, `prioridade`, `responsavel_id`, `codigo`), mais `canal_origem`, `sem_responsavel`, `sem_prioridade`, `meus` (pelo token) e `totais_por_status` para os cartões (`FilaChamadosService`).
 - [x] **[BE]** Atualizar `openapi-mvp.yaml` e `06-documentacao-api-mvp.md` com o contrato paginado.
 - [ ] **[FE]** Ajustar `ChamadoService.listar()` ao formato paginado e desligar o mock da fila.
 - [x] **[QA]** Teste de integração de filtros combinados: status + unidade + prioridade + responsável (interseção correta) (`FilaChamadosIntegracaoTest`).

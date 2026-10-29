@@ -42,6 +42,9 @@ public final class ChamadoSpecification {
         if (filtro.semResponsavel()) {
             condicoes.add(semResponsavel());
         }
+        if (filtro.semPrioridade()) {
+            condicoes.add(semPrioridade());
+        }
         if (filtro.codigo() != null && !filtro.codigo().isBlank()) {
             condicoes.add(comCodigo(filtro.codigo()));
         }
@@ -71,6 +74,11 @@ public final class ChamadoSpecification {
 
     static Specification<Chamado> semResponsavel() {
         return (root, query, cb) -> cb.isNull(root.get("responsavel"));
+    }
+
+    /** Chamados ainda sem prioridade final, ou seja, aguardando triagem. */
+    static Specification<Chamado> semPrioridade() {
+        return (root, query, cb) -> cb.isNull(root.get("prioridadeFinal"));
     }
 
     /** Busca exata: o código é gravado em maiúsculas (LUM-AAAA-NNNNNN). */

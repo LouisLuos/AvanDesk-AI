@@ -84,8 +84,7 @@ public class FilaChamadosService {
         if (filtro.responsavelId() != null && !filtro.responsavelId().equals(eu)) {
             return null;
         }
-        return new FiltroChamados(filtro.status(), filtro.unidadeId(), filtro.prioridade(),
-            filtro.canalOrigem(), eu, filtro.semResponsavel(), filtro.codigo());
+        return filtro.comResponsavel(eu);
     }
 
     private Map<UUID, Instant> ultimasAtualizacoes(List<Chamado> chamados) {

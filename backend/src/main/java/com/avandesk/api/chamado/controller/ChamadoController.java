@@ -55,11 +55,12 @@ public class ChamadoController {
         @RequestParam(name = "canal_origem", required = false) CanalOrigem canalOrigem,
         @RequestParam(name = "responsavel_id", required = false) UUID responsavelId,
         @RequestParam(name = "sem_responsavel", defaultValue = "false") boolean semResponsavel,
+        @RequestParam(name = "sem_prioridade", defaultValue = "false") boolean semPrioridade,
         @RequestParam(name = "meus", defaultValue = "false") boolean meus,
         @RequestParam(name = "codigo", required = false) String codigo
     ) {
         FiltroChamados filtro = new FiltroChamados(
-            status, unidadeId, prioridade, canalOrigem, responsavelId, semResponsavel, codigo);
+            status, unidadeId, prioridade, canalOrigem, responsavelId, semResponsavel, semPrioridade, codigo);
         FilaChamadosResponse fila = filaChamadosService.listar(filtro, meus, pagina, tamanho);
         return ResponseEntity.ok(ApiResponse.sucesso(HttpStatus.OK, "Chamados recuperados com sucesso", fila));
     }

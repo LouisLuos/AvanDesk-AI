@@ -44,7 +44,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class FilaChamadosServiceTest {
 
-    private static final FiltroChamados SEM_FILTROS = new FiltroChamados(null, null, null, null, null, false, null);
+    private static final FiltroChamados SEM_FILTROS = new FiltroChamados(null, null, null, null, null, false, false, null);
 
     @Mock
     private ChamadoRepository chamadoRepository;
@@ -117,7 +117,7 @@ class FilaChamadosServiceTest {
     @Test
     void deveDevolverPaginaVaziaQuandoMeusVemComOutroResponsavel() {
         when(usuarioLogadoService.obterUsuarioLogado()).thenReturn(usuario(UUID.randomUUID()));
-        FiltroChamados deOutraPessoa = new FiltroChamados(null, null, null, null, UUID.randomUUID(), false, null);
+        FiltroChamados deOutraPessoa = new FiltroChamados(null, null, null, null, UUID.randomUUID(), false, false, null);
 
         FilaChamadosResponse fila = filaChamadosService.listar(deOutraPessoa, true, 0, 20);
 

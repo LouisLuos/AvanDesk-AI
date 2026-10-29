@@ -272,6 +272,7 @@ class ChamadoControllerTest {
                 .param("canal_origem", "WHATSAPP")
                 .param("responsavel_id", responsavelId.toString())
                 .param("sem_responsavel", "true")
+                .param("sem_prioridade", "true")
                 .param("meus", "true")
                 .param("codigo", "lum-2026-000162"))
             .andExpect(status().isOk());
@@ -279,7 +280,7 @@ class ChamadoControllerTest {
         ArgumentCaptor<FiltroChamados> filtro = ArgumentCaptor.forClass(FiltroChamados.class);
         verify(filaChamadosService).listar(filtro.capture(), eq(true), eq(1), eq(50));
         assertEquals(new FiltroChamados(List.of(StatusChamado.ABERTO, StatusChamado.EM_TRIAGEM), unidadeId,
-            Prioridade.ALTA, CanalOrigem.WHATSAPP, responsavelId, true, "lum-2026-000162"), filtro.getValue());
+            Prioridade.ALTA, CanalOrigem.WHATSAPP, responsavelId, true, true, "lum-2026-000162"), filtro.getValue());
     }
 
     @Test
@@ -290,7 +291,7 @@ class ChamadoControllerTest {
         mockMvc.perform(get("/api/v1/chamados")).andExpect(status().isOk());
 
         verify(filaChamadosService).listar(
-            new FiltroChamados(null, null, null, null, null, false, null), false, 0, 20);
+            new FiltroChamados(null, null, null, null, null, false, false, null), false, 0, 20);
     }
 
     @Test
