@@ -18,6 +18,7 @@ import {
   TAMANHO_PAGINA_FILA,
 } from '../../../shared/models/chamado.model';
 import { extrairMensagensErro } from '../../../shared/utils/api-error';
+import { DatePipe } from '@angular/common';
 
 const SEM_PRIORIDADE = 'SEM_PRIORIDADE';
 /** Quantos botões de página aparecem ao redor da página atual. */
@@ -64,7 +65,7 @@ const ESTILO_SLA: Record<SituacaoSla, { texto: string; barra: string }> = {
 
 @Component({
   selector: 'app-fila-chamados',
-  imports: [RouterLink, CustomDropdown],
+  imports: [RouterLink, CustomDropdown, DatePipe],
   templateUrl: './fila-chamados.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

@@ -171,6 +171,7 @@
               <th scope="col" class="px-2 py-3.5 font-semibold">Prazo (SLA)</th>
               <th scope="col" class="px-2 py-3.5 font-semibold">Responsável</th>
               <th scope="col" class="px-3 py-3.5 font-semibold">Atualizado</th>
+              <th scope="col" class="px-3 py-3.5 font-semibold">Criado Em</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-[#e2e5ec]">
@@ -273,6 +274,10 @@
                   </td>
                   <td class="whitespace-nowrap px-3 py-3 text-[#6b7280]">
                     <time [attr.datetime]="chamado.atualizado_em">{{ tempoRelativo(chamado.atualizado_em) }}</time>
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-3 text-[#6b7280]">>
+                    <time [attr.datetime]="chamado.aberto_em">{{ chamado.aberto_em | date:'dd/MM/yyyy HH:mm' }}
+                    </time>
                   </td>
                 </tr>
               } @empty {
