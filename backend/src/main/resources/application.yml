@@ -34,6 +34,11 @@ server:
 nexo:
   # Marca os dados gravados (REAL, TESTE ou SIMULADO) para as métricas da seção 9.5
   origem-dado: TESTE
+  jwt:
+    # Segredo HMAC-SHA256 (min. 256 bits) para desenvolvimento e testes
+    secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    # 3600000 ms = 1 hora (RNF-007)
+    expiration-ms: 3600000
 
 springdoc:
   api-docs:

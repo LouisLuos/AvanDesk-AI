@@ -1,6 +1,6 @@
 # Backlog Geral do MVP — Nexo
 
-> **Data de atualização:** 27/10/2026  
+> **Data de atualização:** 29/10/2026  
 > **Status geral:** Sprint 1 (Fundações + HU11 + HU01 + Instrumentação 9.5) concluída ✅ · Sprint 2 (Fluxo essencial: Autenticação JWT, Fila, Detalhe, Status e Atribuição) ativa 🎯  
 > **Referência oficial:** [Histórias de Usuário](./04-historias-de-usuario-Nexo.md), [Requisitos Funcionais](./02-requisitos-funcionais.md), [Análise de Domínio](./01-analise-de-dominio-Nexo.md) e Seção 9 do Documento do MVP (Métricas e Instrumentação).
 
@@ -160,8 +160,8 @@ flowchart TD
 | **BE-03** | `POST /api/v1/chamados` transacional com teste de rollback | BE | Elis | ✅ |
 | **FE-01** | Telemetria M11 na tela Novo Chamado | FE | Pedro | ✅ |
 | **FE-02** | Aviso LGPD e selo de modo simulado | FE | Pedro | ✅ |
-| **FE-03** | Testes Vitest da tela Novo Chamado (23 testes) | FE | Pedro | ✅ |
-| **INT-01** | Integração ponta a ponta (front real → backend dev) e validação da M11 via SQL | Integração | Aguinaldo / Luiz | 🎯 Em andamento |
+| **FE-03** | Testes Vitest da tela Novo Chamado (24 testes) | FE | Pedro | ✅ |
+| **INT-01** | Integração ponta a ponta (front real → backend dev) e validação da M11 via SQL | Integração | Aguinaldo / Luiz | ✅ |
 
 ---
 
@@ -169,9 +169,9 @@ flowchart TD
 
 > **Meta da Sprint:** o cliente ver o chamado percorrer o fluxo principal no sistema real com autenticação: **fazer login com sua conta → abrir ou ver o chamado na fila → abrir o detalhe → assumir como responsável → mudar status**, com cada passo registrado no histórico imutável contendo o autor real da ação.
 
-### 🏷️ [HU09] Autenticar no sistema (JWT)
+### 🏷️ [HU09] Autenticar no sistema (JWT) — ✅ Concluído
 
-- **Status:** ⏳ A iniciar no backend (FE pronto com mock) · **Responsáveis:** Elis (BE), Pedro (FE), Luiz (Security)
+- **Status:** ✅ Concluído · **Responsáveis:** Elis (BE), Pedro (FE), Luiz (Security)
 - **RF:** RF-021, RF-022 · **RNF:** RNF-005, RNF-007, RNF-010
 - **Métrica:** pré-requisito da coleta oficial e da Seção 9.5 (autor real dos eventos M01–M08)
 
@@ -185,26 +185,26 @@ flowchart TD
 - `SecurityContext` do Spring preenchido com o e-mail/ID do analista para gravar o `autor_id` legítimo em `eventos_historico`.
 
 **Critérios de aceite**
-- [ ] Entrar com e-mail e senha e receber token JWT assinado.
-- [ ] Usuário não autenticado recebe 401 e não acessa rotas de chamados.
-- [ ] Credenciais inválidas mostram mensagem genérica.
-- [ ] É possível sair (logout) limpando o armazenamento local.
-- [ ] Ações de mutação (abrir, assumir, mudar status) registram o autor autenticado no histórico.
+- [x] Entrar com e-mail e senha e receber token JWT assinado.
+- [x] Usuário não autenticado recebe 401 e não acessa rotas de chamados.
+- [x] Credenciais inválidas mostram mensagem genérica.
+- [x] É possível sair (logout) limpando o armazenamento local.
+- [x] Ações de mutação (abrir, assumir, mudar status) registram o autor autenticado no histórico.
 
 **Tarefas técnicas**
 - [x] **[BD]** `V3__cria_tabela_usuarios.sql` (BCrypt + perfil) e seed de dev (`R__dados_dev.sql`).
 - [x] **[FE]** Tela de login (`features/auth/login`, 5 testes Vitest).
 - [x] **[FE]** `TokenStorageService` e `authInterceptor` (anexa o Bearer token quando existir).
-- [ ] **[BE]** `POST /api/v1/auth/login` gerando JWT com claims de ID, e-mail e perfil.
-- [ ] **[BE]** Filtro JWT no Spring Security (`JwtAuthenticationFilter`) substituindo o HTTP Basic temporário.
-- [ ] **[FE]** Guarda de rotas (`AuthGuard`) impedindo acesso à fila sem login e logout ativo.
-- [ ] **[QA]** Testes automatizados de login: sucesso com credenciais válidas e validação de claims do JWT (ID, sub, perfil, expiração de 1h).
-- [ ] **[QA]** Testes negativos de autenticação: senha errada (401 com mensagem genérica anti-enumeração), usuário inativo (`ativo = false`) e token expirado/adulterado.
-- [ ] **[QA]** Testes de sessão no frontend: interceptor Bearer, redirecionamento para `/login` no 401 e limpeza do storage no logout.
+- [x] **[BE]** `POST /api/v1/auth/login` e `POST /api/v1/auth/logout` gerando JWT com claims de ID, e-mail e perfil.
+- [x] **[BE]** Filtro JWT no Spring Security (`JwtAuthenticationFilter`) substituindo o HTTP Basic temporário.
+- [x] **[FE]** Guarda de rotas (`authGuard`) impedindo acesso à fila sem login e logout ativo.
+- [x] **[QA]** Testes automatizados de login: sucesso com credenciais válidas e validação de claims do JWT (ID, sub, perfil, expiração de 1h).
+- [x] **[QA]** Testes negativos de autenticação: senha errada (401 com mensagem genérica anti-enumeração), usuário inativo (`ativo = false`) e token expirado/adulterado.
+- [x] **[QA]** Testes de sessão no frontend: interceptor Bearer, redirecionamento para `/login` no 401 e limpeza do storage no logout.
 
 ### 🏷️ [HU14] Listar e buscar chamados
 
-- **Status:** ⏳ A iniciar (FE pronto com mock) · **Responsáveis:** Aguinaldo (BE), Pedro (FE), Marcos (QA)
+- **Status:** 🔄 Em revisão (BE e FE integrados, PR aberto) · **Responsáveis:** Aguinaldo (BE), Pedro (FE), Marcos (QA)
 - **RF:** RF-003 · **Métricas:** M02, apoio a M03
 
 **História:** Como analista de suporte, quero listar e buscar chamados com filtros, para encontrar rapidamente os atendimentos que preciso tratar ou consultar.
@@ -216,26 +216,26 @@ flowchart TD
 - Busca exata pelo código `LUM-AAAA-NNNNNN`.
 
 **Critérios de aceite**
-- [ ] A lista exibe código, unidade, status, prioridade e responsável.
-- [ ] É possível filtrar por status, unidade, prioridade e responsável.
-- [ ] É possível buscar pelo identificador único.
-- [ ] É possível ver só os chamados atribuídos a mim.
-- [ ] A partir da lista, é possível abrir o detalhe do chamado.
+- [x] A lista exibe código, unidade, status, prioridade e responsável.
+- [x] É possível filtrar por status, unidade, prioridade e responsável (na tela: "Somente meus" e "Somente sem responsável"; o seletor de analista depende da HU10).
+- [x] É possível buscar pelo identificador único.
+- [x] É possível ver só os chamados atribuídos a mim.
+- [x] A partir da lista, é possível abrir o detalhe do chamado.
 
 **Tarefas técnicas**
-- [x] **[FE]** Tela da fila com filtros e badges (`features/chamados/fila-chamados`, 4 testes Vitest).
-- [ ] **[BE]** `ChamadoSpecification` (Spring Data JPA) para filtros dinâmicos.
-- [ ] **[BE]** `GET /api/v1/chamados` com `Pageable` e filtros opcionais (`unidade_id`, `status`, `prioridade`, `responsavel_id`, `codigo`).
-- [ ] **[BE]** Atualizar `openapi-mvp.yaml` e `06-documentacao-api-mvp.md` com o contrato paginado.
-- [ ] **[FE]** Ajustar `ChamadoService.listar()` ao formato paginado e desligar o mock da fila.
-- [ ] **[QA]** Teste de integração de filtros combinados: status + unidade + prioridade + responsável (interseção correta).
-- [ ] **[QA]** Teste do filtro rápido "Meus chamados": assegurar que filtra exatamente pelo ID do analista autenticado no JWT.
-- [ ] **[QA]** Teste de performance de listagem (RNF-004): carga com 1.000 chamados no banco garantindo tempo de resposta p95 < 1.000 ms.
-- [ ] **[QA]** Teste de paginação e ordenação: validar consistência de `page`, `size` e ordenação `aberto_em DESC`.
+- [x] **[FE]** Tela da fila com filtros e badges (`features/chamados/fila-chamados`, 5 testes Vitest).
+- [x] **[BE]** `ChamadoSpecification` (Spring Data JPA) para filtros dinâmicos.
+- [x] **[BE]** `GET /api/v1/chamados` com `Pageable` e filtros opcionais (`unidade_id`, `status`, `prioridade`, `responsavel_id`, `codigo`), mais `canal_origem`, `sem_responsavel`, `sem_prioridade`, `meus` (pelo token) e `totais_por_status` para os cartões (`FilaChamadosService`).
+- [x] **[BE]** Atualizar `openapi-mvp.yaml` e `06-documentacao-api-mvp.md` com o contrato paginado.
+- [x] **[FE]** Ajustar `ChamadoService.listar()` ao formato paginado e desligar o mock da fila (filtros e paginação no servidor, "Somente sem responsável", busca por código, cartões por `totais_por_status`; 15 testes Vitest novos).
+- [x] **[QA]** Teste de integração de filtros combinados: status + unidade + prioridade + responsável (interseção correta) (`FilaChamadosIntegracaoTest`).
+- [x] **[QA]** Teste do filtro rápido "Meus chamados": assegurar que filtra exatamente pelo ID do analista autenticado no JWT (`FilaChamadosIntegracaoTest`).
+- [x] **[QA]** Teste de performance de listagem (RNF-004): carga com 1.000 chamados no banco garantindo tempo de resposta p95 < 1.000 ms (`FilaChamadosPerformanceTest`; medido localmente: 24 ms).
+- [x] **[QA]** Teste de paginação e ordenação: validar consistência de `page`, `size` e ordenação `aberto_em DESC` (`FilaChamadosIntegracaoTest`).
 
-### 🏷️ [HU02] Consultar o histórico do chamado
+### 🏷️ [HU02] Consultar o histórico do chamado — ✅ Concluído
 
-- **Status:** ⏳ A iniciar (FE pronto com mock) · **Responsáveis:** Elis (BE), Pedro (FE), Marcos (QA)
+- **Status:** ✅ Concluído · **Responsáveis:** Elis (BE), Pedro / Luiz (FE), Marcos (QA)
 - **RF:** RF-004 · **Métrica:** M01 (rastreabilidade)
 
 **História:** Como analista de suporte, quero visualizar o histórico completo de um chamado, para entender o que já aconteceu e continuar o atendimento sem depender de mensagens espalhadas.
@@ -246,23 +246,23 @@ flowchart TD
 - O histórico é somente leitura: o banco rejeita UPDATE e DELETE.
 
 **Critérios de aceite**
-- [ ] O histórico reúne os registros de contato associados ao chamado.
-- [ ] Os acontecimentos relevantes do atendimento aparecem na linha do tempo.
-- [ ] O responsável atual está visível.
-- [ ] Um analista que não abriu o chamado consegue entender o histórico.
+- [x] O histórico reúne os registros de contato associados ao chamado.
+- [x] Os acontecimentos relevantes do atendimento aparecem na linha do tempo.
+- [x] O responsável atual está visível.
+- [x] Um analista que não abriu o chamado consegue entender o histórico.
 
 **Tarefas técnicas**
 - [x] **[BD]** `eventos_historico` com trigger de imutabilidade (V5).
-- [x] **[FE]** Tela de detalhe com linha do tempo (`features/chamados/detalhe-chamado`, 3 testes Vitest).
-- [ ] **[BE]** `GET /api/v1/chamados/{id}` retornando dados do chamado, contatos e eventos ordenados.
-- [ ] **[FE]** Conectar `ChamadoService.buscarPorId()` à API real.
-- [ ] **[QA]** Teste de integridade da linha do tempo: conferir ordenação cronológica estrita dos eventos e junção correta dos contatos.
-- [ ] **[QA]** Teste de imutabilidade em banco: validar que tentativa de `UPDATE` ou `DELETE` em `eventos_historico` é abortada pelo trigger.
-- [ ] **[QA]** Teste de timezone e formatação: validação de conversão de timestamp UTC do banco para o fuso local do navegador do usuário.
+- [x] **[FE]** Tela de detalhe com linha do tempo (`features/chamados/detalhe-chamado`, 6 testes Vitest).
+- [x] **[BE]** `GET /api/v1/chamados/{id}` retornando dados do chamado, contatos e eventos ordenados.
+- [x] **[FE]** Conectar `ChamadoService.buscarPorId()` à API real com adaptador de contrato (`mapearChamadoDetalhe`).
+- [x] **[QA]** Teste de integridade da linha do tempo: conferir ordenação cronológica estrita dos eventos e junção correta dos contatos.
+- [x] **[QA]** Teste de imutabilidade em banco: validar que tentativa de `UPDATE` ou `DELETE` em `eventos_historico` é abortada pelo trigger.
+- [x] **[QA]** Teste de timezone e formatação: validação de conversão de timestamp UTC do banco para o fuso local do navegador do usuário.
 
-### 🏷️ [HU05] Acompanhar status e responsável
+### 🏷️ [HU05] Acompanhar status e responsável — ✅ Concluído
 
-- **Status:** ⏳ A iniciar · **Responsáveis:** Elis (BE), Pedro (FE), Marcos (QA)
+- **Status:** ✅ Concluído · **Responsáveis:** Elis (BE), Pedro / Luiz (FE), Marcos (QA)
 - **RF:** RF-015 · **Métrica:** M02
 
 **História:** Como analista de suporte, quero visualizar o status e o responsável de cada chamado, para saber quais atendimentos estão em andamento e quem cuida de cada um.
@@ -273,16 +273,16 @@ flowchart TD
 - A HU05 trata da **visualização**; a ação de mudar status está na HU12.
 
 **Critérios de aceite**
-- [ ] Todo chamado exibe seu status atual.
-- [ ] O analista responsável aparece quando houver.
-- [ ] O ciclo de vida pode ser acompanhado pelo histórico.
+- [x] Todo chamado exibe seu status atual.
+- [x] O analista responsável aparece quando houver.
+- [x] O ciclo de vida pode ser acompanhado pelo histórico.
 
 **Tarefas técnicas**
 - [x] **[BD]** Constraint `ck_chamados_status` e enum `StatusChamado`.
-- [ ] **[BE]** Incluir `status` e `responsavel` (id e nome) nos DTOs da listagem e do detalhe.
-- [ ] **[FE]** Exibir status e responsável com os dados reais da API.
-- [ ] **[QA]** Teste de renderização de estados: validação de cores, badges e labels para os 9 status possíveis do domínio.
-- [ ] **[QA]** Teste de visualização de estado "Não atribuído": validar comportamento quando `responsavel_id` é nulo (sem exceptions na UI).
+- [x] **[BE]** Incluir `status` e `responsavel` (id e nome) nos DTOs da listagem e do detalhe.
+- [x] **[FE]** Exibir status e responsável com os dados reais da API.
+- [x] **[QA]** Teste de renderização de estados: validação de cores, badges e labels para os 9 status possíveis do domínio.
+- [x] **[QA]** Teste de visualização de estado "Não atribuído": validar comportamento quando `responsavel_id` é nulo (sem exceptions na UI).
 
 ### 🏷️ [HU12] Atribuir responsável e atualizar status
 
@@ -576,7 +576,7 @@ A estratégia de testes do Nexo segue a **Pirâmide de Testes de Automação Con
 | **QA4-08** | Backend | Segurança / Upload | Bloqueio de upload de extensões executáveis perigosas (.exe, .sh, .bat) e validação de MIME types permitidos. | MockMultipartFile | RNF-009 |
 | **QA4-09** | CI / Automação | E2E Integrado | Pipeline do GitHub Actions executando todos os testes automatizados de backend e frontend em container limpo. | GitHub Actions Runner | Seção 9.3 |
 
-**Estado atual dos testes:** 44 testes Vitest no frontend (7 arquivos) e, no backend, testes de `ChamadoService`, `EventoHistoricoService`, `SolicitanteService`, `ChamadoController` e integração com rollback do registro de chamado.
+**Estado atual dos testes:** 50 testes Vitest no frontend (7 arquivos) e, no backend, testes de `ChamadoService`, `EventoHistoricoService`, `SolicitanteService`, `ChamadoController`, `AuthController`, `JwtService` e integração com rollback do registro de chamado.
 
 ---
 

@@ -1,3 +1,6 @@
+server:
+  port: ${PORT:8080}
+
 spring:
   datasource:
     url: ${DATABASE_URL}
@@ -9,8 +12,11 @@ spring:
 
   flyway:
     enabled: true
-    # Sem db/seed: os usuários de teste nunca vão para produção
+    # Sem db/seed: dados essenciais carregados via migrations versionadas
     locations: classpath:db/migration
 
 nexo:
   origem-dado: REAL
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration-ms: ${JWT_EXPIRATION_MS:3600000}

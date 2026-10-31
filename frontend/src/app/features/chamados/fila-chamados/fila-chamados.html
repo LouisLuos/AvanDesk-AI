@@ -30,6 +30,9 @@
           @if (carregando()) {
             <span class="mt-2 block h-6 w-8 animate-pulse rounded bg-[#e2e5ec]" aria-hidden="true"></span>
             <span class="sr-only">Carregando</span>
+          } @else if (indicador.valor === null) {
+            <p class="mt-1 text-2xl font-bold text-[#9aa2b1]" [attr.title]="indicador.dica">—</p>
+            <span class="sr-only">{{ indicador.dica }}</span>
           } @else {
             <p class="mt-1 text-2xl font-bold tabular-nums text-[#14161b]">{{ indicador.valor }}</p>
           }
@@ -40,8 +43,8 @@
 
   <!-- Filtros -->
   <div role="search" class="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center" aria-label="Filtrar chamados">
-    <div class="relative w-full lg:w-60">
-      <label for="filtro-busca" class="sr-only">Buscar por código ou descrição</label>
+    <div class="relative w-full lg:w-72">
+      <label for="filtro-busca" class="sr-only">Buscar pelo código do chamado</label>
       <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="11" cy="11" r="8" />
         <path d="m21 21-4.3-4.3" />
@@ -49,10 +52,11 @@
       <input
         id="filtro-busca"
         type="search"
-        placeholder="Buscar por código ou descrição"
+        placeholder="Buscar pelo código (ex.: LUM-2026-000127)"
         autocomplete="off"
         [value]="busca()"
-        (input)="atualizarFiltro(busca, valorInput($event))"
+        (input)="digitarBusca(valorInput($event))"
+        (keydown.enter)="aplicarBusca()"
         class="h-9 w-full rounded-md border border-[#e2e5ec] bg-white pl-9 pr-3 text-xs text-[#14161b] placeholder:text-[#9aa2b1] transition focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff]"
       />
     </div>
@@ -100,10 +104,21 @@
         id="filtro-meus"
         type="checkbox"
         [checked]="somenteMeus()"
-        (change)="atualizarFiltro(somenteMeus, marcado($event))"
+        (change)="alternarMeus(marcado($event))"
         class="h-4 w-4 cursor-pointer rounded border-[#e2e5ec] accent-[#2d5bff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] focus-visible:ring-offset-1"
       />
       Somente meus chamados
+    </label>
+
+    <label for="filtro-sem-responsavel" class="flex cursor-pointer items-center gap-2 text-xs text-[#363b47] lg:ml-1">
+      <input
+        id="filtro-sem-responsavel"
+        type="checkbox"
+        [checked]="somenteSemResponsavel()"
+        (change)="alternarSemResponsavel(marcado($event))"
+        class="h-4 w-4 cursor-pointer rounded border-[#e2e5ec] accent-[#2d5bff] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] focus-visible:ring-offset-1"
+      />
+      Somente sem responsável
     </label>
 
     @if (temFiltroAtivo()) {
@@ -156,6 +171,7 @@
               <th scope="col" class="px-2 py-3.5 font-semibold">Prazo (SLA)</th>
               <th scope="col" class="px-2 py-3.5 font-semibold">Responsável</th>
               <th scope="col" class="px-3 py-3.5 font-semibold">Atualizado</th>
+              <th scope="col" class="px-3 py-3.5 font-semibold">Criado Em</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-[#e2e5ec]">
@@ -224,20 +240,25 @@
                     }
                   </td>
                   <td class="whitespace-nowrap px-2 py-3">
-                    <div class="flex flex-col gap-1">
-                      <span class="font-medium" [class]="estiloSla(chamado.sla.situacao).texto">
-                        {{ chamado.sla.rotulo }}
-                      </span>
-                      @if (estiloSla(chamado.sla.situacao).barra) {
-                        <div class="h-1 w-24 overflow-hidden rounded-full bg-[#e2e5ec]">
-                          <div
-                            class="h-full rounded-full transition-all"
-                            [class]="estiloSla(chamado.sla.situacao).barra"
-                            [style.width.%]="chamado.sla.progresso"
-                          ></div>
-                        </div>
-                      }
-                    </div>
+                    @if (chamado.sla; as sla) {
+                      <div class="flex flex-col gap-1">
+                        <span class="font-medium" [class]="estiloSla(sla.situacao).texto">
+                          {{ sla.rotulo }}
+                        </span>
+                        @if (estiloSla(sla.situacao).barra) {
+                          <div class="h-1 w-24 overflow-hidden rounded-full bg-[#e2e5ec]">
+                            <div
+                              class="h-full rounded-full transition-all"
+                              [class]="estiloSla(sla.situacao).barra"
+                              [style.width.%]="sla.progresso"
+                            ></div>
+                          </div>
+                        }
+                      </div>
+                    } @else {
+                      <!-- SLA ainda não vem da API: o cálculo de prazo é de outra HU -->
+                      <span class="text-[11px] text-[#9aa2b1]" title="Disponível quando o cálculo de SLA estiver pronto.">—</span>
+                    }
                   </td>
                   <td class="whitespace-nowrap px-2 py-3 text-[#363b47]">
                     @if (chamado.responsavel; as responsavel) {
@@ -248,11 +269,15 @@
                         {{ responsavel.nome }}
                       </span>
                     } @else {
-                      <span class="font-semibold text-[#dc2626]">Sem responsável</span>
+                      <span class="font-semibold text-[#dc2626]">Não atribuído</span>
                     }
                   </td>
                   <td class="whitespace-nowrap px-3 py-3 text-[#6b7280]">
                     <time [attr.datetime]="chamado.atualizado_em">{{ tempoRelativo(chamado.atualizado_em) }}</time>
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-3 text-[#6b7280]">>
+                    <time [attr.datetime]="chamado.aberto_em">{{ chamado.aberto_em | date:'dd/MM/yyyy HH:mm' }}
+                    </time>
                   </td>
                 </tr>
               } @empty {

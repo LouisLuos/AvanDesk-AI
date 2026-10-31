@@ -5,7 +5,7 @@ import {
   HttpResponse,
   HttpStatusCode,
 } from '@angular/common/http';
-import { Observable, delay, mergeMap, of, throwError, timer } from 'rxjs';
+import { Observable, delay, of, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { ApiResponse } from '../../shared/models/api-response.model';
 import {
@@ -14,10 +14,12 @@ import {
   ChamadoRequest,
   ChamadoResponse,
   ChamadoResumo,
+  FilaChamados,
   ItemLista,
   PrioridadeChamado,
   ResponsavelChamado,
   SlaChamado,
+  STATUS_CHAMADO,
   StatusChamado,
 } from '../../shared/models/chamado.model';
 import { Unidade, UnidadeRequest } from '../../shared/models/unidade.model';
@@ -25,8 +27,10 @@ import { USUARIO_ATUAL } from '../../shared/utils/usuario-atual';
 
 /**
  * API simulada em memória para desenvolver o frontend antes do backend ficar pronto.
- * Ativada por `environment.useMocks`. Responde no mesmo formato ApiResponse do contrato.
- * Dados fictícios — nenhum dado real de paciente ou colaborador.
+ * Ativada por `environment.useMocks`. Quando `useMocks = false` (modo integração),
+ * repassa todos os endpoints já implementados no backend (/auth/*, /unidades*,
+ * /categorias, /sistemas-equipamentos, POST /chamados e GET /chamados/{uuid}) para o servidor real,
+ * mantendo apenas o fallback provisório de GET /chamados e sementes chm-* até a HU14.
  */
 
 const LATENCIA_MS = 400;
@@ -97,25 +101,6 @@ const SEMENTES: SementeChamado[] = [
   [97, 'Atualização do navegador nas estações', 4, 'EMAIL', 'ABERTO', null, { situacao: 'TRIAGEM', rotulo: 'Triagem · 25 min', progresso: 75 }, null, 5800],
 ];
 
-const ANO_ATUAL = new Date().getFullYear();
-
-const chamados: ChamadoResumo[] = SEMENTES.map(
-  ([numero, titulo, unidade, canal, status, prioridade, sla, responsavel, minutos]) => ({
-    id: `chm-${numero}`,
-    codigo: `LUM-${ANO_ATUAL}-${String(numero).padStart(6, '0')}`,
-    titulo,
-    unidade: unidadeRef(unidade),
-    canal_origem: canal,
-    status,
-    prioridade,
-    sla,
-    responsavel: responsavel ? RESPONSAVEIS[responsavel] : null,
-    atualizado_em: minutosAtras(minutos),
-  }),
-);
-
-let sequencialChamado = 127;
-
 /** Mesmos nomes do seed de dev do backend (db/seed/R__dados_dev.sql), já em ordem alfabética. */
 const categorias: ItemLista[] = [
   { id: 'c4e0a000-0001-4000-8000-000000000001', nome: 'Acesso e senhas' },
@@ -137,13 +122,108 @@ const sistemasEquipamentos: ItemLista[] = [
   { id: '5e5a0000-0008-4000-8000-000000000008', nome: 'Telefone / ramal' },
 ];
 
+const ANO_ATUAL = new Date().getFullYear();
+
+const chamados: ChamadoResumo[] = SEMENTES.map(
+  ([numero, titulo, unidade, canal, status, prioridade, sla, responsavel, minutos]) => ({
+    id: `chm-${numero}`,
+    codigo: `LUM-${ANO_ATUAL}-${String(numero).padStart(6, '0')}`,
+    titulo,
+    unidade: unidadeRef(unidade),
+    canal_origem: canal,
+    status,
+    prioridade,
+    categoria: categorias[numero % categorias.length],
+    sla,
+    responsavel: responsavel ? RESPONSAVEIS[responsavel] : null,
+    aberto_em: minutosAtras(minutos + 45),
+    atualizado_em: minutosAtras(minutos),
+  }),
+);
+
+let sequencialChamado = 127;
+
+
+
 export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
   const apiIndex = req.url.indexOf(environment.apiUrl);
-  if (!environment.useMocks || apiIndex === -1) {
+  if (apiIndex === -1) {
     return next(req);
   }
 
   const caminho = req.url.substring(apiIndex + environment.apiUrl.length);
+
+  const detalheMatch = caminho.match(/^\/chamados\/([^/]+)$/);
+  if (detalheMatch && req.method === 'GET') {
+    const idParam = detalheMatch[1];
+    const ehUuidReal = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      idParam,
+    );
+    // Na HU02/HU05, GET /api/v1/chamados/{id} está pronto no backend para UUIDs reais;
+    // sementes locais provisórias da fila (chm-*) continuam usando o fallback em memória até a HU14.
+    if (!environment.useMocks && ehUuidReal) {
+      return next(req);
+    }
+    return obterDetalheChamado(idParam);
+  }
+
+  // Quando o modo simulado está desligado (useMocks = false), todas as rotas de backend já prontas
+  // (/auth/*, /unidades*, /categorias, /sistemas-equipamentos, POST /chamados e GET /chamados/{id}) vão ao servidor real.
+  if (!environment.useMocks) {
+    if (caminho === '/unidades' && req.method === 'GET') {
+      return next(req).pipe(
+        tap((evento) => {
+          if (evento instanceof HttpResponse) {
+            const corpo = evento.body as ApiResponse<Unidade[]> | null;
+            if (corpo?.data?.length) {
+              for (const u of corpo.data) {
+                const idx = unidades.findIndex((item) => item.id === u.id);
+                if (idx >= 0) unidades[idx] = { ...u };
+                else unidades.push({ ...u });
+              }
+            }
+          }
+        }),
+      );
+    }
+
+    if (caminho === '/chamados' && req.method === 'POST') {
+      const payload = req.body as ChamadoRequest | null;
+      return next(req).pipe(
+        tap((evento) => {
+          if (evento instanceof HttpResponse && payload) {
+            const corpo = evento.body as ApiResponse<ChamadoResponse> | null;
+            const criado = corpo?.data;
+            if (criado) {
+              const unidade = unidades.find((u) => u.id === payload.unidade_id);
+              chamados.unshift({
+                id: criado.id,
+                codigo: criado.codigo,
+                titulo: payload.descricao.trim().split('\n')[0].slice(0, 80),
+                unidade: { id: payload.unidade_id, nome: unidade?.nome ?? 'Unidade' },
+                categoria: categorias.find((c) => c.id === payload.categoria_id) ?? null,
+                canal_origem: payload.canal_origem,
+                status: criado.status ?? 'ABERTO',
+                prioridade: payload.prioridade ?? null,
+                sla: { situacao: 'TRIAGEM', rotulo: 'Triagem · 0 min', progresso: 0 },
+                responsavel: payload.atribuir_a_mim
+                  ? { id: USUARIO_ATUAL.id, nome: USUARIO_ATUAL.nome }
+                  : null,
+                aberto_em: criado.data_criacao,
+                atualizado_em: criado.data_criacao,
+              });
+            }
+          }
+        }),
+      );
+    }
+
+    return next(req);
+  }
+
+  if (caminho === '/chamados' && req.method === 'GET') {
+    return listarChamados(req);
+  }
 
   if (caminho === '/unidades') {
     if (req.method === 'GET') return listarUnidades(req);
@@ -162,17 +242,8 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
     return loginMock(req);
   }
 
-  if (caminho === '/chamados' && req.method === 'GET') {
-    return sucesso(
-      HttpStatusCode.Ok,
-      'Chamados recuperados',
-      chamados.map((c) => ({ ...c })),
-    ).pipe(delay(LATENCIA_MS));
-  }
-
-  const detalheMatch = caminho.match(/^\/chamados\/([^/]+)$/);
-  if (detalheMatch && req.method === 'GET') {
-    return obterDetalheChamado(detalheMatch[1]);
+  if (caminho === '/auth/logout' && req.method === 'POST') {
+    return sucesso(HttpStatusCode.Ok, 'Logout realizado com sucesso', null);
   }
 
   if (caminho === '/chamados' && req.method === 'POST') {
@@ -255,6 +326,51 @@ function validarUnidade(body: UnidadeRequest | null, idAtual?: string): string[]
 
 // ---------- Chamados ----------
 
+/**
+ * Fila simulada no mesmo formato do GET /chamados real (HU14): filtros que se somam, mais recentes
+ * primeiro, paginação e totais por status ignorando o filtro de status.
+ */
+function listarChamados(req: HttpRequest<unknown>): Observable<HttpResponse<unknown>> {
+  const p = req.params;
+  const status = p.getAll('status') ?? [];
+  const unidade = p.get('unidade_id');
+  const prioridade = p.get('prioridade');
+  const canal = p.get('canal_origem');
+  const responsavel = p.get('meus') === 'true' ? USUARIO_ATUAL.id : p.get('responsavel_id');
+  const semResponsavel = p.get('sem_responsavel') === 'true';
+  const semPrioridade = p.get('sem_prioridade') === 'true';
+  const codigo = p.get('codigo')?.trim().toUpperCase();
+  const pagina = Number(p.get('page') ?? 0);
+  const tamanho = Number(p.get('size') ?? 20);
+
+  const semFiltroDeStatus = chamados.filter(
+    (c) =>
+      (!unidade || c.unidade.id === unidade) &&
+      (!prioridade || c.prioridade === prioridade) &&
+      (!semPrioridade || c.prioridade === null) &&
+      (!canal || c.canal_origem === canal) &&
+      (!responsavel || c.responsavel?.id === responsavel) &&
+      (!semResponsavel || c.responsavel === null) &&
+      (!codigo || c.codigo === codigo),
+  );
+  const filtrados = semFiltroDeStatus
+    .filter((c) => !status.length || status.includes(c.status))
+    .sort((a, b) => b.aberto_em.localeCompare(a.aberto_em));
+
+  const totais = Object.fromEntries(
+    STATUS_CHAMADO.map(({ valor }) => [valor, semFiltroDeStatus.filter((c) => c.status === valor).length]),
+  ) as FilaChamados['totais_por_status'];
+  const fila: FilaChamados = {
+    itens: filtrados.slice(pagina * tamanho, (pagina + 1) * tamanho).map((c) => ({ ...c })),
+    pagina,
+    tamanho,
+    total_itens: filtrados.length,
+    total_paginas: Math.ceil(filtrados.length / tamanho),
+    totais_por_status: totais,
+  };
+  return sucesso(HttpStatusCode.Ok, 'Chamados recuperados com sucesso', fila).pipe(delay(LATENCIA_MS));
+}
+
 function registrarChamado(req: HttpRequest<ChamadoRequest>): Observable<HttpResponse<unknown>> {
   const body = req.body;
   const erros: string[] = [];
@@ -293,11 +409,13 @@ function registrarChamado(req: HttpRequest<ChamadoRequest>): Observable<HttpResp
     codigo: chamado.codigo,
     titulo: body!.descricao.trim().split('\n')[0].slice(0, 80),
     unidade: { id: unidade!.id, nome: unidade!.nome },
+    categoria: categorias.find((c) => c.id === body!.categoria_id) ?? null,
     canal_origem: body!.canal_origem,
     status: 'ABERTO',
     prioridade: body!.prioridade ?? null,
     sla: { situacao: 'TRIAGEM', rotulo: 'Triagem · 0 min', progresso: 0 },
     responsavel: body!.atribuir_a_mim ? { id: USUARIO_ATUAL.id, nome: USUARIO_ATUAL.nome } : null,
+    aberto_em: chamado.data_criacao,
     atualizado_em: chamado.data_criacao,
   });
   return sucesso(HttpStatusCode.Created, 'Chamado registrado com sucesso', chamado);
@@ -313,7 +431,7 @@ function loginMock(req: HttpRequest<unknown>): Observable<HttpResponse<unknown>>
     usuario: {
       id: USUARIO_ATUAL.id,
       nome: USUARIO_ATUAL.nome,
-      email: body.email.includes('@') ? body.email : `${body.email}@lumendiagnosticos.com.br`,
+      email: body.email.includes('@') ? body.email : `${body.email}@lumen.local`,
       perfil: USUARIO_ATUAL.perfil,
     },
   }).pipe(delay(LATENCIA_MS));
