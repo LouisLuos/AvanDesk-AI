@@ -1,9 +1,8 @@
 export const environment = {
   production: true,
   /**
-   * Em producao na Vercel, as chamadas para '/api/v1' sao automaticamente
-   * redirecionadas pelo vercel.json para o backend no Render, eliminando problemas de CORS.
+   * Conexao direta com a API publicada no Render (CORS habilitado no backend).
    */
-  apiUrl: '/api/v1',
+  apiUrl: 'https://nexodesk-api-ru6l.onrender.com/api/v1',
   useMocks: false,
 };
