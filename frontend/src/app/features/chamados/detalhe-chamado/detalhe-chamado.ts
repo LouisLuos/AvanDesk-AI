@@ -165,6 +165,26 @@ export class DetalheChamado implements OnInit {
     this.modalStatusAberto.set(true);
   }
 
+  /**
+   * Abre o modal com foco direto no cancelamento do chamado (HU12).
+   */
+  protected abrirModalCancelamento(): void {
+    if (this.chamadoEncerrado()) {
+      this.toast.info('Este chamado já se encontra encerrado.');
+      return;
+    }
+    const statusAtual = this.chamado()?.status;
+    if (statusAtual !== 'ABERTO' && statusAtual !== 'EM_TRIAGEM') {
+      this.toast.info(
+        `O cancelamento direto não está disponível para chamados com status "${this.rotuloStatus(statusAtual!)}".`,
+      );
+      return;
+    }
+    this.statusSelecionado.set('CANCELADO');
+    this.motivoCancelamentoTexto.set('');
+    this.modalStatusAberto.set(true);
+  }
+
   protected fecharModalStatus(): void {
     this.modalStatusAberto.set(false);
   }

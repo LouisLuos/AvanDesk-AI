@@ -27,6 +27,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return responder(HttpStatus.UNPROCESSABLE_CONTENT, "Operação não permitida", List.of(ex.getMessage()));
     }
 
+    @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class})
+    public ResponseEntity<ApiResponse<Void>> tratarEstadoInvalido(RuntimeException ex) {
+        logger.warn("Estado ou argumento inválido ao processar a requisição: {}", ex.getMessage());
+        return responder(HttpStatus.UNPROCESSABLE_CONTENT, "Operação não permitida", List.of(ex.getMessage()));
+    }
+
     @ExceptionHandler({org.springframework.security.authentication.BadCredentialsException.class,
                        org.springframework.security.core.AuthenticationException.class})
     public ResponseEntity<ApiResponse<Void>> tratarAutenticacao(Exception ex) {
@@ -64,7 +70,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @Override
     protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers,
-                                                             HttpStatusCode statusCode, WebRequest request) {
+                                                              HttpStatusCode statusCode, WebRequest request) {
         HttpStatus status = HttpStatus.valueOf(statusCode.value());
         if (status.is5xxServerError()) {
             logger.error("Erro interno do Spring MVC ao processar a requisição", ex);

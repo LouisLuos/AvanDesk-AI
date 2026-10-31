@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { AuthService } from '../../../core/services/auth.service';
 import { ChamadoService } from '../../../core/services/chamado.service';
 import { ToastService } from '../../../core/services/toast.service';
 import {
@@ -287,5 +288,69 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
     expect(toastSpy).toHaveBeenCalledWith(
       'Ação "Avaliar prioridade" planejada para a Leva 2 (HU04).',
     );
+  });
+
+  it('deve assumir o chamado com sucesso e disparar toast (HU12)', () => {
+    const authService = TestBed.inject(AuthService);
+    vi.spyOn(authService, 'usuario').mockReturnValue({
+      id: '00000000-0000-0000-0000-0000000000a1',
+      nome: 'Analista Dev Um',
+      email: 'analista1@lumen.local',
+      perfil: 'ANALISTA_SUPORTE',
+    });
+
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, responsavel: null }));
+    const atribuirSpy = vi.spyOn(chamadoService, 'atribuirResponsavel').mockReturnValue(of({
+      ...mockDetalhe,
+      responsavel: { id: '00000000-0000-0000-0000-0000000000a1', nome: 'Analista Dev Um' }
+    }));
+    const toastSpy = vi.spyOn(toastService, 'sucesso');
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['assumirChamado']();
+
+    expect(atribuirSpy).toHaveBeenCalled();
+    expect(toastSpy).toHaveBeenCalledWith('Você assumiu o chamado com sucesso!');
+    expect(component['chamado']()?.responsavel?.nome).toBe('Analista Dev Um');
+  });
+
+  it('deve abrir modal de cancelamento para chamados em ABERTO ou EM_TRIAGEM (HU12)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'ABERTO' }));
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['abrirModalCancelamento']();
+
+    expect(component['modalStatusAberto']()).toBe(true);
+    expect(component['statusSelecionado']()).toBe('CANCELADO');
+  });
+
+  it('deve alterar status para CANCELADO com justificativa via alterarStatus (HU12)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'ABERTO' }));
+    const alterarSpy = vi.spyOn(chamadoService, 'alterarStatus').mockReturnValue(of({
+      ...mockDetalhe,
+      status: 'CANCELADO'
+    }));
+    const toastSpy = vi.spyOn(toastService, 'sucesso');
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['abrirModalCancelamento']();
+    component['atualizarMotivoCancelamento']('Chamado duplicado pelo solicitante');
+    component['confirmarAlteracaoStatus']();
+
+    expect(alterarSpy).toHaveBeenCalledWith('chm-127', expect.objectContaining({
+      status: 'CANCELADO',
+      motivo_cancelamento: 'Chamado duplicado pelo solicitante'
+    }));
+    expect(toastSpy).toHaveBeenCalledWith('Status alterado para "Cancelado" com sucesso!');
+    expect(component['modalStatusAberto']()).toBe(false);
   });
 });

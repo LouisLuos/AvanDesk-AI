@@ -13,11 +13,11 @@ public record StatusRequest(
     StatusChamado status,
 
     @JsonProperty("motivo_espera")
-    @JsonAlias({"motivo_espera", "motivoEspera"})
+    @JsonAlias({"motivoEspera"})
     MotivoEspera motivoEspera,
 
     @JsonProperty("motivo_cancelamento")
-    @JsonAlias({"motivo_cancelamento", "motivoCancelamento"})
+    @JsonAlias({"motivoCancelamento"})
     @Size(max = 500, message = "deve ter no máximo 500 caracteres")
     String motivoCancelamento
 ) {
