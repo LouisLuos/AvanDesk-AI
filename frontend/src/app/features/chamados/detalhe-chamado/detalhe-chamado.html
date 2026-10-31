@@ -550,46 +550,73 @@
                   Motivo da Espera (Obrigatório)
                 </label>
                 <p class="text-[11px] leading-tight text-[#6b7280]">
-                  Selecione quem está impedindo a evolução do chamado.
+                  Selecione quem está impedindo a evolução do chamado:
                 </p>
                 <div class="mt-2 space-y-2 text-xs">
-                  <label class="flex items-center gap-2 cursor-pointer">
+                  <div
+                    (click)="selecionarMotivoEspera('SOLICITANTE')"
+                    class="flex items-start gap-2.5 rounded-lg border p-2.5 transition cursor-pointer"
+                    [class]="motivoEsperaSelecionado() === 'SOLICITANTE' ? 'border-[#2d5bff] bg-white ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] bg-white/70 hover:bg-white'"
+                  >
                     <input
                       type="radio"
+                      id="motivo-solicitante"
                       name="motivoEspera"
                       value="SOLICITANTE"
                       [checked]="motivoEsperaSelecionado() === 'SOLICITANTE'"
                       (change)="selecionarMotivoEspera('SOLICITANTE')"
-                      class="text-[#2d5bff] focus:ring-[#2d5bff]"
+                      class="mt-0.5 text-[#2d5bff] focus:ring-[#2d5bff]"
                     />
-                    <span class="font-medium text-[#14161b]">
-                      Aguardando solicitante <span class="text-[10px] text-[#16a34a] font-semibold">(pausa relógio de SLA)</span>
-                    </span>
-                  </label>
-                  <label class="flex items-center gap-2 cursor-pointer">
+                    <label for="motivo-solicitante" class="cursor-pointer">
+                      <span class="block font-medium text-[#14161b]">
+                        Aguardando solicitante
+                        <span class="ml-1 text-[10px] text-[#16a34a] font-semibold">(pausa relógio de SLA)</span>
+                      </span>
+                    </label>
+                  </div>
+
+                  <div
+                    (click)="selecionarMotivoEspera('FORNECEDOR')"
+                    class="flex items-start gap-2.5 rounded-lg border p-2.5 transition cursor-pointer"
+                    [class]="motivoEsperaSelecionado() === 'FORNECEDOR' ? 'border-[#2d5bff] bg-white ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] bg-white/70 hover:bg-white'"
+                  >
                     <input
                       type="radio"
+                      id="motivo-fornecedor"
                       name="motivoEspera"
                       value="FORNECEDOR"
                       [checked]="motivoEsperaSelecionado() === 'FORNECEDOR'"
                       (change)="selecionarMotivoEspera('FORNECEDOR')"
-                      class="text-[#2d5bff] focus:ring-[#2d5bff]"
+                      class="mt-0.5 text-[#2d5bff] focus:ring-[#2d5bff]"
                     />
-                    <span class="font-medium text-[#14161b]">
-                      Fornecedor externo <span class="text-[10px] text-[#b45309] font-semibold">(tempo em terceiros, sem pausa)</span>
-                    </span>
-                  </label>
-                  <label class="flex items-center gap-2 cursor-pointer">
+                    <label for="motivo-fornecedor" class="cursor-pointer">
+                      <span class="block font-medium text-[#14161b]">
+                        Fornecedor externo
+                        <span class="ml-1 text-[10px] text-[#b45309] font-semibold">(tempo em terceiros, sem pausa)</span>
+                      </span>
+                    </label>
+                  </div>
+
+                  <div
+                    (click)="selecionarMotivoEspera('PECA_EQUIPAMENTO')"
+                    class="flex items-start gap-2.5 rounded-lg border p-2.5 transition cursor-pointer"
+                    [class]="motivoEsperaSelecionado() === 'PECA_EQUIPAMENTO' ? 'border-[#2d5bff] bg-white ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] bg-white/70 hover:bg-white'"
+                  >
                     <input
                       type="radio"
+                      id="motivo-peca"
                       name="motivoEspera"
                       value="PECA_EQUIPAMENTO"
                       [checked]="motivoEsperaSelecionado() === 'PECA_EQUIPAMENTO'"
                       (change)="selecionarMotivoEspera('PECA_EQUIPAMENTO')"
-                      class="text-[#2d5bff] focus:ring-[#2d5bff]"
+                      class="mt-0.5 text-[#2d5bff] focus:ring-[#2d5bff]"
                     />
-                    <span class="font-medium text-[#14161b]">Peça ou equipamento</span>
-                  </label>
+                    <label for="motivo-peca" class="cursor-pointer">
+                      <span class="block font-medium text-[#14161b]">
+                        Peça ou equipamento
+                      </span>
+                    </label>
+                  </div>
                 </div>
               </div>
             }
