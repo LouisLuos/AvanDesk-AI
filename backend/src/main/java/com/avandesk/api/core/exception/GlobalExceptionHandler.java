@@ -29,7 +29,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class})
     public ResponseEntity<ApiResponse<Void>> tratarEstadoInvalido(RuntimeException ex) {
-        logger.warn("Estado ou argumento inválido ao processar a requisição: {}", ex.getMessage());
+        logger.warn("Estado ou argumento inválido ao processar a requisição: " + ex.getMessage());
         return responder(HttpStatus.UNPROCESSABLE_CONTENT, "Operação não permitida", List.of(ex.getMessage()));
     }
 
