@@ -6,9 +6,18 @@ spring:
     url: ${DATABASE_URL}
     username: ${DATABASE_USERNAME}
     password: ${DATABASE_PASSWORD}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      connection-timeout: 20000
+      idle-timeout: 300000
 
   jpa:
     show-sql: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
 
   flyway:
     enabled: true

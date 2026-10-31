@@ -10,6 +10,8 @@ import {
   ChamadoResponse,
   FilaChamados,
   FiltrosFila,
+  ResponsavelRequest,
+  StatusRequest,
   TAMANHO_PAGINA_FILA,
 } from '../../shared/models/chamado.model';
 import { mapearChamadoDetalhe } from '../../shared/utils/chamado-detalhe.mapper';
@@ -64,6 +66,41 @@ export class ChamadoService {
   buscarPorId(id: string): Observable<ChamadoDetalhe> {
     return this.http
       .get<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(`${this.baseUrl}/${id}`)
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  /**
+   * PATCH /chamados/{id}/responsavel — atribui responsável ao chamado (HU12).
+   */
+  atribuirResponsavel(id: string, responsavelId: string): Observable<ChamadoDetalhe> {
+    const payload: ResponsavelRequest = {
+      responsavel_id: responsavelId,
+      responsavelId,
+    };
+    return this.http
+      .patch<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/responsavel`,
+        payload,
+      )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  /**
+   * PATCH /chamados/{id}/status — atualiza o status do chamado conforme ciclo de vida (HU12).
+   */
+  alterarStatus(id: string, payload: StatusRequest): Observable<ChamadoDetalhe> {
+    const corpoRequisicao = {
+      status: payload.status,
+      motivo_espera: payload.motivo_espera ?? payload.motivoEspera ?? null,
+      motivoEspera: payload.motivo_espera ?? payload.motivoEspera ?? null,
+      motivo_cancelamento: payload.motivo_cancelamento ?? payload.motivoCancelamento ?? null,
+      motivoCancelamento: payload.motivo_cancelamento ?? payload.motivoCancelamento ?? null,
+    };
+    return this.http
+      .patch<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/status`,
+        corpoRequisicao,
+      )
       .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
   }
 }
