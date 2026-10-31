@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
+import { AuthService } from '../../../core/services/auth.service';
 import { ChamadoService } from '../../../core/services/chamado.service';
 import { ToastService } from '../../../core/services/toast.service';
 import {
@@ -17,6 +18,7 @@ import {
   MotivoEspera,
   PrioridadeChamado,
   StatusChamado,
+  StatusRequest,
 } from '../../../shared/models/chamado.model';
 import { extrairMensagensErro } from '../../../shared/utils/api-error';
 
@@ -29,13 +31,62 @@ import { extrairMensagensErro } from '../../../shared/utils/api-error';
 export class DetalheChamado implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly chamadoService = inject(ChamadoService);
+  private readonly authService = inject(AuthService);
   private readonly toast = inject(ToastService);
 
   protected readonly carregando = signal(true);
+  protected readonly salvando = signal(false);
   protected readonly erro = signal<string | null>(null);
   protected readonly chamado = signal<ChamadoDetalhe | null>(null);
 
+  // Estados do Modal de Alteração de Status (HU12)
+  protected readonly modalStatusAberto = signal(false);
+  protected readonly statusSelecionado = signal<StatusChamado | null>(null);
+  protected readonly motivoEsperaSelecionado = signal<MotivoEspera>('SOLICITANTE');
+  protected readonly motivoCancelamentoTexto = signal('');
+
   protected readonly idChamado = computed(() => this.route.snapshot.paramMap.get('id') ?? '');
+  protected readonly usuarioLogado = computed(() => this.authService.usuario());
+
+  protected readonly ehResponsavelAtual = computed(() => {
+    const resp = this.chamado()?.responsavel;
+    const u = this.usuarioLogado();
+    return !!(resp && u && resp.id === u.id);
+  });
+
+  protected readonly chamadoEncerrado = computed(() => {
+    const s = this.chamado()?.status;
+    return s === 'FECHADO' || s === 'CANCELADO' || s === 'MESCLADO';
+  });
+
+  protected readonly proximosStatusDisponiveis = computed<{ valor: StatusChamado; rotulo: string }[]>(() => {
+    const s = this.chamado()?.status;
+    if (!s) return [];
+    let proximos: StatusChamado[] = [];
+    switch (s) {
+      case 'ABERTO':
+        proximos = ['EM_TRIAGEM', 'CANCELADO'];
+        break;
+      case 'EM_TRIAGEM':
+        proximos = ['EM_ATENDIMENTO', 'CANCELADO'];
+        break;
+      case 'EM_ATENDIMENTO':
+        proximos = ['AGUARDANDO'];
+        break;
+      case 'AGUARDANDO':
+        proximos = ['EM_ATENDIMENTO'];
+        break;
+      case 'REABERTO':
+        proximos = ['EM_ATENDIMENTO'];
+        break;
+      default:
+        proximos = [];
+    }
+    return proximos.map((st) => ({
+      valor: st,
+      rotulo: this.rotuloStatus(st),
+    }));
+  });
 
   ngOnInit(): void {
     this.carregarDetalhes();
@@ -65,6 +116,110 @@ export class DetalheChamado implements OnInit {
               ? msgApi
               : msgPadrao,
           );
+        },
+      });
+  }
+
+  /**
+   * Assume a responsabilidade do chamado para o analista logado (HU12).
+   */
+  protected assumirChamado(): void {
+    const u = this.usuarioLogado();
+    if (!u) {
+      this.toast.erro('Você precisa estar autenticado para assumir um chamado.');
+      return;
+    }
+
+    const id = this.idChamado();
+    if (!id) return;
+
+    this.salvando.set(true);
+    this.chamadoService
+      .atribuirResponsavel(id, u.id)
+      .pipe(finalize(() => this.salvando.set(false)))
+      .subscribe({
+        next: (dadosAtualizados) => {
+          this.chamado.set(dadosAtualizados);
+          this.toast.sucesso('Você assumiu o chamado com sucesso!');
+        },
+        error: (err) => {
+          const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao assumir o chamado.';
+          this.toast.erro(msgApi);
+        },
+      });
+  }
+
+  /**
+   * Abre o modal para transição de status (HU12).
+   */
+  protected abrirModalStatus(): void {
+    const opcoes = this.proximosStatusDisponiveis();
+    if (opcoes.length === 0) {
+      this.toast.info('Não há alterações de status disponíveis para o estado atual deste chamado.');
+      return;
+    }
+
+    this.statusSelecionado.set(opcoes[0].valor);
+    this.motivoEsperaSelecionado.set('SOLICITANTE');
+    this.motivoCancelamentoTexto.set('');
+    this.modalStatusAberto.set(true);
+  }
+
+  protected fecharModalStatus(): void {
+    this.modalStatusAberto.set(false);
+  }
+
+  protected selecionarStatus(status: StatusChamado): void {
+    this.statusSelecionado.set(status);
+  }
+
+  protected selecionarMotivoEspera(motivo: MotivoEspera): void {
+    this.motivoEsperaSelecionado.set(motivo);
+  }
+
+  protected atualizarMotivoCancelamento(texto: string): void {
+    this.motivoCancelamentoTexto.set(texto);
+  }
+
+  /**
+   * Confirma a transição de status via PATCH /chamados/{id}/status (HU12).
+   */
+  protected confirmarAlteracaoStatus(): void {
+    const novoStatus = this.statusSelecionado();
+    if (!novoStatus) return;
+
+    const id = this.idChamado();
+    if (!id) return;
+
+    if (novoStatus === 'EM_ATENDIMENTO' && this.chamado()?.status === 'EM_TRIAGEM' && !this.chamado()?.responsavel) {
+      this.toast.erro('Atribua um responsável antes de iniciar o atendimento.');
+      return;
+    }
+
+    if (novoStatus === 'CANCELADO' && !this.motivoCancelamentoTexto().trim()) {
+      this.toast.erro('Informe uma justificativa para o cancelamento.');
+      return;
+    }
+
+    const payload: StatusRequest = {
+      status: novoStatus,
+      motivoEspera: novoStatus === 'AGUARDANDO' ? this.motivoEsperaSelecionado() : null,
+      motivoCancelamento: novoStatus === 'CANCELADO' ? this.motivoCancelamentoTexto().trim() : null,
+    };
+
+    this.salvando.set(true);
+    this.chamadoService
+      .alterarStatus(id, payload)
+      .pipe(finalize(() => this.salvando.set(false)))
+      .subscribe({
+        next: (dadosAtualizados) => {
+          this.chamado.set(dadosAtualizados);
+          this.toast.sucesso(`Status alterado para "${this.rotuloStatus(novoStatus)}" com sucesso!`);
+          this.fecharModalStatus();
+        },
+        error: (err) => {
+          const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao atualizar status.';
+          this.toast.erro(msgApi);
         },
       });
   }

@@ -318,3 +318,16 @@ export interface FilaChamados {
   /** Contagem com os mesmos filtros, menos o de status. Sempre traz os 9 status. */
   totais_por_status: Record<StatusChamado, number>;
 }
+
+
+/** Payload para atribuir/assumir responsável (HU12). */
+export interface ResponsavelRequest {
+  responsavelId: string;
+}
+
+/** Payload para atualizar status do chamado (HU12). */
+export interface StatusRequest {
+  status: StatusChamado;
+  motivoEspera?: MotivoEspera | null;
+  motivoCancelamento?: string | null;
+}

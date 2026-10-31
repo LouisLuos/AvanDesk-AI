@@ -71,14 +71,61 @@
         </p>
       </div>
 
-      <!-- Barra de Ações (Fiel ao Mockup) -->
+      <!-- Barra de Ações (HU12 e Planejadas) -->
       <div class="flex flex-wrap items-center gap-2">
+        <!-- Ação HU12: Assumir Atendimento -->
+        @if (!chamadoEncerrado() && !ehResponsavelAtual()) {
+          <button
+            type="button"
+            id="btn-assumir-chamado"
+            [disabled]="salvando()"
+            (click)="assumirChamado()"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-[#2d5bff] px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#1e3fcc] disabled:opacity-50 cursor-pointer"
+          >
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            Assumir atendimento
+          </button>
+        } @else if (ehResponsavelAtual()) {
+          <span
+            id="badge-voce-responsavel"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-[#22c55e]/30 bg-[#22c55e]/10 px-3 py-1.5 text-xs font-semibold text-[#15803d]"
+          >
+            <svg class="h-3.5 w-3.5 text-[#22c55e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Você é o responsável
+          </span>
+        }
+
+        <!-- Ação HU12: Alterar Status -->
+        @if (proximosStatusDisponiveis().length > 0) {
+          <button
+            type="button"
+            id="btn-alterar-status"
+            [disabled]="salvando()"
+            (click)="abrirModalStatus()"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-[#2d5bff] bg-white px-3.5 py-2 text-xs font-semibold text-[#2d5bff] shadow-xs transition hover:bg-[#e8edff]/50 disabled:opacity-50 cursor-pointer"
+          >
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+              <path d="M16 16h5v5" />
+            </svg>
+            Alterar status
+          </button>
+        }
+
+        <!-- Ações das Próximas HUs -->
         <button
           type="button"
           (click)="acaoNaoDisponivel('Avaliar prioridade', 'Leva 2 (HU04)')"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-[#2d5bff] bg-white px-3.5 py-2 text-xs font-semibold text-[#2d5bff] shadow-xs transition hover:bg-[#e8edff]/50"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-[#e2e5ec] bg-white px-3 py-2 text-xs font-semibold text-[#4b5563] shadow-xs transition hover:bg-[#f8f9fc]"
         >
-          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg class="h-3.5 w-3.5 text-[#6b7280]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
           </svg>
           Avaliar prioridade
@@ -87,9 +134,9 @@
         <button
           type="button"
           (click)="acaoNaoDisponivel('Mesclar chamado', 'Leva 3 (HU03)')"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-[#2d5bff] bg-white px-3.5 py-2 text-xs font-semibold text-[#2d5bff] shadow-xs transition hover:bg-[#e8edff]/50"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-[#e2e5ec] bg-white px-3 py-2 text-xs font-semibold text-[#4b5563] shadow-xs transition hover:bg-[#f8f9fc]"
         >
-          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg class="h-3.5 w-3.5 text-[#6b7280]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="m8 6 4-4 4 4" />
             <path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22" />
             <path d="m20 22-5-5" />
@@ -100,9 +147,9 @@
         <button
           type="button"
           (click)="acaoNaoDisponivel('Escalar para fornecedor', 'Leva 3 (HU07)')"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-[#2d5bff] bg-white px-3.5 py-2 text-xs font-semibold text-[#2d5bff] shadow-xs transition hover:bg-[#e8edff]/50"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-[#e2e5ec] bg-white px-3 py-2 text-xs font-semibold text-[#4b5563] shadow-xs transition hover:bg-[#f8f9fc]"
         >
-          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg class="h-3.5 w-3.5 text-[#6b7280]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M5 12h14" />
             <path d="m12 5 7 7-7 7" />
           </svg>
@@ -112,9 +159,9 @@
         <button
           type="button"
           (click)="acaoNaoDisponivel('Resolver chamado', 'Leva 3 (HU06)')"
-          class="inline-flex items-center gap-1.5 rounded-lg bg-[#2d5bff] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#1e3fcc]"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-[#22c55e] bg-white px-3.5 py-2 text-xs font-semibold text-[#15803d] shadow-xs transition hover:bg-[#22c55e]/10"
         >
-          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg class="h-3.5 w-3.5 text-[#22c55e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <polyline points="20 6 9 17 4 12" />
           </svg>
           Resolver
@@ -345,9 +392,21 @@
               <dd class="font-medium text-[#14161b]">{{ rotuloCanal(item.canal_origem) }}</dd>
             </div>
 
+            <!-- Status Atual com Ação Direta (HU12) -->
             <div class="flex items-center justify-between py-2.5">
               <dt class="text-[#6b7280]">Status atual</dt>
-              <dd class="font-semibold text-[#14161b]">{{ rotuloStatus(item.status) }}</dd>
+              <dd class="flex items-center gap-2">
+                <span class="font-semibold text-[#14161b]">{{ rotuloStatus(item.status) }}</span>
+                @if (proximosStatusDisponiveis().length > 0) {
+                  <button
+                    type="button"
+                    (click)="abrirModalStatus()"
+                    class="text-[11px] font-semibold text-[#2d5bff] hover:underline cursor-pointer"
+                  >
+                    Alterar
+                  </button>
+                }
+              </dd>
             </div>
 
             @if (item.motivo_espera; as motivo) {
@@ -357,6 +416,7 @@
               </div>
             }
 
+            <!-- Responsável com Ação Direta de Assumir (HU12) -->
             <div class="flex items-center justify-between py-2.5">
               <dt class="text-[#6b7280]">Responsável</dt>
               <dd id="valor-responsavel-chamado" class="flex items-center gap-1.5">
@@ -365,8 +425,21 @@
                     {{ iniciais(resp.nome) }}
                   </span>
                   <span class="font-semibold text-[#14161b]">{{ resp.nome }}</span>
+                  @if (ehResponsavelAtual()) {
+                    <span class="text-[10px] text-[#22c55e] font-semibold">(Você)</span>
+                  }
                 } @else {
                   <span class="font-medium text-[#9aa2b1]">Não atribuído</span>
+                  @if (!chamadoEncerrado()) {
+                    <button
+                      type="button"
+                      [disabled]="salvando()"
+                      (click)="assumirChamado()"
+                      class="text-[11px] font-semibold text-[#2d5bff] hover:underline disabled:opacity-50 cursor-pointer"
+                    >
+                      Assumir
+                    </button>
+                  }
                 }
               </dd>
             </div>
@@ -410,5 +483,168 @@
         }
       </div>
     </div>
+
+    <!-- Modal de Alteração de Status (HU12) -->
+    @if (modalStatusAberto()) {
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-status-titulo"
+      >
+        <!-- Backdrop com Blur -->
+        <div
+          class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
+          (click)="fecharModalStatus()"
+          aria-hidden="true"
+        ></div>
+
+        <!-- Card do Modal -->
+        <div class="relative w-full max-w-md rounded-2xl border border-[#e2e5ec] bg-white p-6 shadow-2xl transition-all">
+          <header class="flex items-start justify-between">
+            <div>
+              <h3 id="modal-status-titulo" class="text-base font-bold text-[#14161b]">
+                Atualizar Status do Atendimento
+              </h3>
+              <p class="mt-0.5 text-xs text-[#6b7280]">
+                Status atual: <span class="font-semibold text-[#14161b]">{{ rotuloStatus(item.status) }}</span>
+              </p>
+            </div>
+            <button
+              type="button"
+              (click)="fecharModalStatus()"
+              class="rounded-lg p-1 text-[#9aa2b1] hover:bg-[#f1f3f8] hover:text-[#14161b] transition"
+              aria-label="Fechar modal"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </header>
+
+          <div class="mt-5 space-y-4">
+            <!-- Seletor do Próximo Status -->
+            <div>
+              <label for="select-novo-status" class="block text-xs font-semibold text-[#363b47]">
+                Próximo Status Válido
+              </label>
+              <select
+                id="select-novo-status"
+                [value]="statusSelecionado()"
+                (change)="selecionarStatus($any($event.target).value)"
+                class="mt-1.5 w-full rounded-lg border border-[#e2e5ec] bg-white px-3 py-2 text-xs font-medium text-[#14161b] shadow-2xs focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff]"
+              >
+                @for (opcao of proximosStatusDisponiveis(); track opcao.valor) {
+                  <option [value]="opcao.valor">{{ opcao.rotulo }}</option>
+                }
+              </select>
+            </div>
+
+            <!-- Campo Condicional: Motivo da Espera (para AGUARDANDO) -->
+            @if (statusSelecionado() === 'AGUARDANDO') {
+              <div class="rounded-lg border border-[#f0a202]/30 bg-[#f0a202]/5 p-3.5 space-y-2.5">
+                <label class="block text-xs font-bold text-[#b45309]">
+                  Motivo da Espera (Obrigatório)
+                </label>
+                <p class="text-[11px] leading-tight text-[#6b7280]">
+                  Selecione quem está impedindo a evolução do chamado.
+                </p>
+                <div class="mt-2 space-y-2 text-xs">
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="motivoEspera"
+                      value="SOLICITANTE"
+                      [checked]="motivoEsperaSelecionado() === 'SOLICITANTE'"
+                      (change)="selecionarMotivoEspera('SOLICITANTE')"
+                      class="text-[#2d5bff] focus:ring-[#2d5bff]"
+                    />
+                    <span class="font-medium text-[#14161b]">
+                      Aguardando solicitante <span class="text-[10px] text-[#16a34a] font-semibold">(pausa relógio de SLA)</span>
+                    </span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="motivoEspera"
+                      value="FORNECEDOR"
+                      [checked]="motivoEsperaSelecionado() === 'FORNECEDOR'"
+                      (change)="selecionarMotivoEspera('FORNECEDOR')"
+                      class="text-[#2d5bff] focus:ring-[#2d5bff]"
+                    />
+                    <span class="font-medium text-[#14161b]">
+                      Fornecedor externo <span class="text-[10px] text-[#b45309] font-semibold">(tempo em terceiros, sem pausa)</span>
+                    </span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="motivoEspera"
+                      value="PECA_EQUIPAMENTO"
+                      [checked]="motivoEsperaSelecionado() === 'PECA_EQUIPAMENTO'"
+                      (change)="selecionarMotivoEspera('PECA_EQUIPAMENTO')"
+                      class="text-[#2d5bff] focus:ring-[#2d5bff]"
+                    />
+                    <span class="font-medium text-[#14161b]">Peça ou equipamento</span>
+                  </label>
+                </div>
+              </div>
+            }
+
+            <!-- Campo Condicional: Justificativa de Cancelamento -->
+            @if (statusSelecionado() === 'CANCELADO') {
+              <div class="rounded-lg border border-[#e5484d]/30 bg-[#e5484d]/5 p-3.5 space-y-2">
+                <label for="motivo-cancelamento" class="block text-xs font-bold text-[#e5484d]">
+                  Motivo do Cancelamento (Obrigatório)
+                </label>
+                <textarea
+                  id="motivo-cancelamento"
+                  rows="3"
+                  maxlength="500"
+                  placeholder="Explique o motivo do cancelamento deste chamado..."
+                  [value]="motivoCancelamentoTexto()"
+                  (input)="atualizarMotivoCancelamento($any($event.target).value)"
+                  class="w-full rounded-lg border border-[#e2e5ec] bg-white p-2.5 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:border-[#e5484d] focus:outline-none focus:ring-1 focus:ring-[#e5484d]"
+                ></textarea>
+              </div>
+            }
+
+            <!-- Alerta para EM_ATENDIMENTO quando sem responsável -->
+            @if (statusSelecionado() === 'EM_ATENDIMENTO' && item.status === 'EM_TRIAGEM' && !item.responsavel) {
+              <div class="rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/10 p-3 text-xs text-[#b45309]">
+                ⚠️ Este chamado ainda não possui responsável. Use o botão <strong>Assumir atendimento</strong> antes de iniciar o atendimento.
+              </div>
+            }
+          </div>
+
+          <!-- Rodapé de Ações do Modal -->
+          <div class="mt-6 flex items-center justify-end gap-2.5 border-t border-[#f1f3f8] pt-4">
+            <button
+              type="button"
+              [disabled]="salvando()"
+              (click)="fecharModalStatus()"
+              class="rounded-lg border border-[#e2e5ec] bg-white px-3.5 py-2 text-xs font-semibold text-[#4b5563] shadow-2xs hover:bg-[#f8f9fc] disabled:opacity-50 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              id="btn-confirmar-status"
+              [disabled]="salvando() || (statusSelecionado() === 'EM_ATENDIMENTO' && item.status === 'EM_TRIAGEM' && !item.responsavel)"
+              (click)="confirmarAlteracaoStatus()"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-[#2d5bff] px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#1e3fcc] disabled:opacity-50 cursor-pointer"
+            >
+              @if (salvando()) {
+                <span class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                Salvando...
+              } @else {
+                Confirmar alteração
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
   }
 </div>

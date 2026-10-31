@@ -10,6 +10,8 @@ import {
   ChamadoResponse,
   FilaChamados,
   FiltrosFila,
+  ResponsavelRequest,
+  StatusRequest,
   TAMANHO_PAGINA_FILA,
 } from '../../shared/models/chamado.model';
 import { mapearChamadoDetalhe } from '../../shared/utils/chamado-detalhe.mapper';
@@ -64,6 +66,31 @@ export class ChamadoService {
   buscarPorId(id: string): Observable<ChamadoDetalhe> {
     return this.http
       .get<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(`${this.baseUrl}/${id}`)
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  /**
+   * PATCH /chamados/{id}/responsavel — atribui responsável ao chamado (HU12).
+   */
+  atribuirResponsavel(id: string, responsavelId: string): Observable<ChamadoDetalhe> {
+    const payload: ResponsavelRequest = { responsavelId };
+    return this.http
+      .patch<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/responsavel`,
+        payload,
+      )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  /**
+   * PATCH /chamados/{id}/status — atualiza o status do chamado conforme ciclo de vida (HU12).
+   */
+  alterarStatus(id: string, payload: StatusRequest): Observable<ChamadoDetalhe> {
+    return this.http
+      .patch<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/status`,
+        payload,
+      )
       .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
   }
 }
