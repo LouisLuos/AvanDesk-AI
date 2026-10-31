@@ -419,27 +419,29 @@
             <!-- Responsável com Ação Direta de Assumir (HU12) -->
             <div class="flex items-center justify-between py-2.5">
               <dt class="text-[#6b7280]">Responsável</dt>
-              <dd id="valor-responsavel-chamado" class="flex items-center gap-1.5">
-                @if (item.responsavel; as resp) {
-                  <span class="flex h-5 w-5 items-center justify-center rounded-full bg-[#e8edff] text-[8px] font-bold text-[#1e3fcc]" aria-hidden="true">
-                    {{ iniciais(resp.nome) }}
-                  </span>
-                  <span class="font-semibold text-[#14161b]">{{ resp.nome }}</span>
-                  @if (ehResponsavelAtual()) {
-                    <span class="text-[10px] text-[#22c55e] font-semibold">(Você)</span>
+              <dd class="flex items-center gap-2">
+                <span id="valor-responsavel-chamado" class="flex items-center gap-1.5">
+                  @if (item.responsavel; as resp) {
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-[#e8edff] text-[8px] font-bold text-[#1e3fcc]" aria-hidden="true">
+                      {{ iniciais(resp.nome) }}
+                    </span>
+                    <span class="font-semibold text-[#14161b]">{{ resp.nome }}</span>
+                    @if (ehResponsavelAtual()) {
+                      <span class="text-[10px] text-[#22c55e] font-semibold">(Você)</span>
+                    }
+                  } @else {
+                    <span class="font-medium text-[#9aa2b1]">Não atribuído</span>
                   }
-                } @else {
-                  <span class="font-medium text-[#9aa2b1]">Não atribuído</span>
-                  @if (!chamadoEncerrado()) {
-                    <button
-                      type="button"
-                      [disabled]="salvando()"
-                      (click)="assumirChamado()"
-                      class="text-[11px] font-semibold text-[#2d5bff] hover:underline disabled:opacity-50 cursor-pointer"
-                    >
-                      Assumir
-                    </button>
-                  }
+                </span>
+                @if (!item.responsavel && !chamadoEncerrado()) {
+                  <button
+                    type="button"
+                    [disabled]="salvando()"
+                    (click)="assumirChamado()"
+                    class="text-[11px] font-semibold text-[#2d5bff] hover:underline disabled:opacity-50 cursor-pointer"
+                  >
+                    Assumir
+                  </button>
                 }
               </dd>
             </div>
