@@ -10,7 +10,7 @@ public record ResponsavelRequest(
 
     @NotNull(message = "é obrigatório")
     @JsonProperty("responsavel_id")
-    @JsonAlias({"responsavel_id", "responsavelId"})
+    @JsonAlias({"responsavelId"})
     UUID responsavelId
 ) {
 }
