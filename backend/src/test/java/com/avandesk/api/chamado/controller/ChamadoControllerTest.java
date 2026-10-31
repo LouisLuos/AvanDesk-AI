@@ -10,6 +10,7 @@ import com.avandesk.api.chamado.dto.FilaChamadosResponse;
 import com.avandesk.api.chamado.dto.FiltroChamados;
 import com.avandesk.api.chamado.dto.RegistroContatoResponse;
 import com.avandesk.api.chamado.dto.SolicitanteResponse;
+import com.avandesk.api.chamado.dto.StatusRequest;
 import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.DirecaoContato;
 import com.avandesk.api.chamado.entity.OrigemDado;
@@ -45,10 +46,12 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -330,6 +333,43 @@ class ChamadoControllerTest {
         mockMvc.perform(get("/api/v1/chamados")).andExpect(status().isUnauthorized());
 
         verifyNoInteractions(filaChamadosService);
+    }
+
+    @Test
+    @WithMockUser
+    void deveAtribuirResponsavelComSucessoAoEnviarSnakeCase() throws Exception {
+        UUID chamadoId = UUID.randomUUID();
+        UUID analistaId = UUID.randomUUID();
+        when(chamadoService.atribuirResponsavel(eq(chamadoId), eq(analistaId))).thenReturn(mock(ChamadoDetalheResponse.class));
+
+        mockMvc.perform(patch("/api/v1/chamados/{id}/responsavel", chamadoId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"responsavel_id": "%s"}
+                    """.formatted(analistaId)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status_code").value(200))
+            .andExpect(jsonPath("$.message").value("Responsável atribuído com sucesso"));
+
+        verify(chamadoService).atribuirResponsavel(chamadoId, analistaId);
+    }
+
+    @Test
+    @WithMockUser
+    void deveAlterarStatusComSucesso() throws Exception {
+        UUID chamadoId = UUID.randomUUID();
+        when(chamadoService.alterarStatus(eq(chamadoId), any(StatusRequest.class))).thenReturn(mock(ChamadoDetalheResponse.class));
+
+        mockMvc.perform(patch("/api/v1/chamados/{id}/status", chamadoId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"status": "EM_TRIAGEM"}
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status_code").value(200))
+            .andExpect(jsonPath("$.message").value("Status do chamado atualizado com sucesso"));
+
+        verify(chamadoService).alterarStatus(eq(chamadoId), any(StatusRequest.class));
     }
 
     private static FilaChamadosResponse paginaVazia() {
