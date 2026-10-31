@@ -201,10 +201,15 @@ export class DetalheChamado implements OnInit {
       return;
     }
 
+    const motivo = novoStatus === 'AGUARDANDO' ? this.motivoEsperaSelecionado() : null;
+    const cancelamento = novoStatus === 'CANCELADO' ? this.motivoCancelamentoTexto().trim() : null;
+
     const payload: StatusRequest = {
       status: novoStatus,
-      motivoEspera: novoStatus === 'AGUARDANDO' ? this.motivoEsperaSelecionado() : null,
-      motivoCancelamento: novoStatus === 'CANCELADO' ? this.motivoCancelamentoTexto().trim() : null,
+      motivo_espera: motivo,
+      motivoEspera: motivo,
+      motivo_cancelamento: cancelamento,
+      motivoCancelamento: cancelamento,
     };
 
     this.salvando.set(true);

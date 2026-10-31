@@ -319,15 +319,17 @@ export interface FilaChamados {
   totais_por_status: Record<StatusChamado, number>;
 }
 
-
 /** Payload para atribuir/assumir responsável (HU12). */
 export interface ResponsavelRequest {
-  responsavelId: string;
+  responsavel_id: string;
+  responsavelId?: string;
 }
 
 /** Payload para atualizar status do chamado (HU12). */
 export interface StatusRequest {
   status: StatusChamado;
+  motivo_espera?: MotivoEspera | null;
+  motivo_cancelamento?: string | null;
   motivoEspera?: MotivoEspera | null;
   motivoCancelamento?: string | null;
 }
