@@ -7,6 +7,7 @@ import com.avandesk.api.catalogo.service.SistemaEquipamentoService;
 import com.avandesk.api.chamado.dto.ChamadoDetalheResponse;
 import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
+import com.avandesk.api.chamado.dto.RegistroContatoRequest;
 import com.avandesk.api.chamado.dto.StatusRequest;
 import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.DirecaoContato;
@@ -21,6 +22,7 @@ import com.avandesk.api.chamado.repository.RegistroContatoRepository;
 import com.avandesk.api.core.config.NexoProperties;
 import com.avandesk.api.core.exception.OperacaoNaoPermitidaException;
 import com.avandesk.api.core.exception.RecursoNaoEncontradoException;
+import com.avandesk.api.core.exception.RegraNegocioException;
 import com.avandesk.api.unidade.entity.Unidade;
 import com.avandesk.api.unidade.service.UnidadeService;
 import com.avandesk.api.usuario.entity.Usuario;
@@ -47,6 +49,7 @@ public class ChamadoService {
 
     private static final ZoneId FUSO_DO_CODIGO = ZoneId.of("America/Recife");
     private static final Duration LIMITE_INICIO_REGISTRO = Duration.ofHours(2);
+    private static final Duration TOLERANCIA_RELOGIO = Duration.ofMinutes(1);
 
     private final ChamadoRepository chamadoRepository;
     private final RegistroContatoRepository registroContatoRepository;
@@ -113,6 +116,46 @@ public class ChamadoService {
         return ChamadoResponse.de(chamado);
     }
 
+    @Transactional
+    public ChamadoDetalheResponse registrarContato(UUID id, RegistroContatoRequest request) {
+        Chamado chamado = buscarParaDetalhe(id);
+        validarChamadoParaContato(chamado);
+        Instant ocorridoEm = validarOcorridoEm(request.ocorridoEm(), chamado.getAbertoEm());
+        String identificadorExterno = textoOuNulo(request.identificadorExterno());
+        if (identificadorExterno != null
+            && registroContatoRepository.existsByCanalAndIdentificadorExterno(request.canal(), identificadorExterno)) {
+            throw new RegraNegocioException(
+                "Este contato já foi registrado (identificador externo repetido no canal %s).".formatted(request.canal()));
+        }
+        Solicitante solicitante = request.solicitante() == null
+            ? chamado.getSolicitante()
+            : solicitanteService.identificarOuCriar(request.solicitante().nome(), request.solicitante().contato());
+        DirecaoContato direcao = request.direcao() == null ? DirecaoContato.RECEBIDO : request.direcao();
+        Usuario autor = usuarioLogadoService.obterUsuarioLogado();
+
+        RegistroContato contato = new RegistroContato();
+        contato.setChamado(chamado);
+        contato.setSolicitante(solicitante);
+        contato.setCanal(request.canal());
+        contato.setDirecao(direcao);
+        contato.setIdentificadorExterno(identificadorExterno);
+        contato.setConteudo(request.conteudo().trim());
+        contato.setOcorridoEm(ocorridoEm);
+        contato.setRegistradoPor(autor);
+        contato.setOrigemDado(chamado.getOrigemDado());
+        registroContatoRepository.save(contato);
+
+        if (direcao == DirecaoContato.ENVIADO) {
+            registrarPrimeiraResposta(chamado);
+        }
+        Map<String, Object> dados = new LinkedHashMap<>();
+        dados.put("registro_contato_id", contato.getId().toString());
+        dados.put("canal", contato.getCanal().name());
+        dados.put("direcao", direcao.name());
+        eventoHistoricoService.registrar(chamado, TipoEvento.REGISTRO_DE_CONTATO_RECEBIDO, autor, dados);
+
+        return montarDetalhe(chamado);
+    }
 
     @Transactional(readOnly = true)
     public ChamadoDetalheResponse detalhar(UUID id) {
@@ -239,6 +282,36 @@ public class ChamadoService {
             dados.put("responsavel_anterior_nome", anterior.getNome());
         }
         return dados;
+    }
+
+    private static void validarChamadoParaContato(Chamado chamado) {
+        if (chamado.getStatus() == StatusChamado.MESCLADO && chamado.getChamadoPrincipal() != null) {
+            throw new OperacaoNaoPermitidaException(
+                "Este chamado foi mesclado ao %s. Registre o contato no chamado principal."
+                    .formatted(chamado.getChamadoPrincipal().getCodigo()));
+        }
+        if (chamado.getStatus().encerrado()) {
+            throw new OperacaoNaoPermitidaException(
+                "Não é possível registrar contato em um chamado %s.".formatted(chamado.getStatus()));
+        }
+    }
+    
+    private static Instant validarOcorridoEm(Instant ocorridoEm, Instant abertoEm) {
+        Instant agora = agora();
+        if (ocorridoEm == null) {
+            return agora;
+        }
+        if (ocorridoEm.isAfter(agora.plus(TOLERANCIA_RELOGIO))) {
+            throw new RegraNegocioException("O campo 'ocorrido_em' não pode estar no futuro.");
+        }
+        if (ocorridoEm.isBefore(abertoEm.truncatedTo(ChronoUnit.MINUTES))) {
+            throw new RegraNegocioException("O campo 'ocorrido_em' não pode ser anterior à abertura do chamado.");
+        }
+        return ocorridoEm.truncatedTo(ChronoUnit.MICROS);
+    }
+
+    private static String textoOuNulo(String texto) {
+        return texto == null || texto.isBlank() ? null : texto.trim();
     }
 
     private Chamado buscarParaDetalhe(UUID id) {
