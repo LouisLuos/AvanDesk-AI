@@ -1,5 +1,6 @@
 package com.avandesk.api.chamado.repository;
 
+import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.RegistroContato;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,4 +12,6 @@ public interface RegistroContatoRepository extends JpaRepository<RegistroContato
 
     @EntityGraph(attributePaths = {"solicitante", "registradoPor"})
     List<RegistroContato> findByChamadoIdOrderByOcorridoEmAsc(UUID chamadoId);
+
+    boolean existsByCanalAndIdentificadorExterno(CanalOrigem canal, String identificadorExterno);
 }

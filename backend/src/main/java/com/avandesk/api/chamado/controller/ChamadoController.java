@@ -5,6 +5,7 @@ import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
 import com.avandesk.api.chamado.dto.FilaChamadosResponse;
 import com.avandesk.api.chamado.dto.FiltroChamados;
+import com.avandesk.api.chamado.dto.RegistroContatoRequest;
 import com.avandesk.api.chamado.dto.ResponsavelRequest;
 import com.avandesk.api.chamado.dto.StatusRequest;
 import com.avandesk.api.chamado.entity.CanalOrigem;
@@ -86,5 +87,13 @@ public class ChamadoController {
         @PathVariable UUID id, @Valid @RequestBody StatusRequest request) {
         ChamadoDetalheResponse chamado = chamadoService.alterarStatus(id, request);
         return ResponseEntity.ok(ApiResponse.sucesso(HttpStatus.OK, "Status do chamado atualizado com sucesso", chamado));
+    }
+
+    @PostMapping("/{id}/contatos")
+    public ResponseEntity<ApiResponse<ChamadoDetalheResponse>> registrarContato(
+        @PathVariable UUID id, @Valid @RequestBody RegistroContatoRequest request) {
+        ChamadoDetalheResponse chamado = chamadoService.registrarContato(id, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.sucesso(HttpStatus.CREATED, "Contato registrado com sucesso", chamado));
     }
 }
