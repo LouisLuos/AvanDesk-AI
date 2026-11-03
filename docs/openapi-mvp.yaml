@@ -183,6 +183,21 @@ components:
           type: string
           format: date-time
           nullable: true
+        resolvido_em:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Data da resolução atual (HU06). Volta a null quando o chamado é reaberto."
+        resolucao:
+          type: string
+          nullable: true
+          description: "Última resolução registrada (HU06). Continua preenchida se o chamado for reaberto."
+        causa_raiz:
+          type: string
+          nullable: true
+        possivel_recorrencia:
+          type: boolean
+          example: false
         origem_dado:
           type: string
           enum: [REAL, TESTE, SIMULADO]
@@ -357,6 +372,87 @@ components:
           type: string
           enum: [ANALISTA_SUPORTE, LIDERANCA_TI]
           example: ANALISTA_SUPORTE
+    ResponsavelRequest:
+      type: object
+      required: [responsavel_id]
+      properties:
+        responsavel_id:
+          type: string
+          format: uuid
+          description: "Id de um analista de suporte ativo. Para assumir, o próprio id (o login devolve em usuario.id)."
+          example: "00000000-0000-0000-0000-0000000000a2"
+    StatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ABERTO, EM_TRIAGEM, EM_ATENDIMENTO, AGUARDANDO, RESOLVIDO, REABERTO, FECHADO, CANCELADO, MESCLADO]
+          example: AGUARDANDO
+        motivo_espera:
+          type: string
+          enum: [FORNECEDOR, SOLICITANTE, PECA_EQUIPAMENTO]
+          description: "Obrigatório para AGUARDANDO."
+        motivo_cancelamento:
+          type: string
+          maxLength: 500
+          description: "Obrigatório para CANCELADO."
+        motivo_reabertura:
+          type: string
+          maxLength: 500
+          description: "Obrigatório para REABERTO (HU06). Só até 7 dias depois da resolução."
+    ResolucaoRequest:
+      type: object
+      required: [resolucao]
+      properties:
+        resolucao:
+          type: string
+          minLength: 10
+          maxLength: 2000
+          example: "Cabo de rede da impressora estava solto no rack; recolocado e impressão testada."
+        causa_raiz:
+          type: string
+          maxLength: 1000
+          description: "Opcional. Em branco vira null."
+        possivel_recorrencia:
+          type: boolean
+          default: false
+          description: "Marca causa que pode se repetir (RN09)."
+    RegistroContatoRequest:
+      type: object
+      required: [canal, conteudo]
+      properties:
+        canal:
+          type: string
+          enum: [LIGACAO, PRESENCIAL, WHATSAPP, EMAIL]
+        direcao:
+          type: string
+          enum: [RECEBIDO, ENVIADO]
+          default: RECEBIDO
+        conteudo:
+          type: string
+          maxLength: 2000
+          example: "Solicitante ligou cobrando retorno."
+        ocorrido_em:
+          type: string
+          format: date-time
+          description: "Padrão: agora. Não pode estar no futuro (1 min de tolerância) nem antes do minuto da abertura do chamado."
+        solicitante:
+          type: object
+          description: "Quem relatou. Padrão: o solicitante do chamado, que não muda."
+          required: [contato]
+          properties:
+            nome:
+              type: string
+              maxLength: 120
+            contato:
+              type: string
+              maxLength: 254
+              example: "+5581987650000"
+        identificador_externo:
+          type: string
+          maxLength: 255
+          description: "ID da mensagem do WhatsApp ou Message-ID do e-mail. Único por canal (RN16)."
 security:
   - bearerAuth: []
 paths:
@@ -790,6 +886,10 @@ paths:
                   format: date-time
                   description: "Opcional. Quando a tela de registro foi aberta, em UTC (métrica M11). Valor no futuro ou de mais de 2 h antes da abertura é descartado, sem recusar o chamado."
                   example: "2026-10-07T14:29:15Z"
+                atribuir_a_mim:
+                  type: boolean
+                  default: false
+                  description: "Opcional (HU12). Com true, quem registra vira o responsável e o chamado vai para EM_ATENDIMENTO, com os eventos TRIAGEM_INICIADA, CHAMADO_ATRIBUIDO e CHAMADO_TRIADO. Quem não é analista ativo recebe 422."
       responses:
         '201':
           description: Chamado criado com sucesso
@@ -854,6 +954,238 @@ paths:
                 message: "Chamado não encontrado."
                 data: null
                 errors: null
+  /chamados/{id}/responsavel:
+    patch:
+      summary: Assumir ou Reatribuir o Chamado (HU12)
+      description: "Só analista de suporte ativo pode ser responsável. Grava CHAMADO_ATRIBUIDO; a primeira ação preenche primeira_resposta_em."
+      tags:
+        - Chamados
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResponsavelRequest'
+      responses:
+        '200':
+          description: Responsável atribuído; devolve o detalhe atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '400':
+          description: Corpo sem responsavel_id ou com valor que não é UUID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Chamado ou usuário não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '422':
+          description: Usuário de outro perfil ou inativo, mesmo responsável ou chamado encerrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Operação não permitida"
+                data: null
+                errors:
+                  - "O chamado já está com este responsável."
+  /chamados/{id}/status:
+    patch:
+      summary: Alterar o Status do Chamado (HU12 e HU06)
+      description: "Aceita ABERTO → EM_TRIAGEM, EM_TRIAGEM → EM_ATENDIMENTO (exige responsável), EM_ATENDIMENTO ⇄ AGUARDANDO (AGUARDANDO exige motivo_espera), ABERTO/EM_TRIAGEM → CANCELADO (exige motivo_cancelamento), RESOLVIDO → REABERTO (exige motivo_reabertura, até 7 dias depois da resolução) e REABERTO → EM_ATENDIMENTO (evento ATENDIMENTO_RETOMADO, exige responsável). RESOLVIDO, FECHADO e MESCLADO têm operação própria."
+      tags:
+        - Chamados
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusRequest'
+      responses:
+        '200':
+          description: Status atualizado; devolve o detalhe atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '400':
+          description: Sem status, valor inexistente ou motivo com mais de 500 caracteres
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Chamado não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '422':
+          description: Transição fora do ciclo de vida, mesmo status, falta de motivo, prazo de reabertura vencido, atendimento sem responsável ou chamado encerrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Operação não permitida"
+                data: null
+                errors:
+                  - "Não é possível ir de ABERTO para EM_ATENDIMENTO."
+  /chamados/{id}/resolucao:
+    patch:
+      summary: Registrar a Resolução do Chamado (HU06)
+      description: "Só a partir de EM_ATENDIMENTO ou AGUARDANDO. Grava resolvido_em e o evento CHAMADO_RESOLVIDO com status_anterior, resolucao, causa_raiz (quando houver) e possivel_recorrencia. Para reabrir, use PATCH /chamados/{id}/status."
+      tags:
+        - Chamados
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolucaoRequest'
+      responses:
+        '200':
+          description: Chamado resolvido; devolve o detalhe atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '400':
+          description: Resolução ausente ou fora de 10 a 2000 caracteres, ou causa_raiz com mais de 1000
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 400
+                message: "Erro de validação"
+                data: null
+                errors:
+                  - "Campo 'resolucao' deve ter entre 10 e 2000 caracteres."
+        '404':
+          description: Chamado não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '422':
+          description: Status que não pode ir para RESOLVIDO, chamado já resolvido ou encerrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Operação não permitida"
+                data: null
+                errors:
+                  - "Não é possível ir de ABERTO para RESOLVIDO."
+  /chamados/{id}/contatos:
+    post:
+      summary: Registrar Novo Contato em Chamado Existente (HU13)
+      description: "Grava o contato e o evento REGISTRO_DE_CONTATO_RECEBIDO (também para ENVIADO), com registro_contato_id, canal e direcao nos detalhes. Não muda o status. Um contato ENVIADO preenche primeira_resposta_em se ainda estiver vazio."
+      tags:
+        - Chamados
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistroContatoRequest'
+      responses:
+        '201':
+          description: Contato registrado; devolve o detalhe atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '400':
+          description: Campo obrigatório ausente, valor fora da lista, contato inválido, ocorrido_em no futuro ou antes da abertura, ou identificador externo repetido no canal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 400
+                message: "Erro de validação"
+                data: null
+                errors:
+                  - "Este contato já foi registrado (identificador externo repetido no canal WHATSAPP)."
+        '404':
+          description: Chamado não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '422':
+          description: Chamado fechado, cancelado ou mesclado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Operação não permitida"
+                data: null
+                errors:
+                  - "Não é possível registrar contato em um chamado CANCELADO."
   /chamados/{id}/atualizacoes:
     post:
       summary: Adicionar Atualização ao Histórico (HU02)
