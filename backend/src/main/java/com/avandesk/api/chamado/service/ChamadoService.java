@@ -8,6 +8,7 @@ import com.avandesk.api.chamado.dto.ChamadoDetalheResponse;
 import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
 import com.avandesk.api.chamado.dto.RegistroContatoRequest;
+import com.avandesk.api.chamado.dto.ResolucaoRequest;
 import com.avandesk.api.chamado.dto.StatusRequest;
 import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.DirecaoContato;
@@ -50,6 +51,7 @@ public class ChamadoService {
     private static final ZoneId FUSO_DO_CODIGO = ZoneId.of("America/Recife");
     private static final Duration LIMITE_INICIO_REGISTRO = Duration.ofHours(2);
     private static final Duration TOLERANCIA_RELOGIO = Duration.ofMinutes(1);
+    private static final Duration PRAZO_REABERTURA = Duration.ofDays(7);
 
     private final ChamadoRepository chamadoRepository;
     private final RegistroContatoRepository registroContatoRepository;
@@ -198,6 +200,7 @@ public class ChamadoService {
             case EM_ATENDIMENTO -> iniciarAtendimento(chamado);
             case AGUARDANDO -> colocarEmEspera(chamado, request.motivoEspera(), dados);
             case CANCELADO -> cancelar(chamado, request.motivoCancelamento(), dados);
+            case REABERTO -> reabrir(chamado, request.motivoReabertura(), dados);
             default -> throw new OperacaoNaoPermitidaException(
                 "O status %s tem operação própria e não pode ser definido por aqui.".formatted(destino));
         };
@@ -206,6 +209,37 @@ public class ChamadoService {
         chamado.setStatus(destino);
         registrarPrimeiraResposta(chamado);
         eventoHistoricoService.registrar(chamado, tipo, autor, dados);
+
+        return montarDetalhe(chamado);
+    }
+
+    @Transactional
+    public ChamadoDetalheResponse resolver(UUID id, ResolucaoRequest request) {
+        Chamado chamado = buscarParaDetalhe(id);
+        StatusChamado anterior = chamado.getStatus();
+        validarTransicao(anterior, StatusChamado.RESOLVIDO);
+        Usuario autor = usuarioLogadoService.obterUsuarioLogado();
+
+        String resolucao = request.resolucao().trim();
+        String causaRaiz = textoOuNulo(request.causaRaiz());
+        boolean possivelRecorrencia = Boolean.TRUE.equals(request.possivelRecorrencia());
+        chamado.setStatus(StatusChamado.RESOLVIDO);
+        chamado.setResolucao(resolucao);
+        chamado.setCausaRaiz(causaRaiz);
+        chamado.setPossivelRecorrencia(possivelRecorrencia);
+        chamado.setResolvidoEm(agora());
+        chamado.setMotivoEspera(null);
+        chamado.setEsperaIniciadaEm(null);
+        registrarPrimeiraResposta(chamado);
+
+        Map<String, Object> dados = new LinkedHashMap<>();
+        dados.put("status_anterior", anterior.name());
+        dados.put("resolucao", resolucao);
+        if (causaRaiz != null) {
+            dados.put("causa_raiz", causaRaiz);
+        }
+        dados.put("possivel_recorrencia", possivelRecorrencia);
+        eventoHistoricoService.registrar(chamado, TipoEvento.CHAMADO_RESOLVIDO, autor, dados);
 
         return montarDetalhe(chamado);
     }
@@ -236,8 +270,14 @@ public class ChamadoService {
                 chamado.setEsperaIniciadaEm(null);
                 yield TipoEvento.RETORNO_RECEBIDO;
             }
+            case REABERTO -> {
+                if (chamado.getResponsavel() == null) {
+                    throw new OperacaoNaoPermitidaException("Atribua um responsável antes de retomar o atendimento.");
+                }
+                yield TipoEvento.ATENDIMENTO_RETOMADO;
+            }
             default -> throw new OperacaoNaoPermitidaException(
-                "A retomada de chamado %s ainda não está disponível.".formatted(chamado.getStatus()));
+                "Não é possível ir de %s para EM_ATENDIMENTO.".formatted(chamado.getStatus()));
         };
     }
 
@@ -258,6 +298,20 @@ public class ChamadoService {
         chamado.setMotivoCancelamento(motivo.trim());
         dados.put("motivo_cancelamento", motivo.trim());
         return TipoEvento.CHAMADO_CANCELADO;
+    }
+
+    private static TipoEvento reabrir(Chamado chamado, String motivo, Map<String, Object> dados) {
+        if (motivo == null || motivo.isBlank()) {
+            throw new OperacaoNaoPermitidaException("Informe o motivo_reabertura para reabrir o chamado.");
+        }
+        if (chamado.getResolvidoEm() != null && agora().isAfter(chamado.getResolvidoEm().plus(PRAZO_REABERTURA))) {
+            throw new OperacaoNaoPermitidaException(
+                "O prazo de %d dias para reabrir terminou. Registre um novo chamado."
+                    .formatted(PRAZO_REABERTURA.toDays()));
+        }
+        chamado.setResolvidoEm(null);
+        dados.put("motivo_reabertura", motivo.trim());
+        return TipoEvento.CHAMADO_REABERTO;
     }
 
     /** Registro por ligação com "atribuir a mim": passa por EM_TRIAGEM até EM_ATENDIMENTO, com todos os eventos. */
