@@ -125,6 +125,7 @@ class ChamadoControllerTest {
             null,
             abertoEm,
             null,
+            null, null, null, false,
             OrigemDado.TESTE,
             List.of(new RegistroContatoResponse(
                 contatoId,
