@@ -319,6 +319,12 @@ export interface FilaChamados {
   totais_por_status: Record<StatusChamado, number>;
 }
 
+/** Chamados abertos por unidade numa janela de dias. Unidades sem chamados não aparecem. */
+export interface TotalChamadosPorUnidade {
+  unidade_id: string;
+  total: number;
+}
+
 /** Payload para atribuir/assumir responsável (HU12). */
 export interface ResponsavelRequest {
   responsavel_id: string;

@@ -35,11 +35,23 @@ export const routes: Routes = [
           import('./features/chamados/detalhe-chamado/detalhe-chamado').then((m) => m.DetalheChamado),
       },
       {
-        // HU11 — restrito à Liderança de TI quando a HU09 (perfis) estiver pronta.
-        path: 'admin/unidades',
-        title: 'Unidades | Nexo',
-        loadComponent: () =>
-          import('./features/admin/unidades/unidades').then((m) => m.Unidades),
+        path: 'admin',
+        children: [
+          {
+            // Abas da administração, no outlet de largura total do MainLayout.
+            path: '',
+            outlet: 'subnav',
+            loadComponent: () => import('./layouts/admin-nav/admin-nav').then((m) => m.AdminNav),
+          },
+          { path: '', pathMatch: 'full', redirectTo: 'unidades' },
+          {
+            // HU11 — restrito à Liderança de TI quando a HU09 (perfis) estiver pronta.
+            path: 'unidades',
+            title: 'Unidades | Nexo',
+            loadComponent: () =>
+              import('./features/admin/unidades/unidades').then((m) => m.Unidades),
+          },
+        ],
       },
     ],
   },
