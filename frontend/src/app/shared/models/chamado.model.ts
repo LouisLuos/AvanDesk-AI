@@ -345,3 +345,13 @@ export interface StatusRequest {
   motivoEspera?: MotivoEspera | null;
   motivoCancelamento?: string | null;
 }
+
+/** Payload para registrar nova mensagem ou interação de contato em chamado aberto (RN16 / HU13). */
+export interface RegistroContatoRequest {
+  canal: CanalOrigem;
+  direcao?: DirecaoContato;
+  conteudo: string;
+  ocorrido_em?: string;
+  solicitante?: Solicitante;
+  identificador_externo?: string;
+}

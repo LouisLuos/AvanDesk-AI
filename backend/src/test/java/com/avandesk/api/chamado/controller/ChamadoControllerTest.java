@@ -9,6 +9,7 @@ import com.avandesk.api.chamado.dto.EventoHistoricoResponse;
 import com.avandesk.api.chamado.dto.FilaChamadosResponse;
 import com.avandesk.api.chamado.dto.FiltroChamados;
 import com.avandesk.api.chamado.dto.RegistroContatoResponse;
+import com.avandesk.api.chamado.dto.ResolucaoRequest;
 import com.avandesk.api.chamado.dto.SolicitanteResponse;
 import com.avandesk.api.chamado.dto.StatusRequest;
 import com.avandesk.api.chamado.entity.CanalOrigem;
@@ -20,6 +21,7 @@ import com.avandesk.api.chamado.entity.TipoEvento;
 import com.avandesk.api.chamado.service.ChamadoService;
 import com.avandesk.api.chamado.service.FilaChamadosService;
 import com.avandesk.api.core.config.SecurityConfig;
+import com.avandesk.api.core.exception.OperacaoNaoPermitidaException;
 import com.avandesk.api.core.exception.RecursoNaoEncontradoException;
 import com.avandesk.api.core.exception.RegraNegocioException;
 import com.avandesk.api.unidade.dto.UnidadeResumoResponse;
@@ -375,6 +377,93 @@ class ChamadoControllerTest {
             .andExpect(jsonPath("$.message").value("Status do chamado atualizado com sucesso"));
 
         verify(chamadoService).alterarStatus(eq(chamadoId), any(StatusRequest.class));
+    }
+
+    @Test
+    @WithMockUser
+    void deveResolverChamadoComSucessoAoEnviarSnakeCase() throws Exception {
+        UUID chamadoId = UUID.randomUUID();
+        when(chamadoService.resolver(eq(chamadoId), any(ResolucaoRequest.class)))
+            .thenReturn(mock(ChamadoDetalheResponse.class));
+
+        mockMvc.perform(patch("/api/v1/chamados/{id}/resolucao", chamadoId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "resolucao": "Cabo de rede substituído na bancada.",
+                      "causa_raiz": "Conector RJ45 oxidado.",
+                      "possivel_recorrencia": true
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status_code").value(200))
+            .andExpect(jsonPath("$.message").value("Chamado resolvido com sucesso"));
+
+        verify(chamadoService).resolver(
+            chamadoId,
+            new ResolucaoRequest("Cabo de rede substituído na bancada.", "Conector RJ45 oxidado.", true)
+        );
+    }
+
+    @Test
+    @WithMockUser
+    void deveRecusarResolucaoComMenosDeDezCaracteresCom400() throws Exception {
+        UUID chamadoId = UUID.randomUUID();
+
+        mockMvc.perform(patch("/api/v1/chamados/{id}/resolucao", chamadoId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"resolucao": "Curta"}
+                    """))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status_code").value(400))
+            .andExpect(jsonPath("$.message").value("Erro de validação"))
+            .andExpect(jsonPath("$.errors[0]").value("Campo 'resolucao' deve ter entre 10 e 2000 caracteres."));
+
+        verifyNoInteractions(chamadoService);
+    }
+
+    @Test
+    @WithMockUser
+    void deveDevolver422QuandoResolucaoNaoPermitidaPeloStatus() throws Exception {
+        UUID chamadoId = UUID.randomUUID();
+        when(chamadoService.resolver(eq(chamadoId), any(ResolucaoRequest.class)))
+            .thenThrow(new OperacaoNaoPermitidaException("Não é possível ir de ABERTO para RESOLVIDO."));
+
+        mockMvc.perform(patch("/api/v1/chamados/{id}/resolucao", chamadoId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"resolucao": "Cabo de rede substituído na bancada."}
+                    """))
+            .andExpect(status().is(422))
+            .andExpect(jsonPath("$.status_code").value(422))
+            .andExpect(jsonPath("$.message").value("Operação não permitida"))
+            .andExpect(jsonPath("$.errors[0]").value("Não é possível ir de ABERTO para RESOLVIDO."));
+    }
+
+    @Test
+    @WithMockUser
+    void deveRepassarMotivoReaberturaEmSnakeCaseAoReabrirChamado() throws Exception {
+        UUID chamadoId = UUID.randomUUID();
+        when(chamadoService.alterarStatus(eq(chamadoId), any(StatusRequest.class)))
+            .thenReturn(mock(ChamadoDetalheResponse.class));
+
+        mockMvc.perform(patch("/api/v1/chamados/{id}/status", chamadoId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "status": "REABERTO",
+                      "motivo_reabertura": "Problema voltou a ocorrer no turno da tarde."
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status_code").value(200))
+            .andExpect(jsonPath("$.message").value("Status do chamado atualizado com sucesso"));
+
+        verify(chamadoService).alterarStatus(
+            chamadoId,
+            new StatusRequest(StatusChamado.REABERTO, null, null, "Problema voltou a ocorrer no turno da tarde.")
+        );
     }
 
     private static FilaChamadosResponse paginaVazia() {

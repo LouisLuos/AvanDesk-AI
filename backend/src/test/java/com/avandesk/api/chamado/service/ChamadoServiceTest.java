@@ -6,11 +6,14 @@ import com.avandesk.api.catalogo.service.SistemaEquipamentoService;
 import com.avandesk.api.chamado.dto.ChamadoDetalheResponse;
 import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
+import com.avandesk.api.chamado.dto.ResolucaoRequest;
 import com.avandesk.api.chamado.dto.SolicitanteRequest;
+import com.avandesk.api.chamado.dto.StatusRequest;
 import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.DirecaoContato;
 import com.avandesk.api.chamado.entity.EventoHistorico;
+import com.avandesk.api.chamado.entity.MotivoEspera;
 import com.avandesk.api.chamado.entity.OrigemDado;
 import com.avandesk.api.chamado.entity.RegistroContato;
 import com.avandesk.api.chamado.entity.Solicitante;
@@ -19,6 +22,7 @@ import com.avandesk.api.chamado.entity.TipoEvento;
 import com.avandesk.api.chamado.repository.ChamadoRepository;
 import com.avandesk.api.chamado.repository.RegistroContatoRepository;
 import com.avandesk.api.core.config.NexoProperties;
+import com.avandesk.api.core.exception.OperacaoNaoPermitidaException;
 import com.avandesk.api.core.exception.RecursoNaoEncontradoException;
 import com.avandesk.api.core.exception.RegraNegocioException;
 import com.avandesk.api.unidade.entity.Unidade;
@@ -34,6 +38,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
@@ -42,6 +47,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -292,6 +299,209 @@ class ChamadoServiceTest {
         verifyNoInteractions(registroContatoRepository, eventoHistoricoService);
     }
 
+    // ---------- resolução, reabertura e retomada (HU06) ----------
+
+    @Test
+    void deveResolverChamadoEmAtendimentoComCausaRaizERecorrencia() {
+        Chamado chamado = chamadoParaDetalhe(StatusChamado.EM_ATENDIMENTO);
+        when(usuarioLogadoService.obterUsuarioLogado()).thenReturn(autor);
+
+        ChamadoDetalheResponse detalhe = chamadoService.resolver(
+            chamado.getId(),
+            new ResolucaoRequest("  Cabo de rede substituído na bancada.  ", "  Conector RJ45 oxidado.  ", true)
+        );
+
+        assertEquals(StatusChamado.RESOLVIDO, chamado.getStatus());
+        assertEquals("Cabo de rede substituído na bancada.", chamado.getResolucao());
+        assertEquals("Conector RJ45 oxidado.", chamado.getCausaRaiz());
+        assertTrue(chamado.isPossivelRecorrencia());
+        assertNotNull(chamado.getResolvidoEm());
+        assertNotNull(chamado.getPrimeiraRespostaEm());
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> dadosCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(eventoHistoricoService).registrar(
+            eq(chamado), eq(TipoEvento.CHAMADO_RESOLVIDO), eq(autor), dadosCaptor.capture()
+        );
+        Map<String, Object> dados = dadosCaptor.getValue();
+        assertEquals("EM_ATENDIMENTO", dados.get("status_anterior"));
+        assertEquals("Cabo de rede substituído na bancada.", dados.get("resolucao"));
+        assertEquals("Conector RJ45 oxidado.", dados.get("causa_raiz"));
+        assertEquals(true, dados.get("possivel_recorrencia"));
+
+        assertEquals(StatusChamado.RESOLVIDO, detalhe.status());
+        assertEquals("Cabo de rede substituído na bancada.", detalhe.resolucao());
+        assertEquals("Conector RJ45 oxidado.", detalhe.causaRaiz());
+        assertTrue(detalhe.possivelRecorrencia());
+        assertNotNull(detalhe.resolvidoEm());
+    }
+
+    @Test
+    void deveResolverChamadoAguardandoLimpandoEsperaESemCausaRaizQuandoEmBranco() {
+        Chamado chamado = chamadoParaDetalhe(StatusChamado.AGUARDANDO);
+        chamado.setMotivoEspera(MotivoEspera.PECA_EQUIPAMENTO);
+        chamado.setEsperaIniciadaEm(Instant.now().minusSeconds(600));
+        when(usuarioLogadoService.obterUsuarioLogado()).thenReturn(autor);
+
+        chamadoService.resolver(
+            chamado.getId(),
+            new ResolucaoRequest("Troca do rolo térmico concluída.", "   ", null)
+        );
+
+        assertEquals(StatusChamado.RESOLVIDO, chamado.getStatus());
+        assertNull(chamado.getCausaRaiz());
+        assertFalse(chamado.isPossivelRecorrencia());
+        assertNull(chamado.getMotivoEspera());
+        assertNull(chamado.getEsperaIniciadaEm());
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> dadosCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(eventoHistoricoService).registrar(
+            eq(chamado), eq(TipoEvento.CHAMADO_RESOLVIDO), eq(autor), dadosCaptor.capture()
+        );
+        assertFalse(dadosCaptor.getValue().containsKey("causa_raiz"));
+        assertEquals(false, dadosCaptor.getValue().get("possivel_recorrencia"));
+    }
+
+    @Test
+    void naoDeveResolverChamadoForaDeEmAtendimentoOuAguardando() {
+        Chamado chamado = chamadoParaDetalhe(StatusChamado.ABERTO);
+
+        assertThrows(OperacaoNaoPermitidaException.class, () -> chamadoService.resolver(
+            chamado.getId(),
+            new ResolucaoRequest("Cabo de rede substituído na bancada.", null, false)
+        ));
+
+        assertEquals(StatusChamado.ABERTO, chamado.getStatus());
+        verifyNoInteractions(eventoHistoricoService);
+    }
+
+    @Test
+    void deveReabrirChamadoResolvidoDentroDoPrazoMantendoHistoricoDaResolucaoAnterior() {
+        Chamado chamado = chamadoParaDetalhe(StatusChamado.RESOLVIDO);
+        chamado.setResolvidoEm(Instant.now().minus(Duration.ofDays(2)));
+        chamado.setResolucao("Serviço de impressão reiniciado.");
+        chamado.setCausaRaiz("Fila de spooler travada.");
+        chamado.setPossivelRecorrencia(true);
+        when(usuarioLogadoService.obterUsuarioLogado()).thenReturn(autor);
+
+        ChamadoDetalheResponse detalhe = chamadoService.alterarStatus(
+            chamado.getId(),
+            new StatusRequest(StatusChamado.REABERTO, null, null, "  Impressora voltou a travar no turno da tarde.  ")
+        );
+
+        assertEquals(StatusChamado.REABERTO, chamado.getStatus());
+        assertNull(chamado.getResolvidoEm());
+        assertEquals("Serviço de impressão reiniciado.", chamado.getResolucao());
+        assertEquals("Fila de spooler travada.", chamado.getCausaRaiz());
+        assertTrue(chamado.isPossivelRecorrencia());
+
+        verify(eventoHistoricoService).registrar(
+            eq(chamado),
+            eq(TipoEvento.CHAMADO_REABERTO),
+            eq(autor),
+            eq(Map.of(
+                "status_anterior", "RESOLVIDO",
+                "motivo_reabertura", "Impressora voltou a travar no turno da tarde."
+            ))
+        );
+        assertEquals(StatusChamado.REABERTO, detalhe.status());
+    }
+
+    @Test
+    void naoDeveReabrirChamadoSemMotivoDeReabertura() {
+        Chamado chamado = chamadoParaDetalhe(StatusChamado.RESOLVIDO);
+        chamado.setResolvidoEm(Instant.now().minusSeconds(300));
+
+        OperacaoNaoPermitidaException erro = assertThrows(OperacaoNaoPermitidaException.class,
+            () -> chamadoService.alterarStatus(
+                chamado.getId(),
+                new StatusRequest(StatusChamado.REABERTO, null, null, "   ")
+            ));
+
+        assertEquals("Informe o motivo_reabertura para reabrir o chamado.", erro.getMessage());
+        assertEquals(StatusChamado.RESOLVIDO, chamado.getStatus());
+        verifyNoInteractions(eventoHistoricoService);
+    }
+
+    @Test
+    void naoDeveReabrirChamadoAposPrazoDeSeteDias() {
+        Chamado chamado = chamadoParaDetalhe(StatusChamado.RESOLVIDO);
+        chamado.setResolvidoEm(Instant.now().minus(Duration.ofDays(8)));
+
+        OperacaoNaoPermitidaException erro = assertThrows(OperacaoNaoPermitidaException.class,
+            () -> chamadoService.alterarStatus(
+                chamado.getId(),
+                new StatusRequest(StatusChamado.REABERTO, null, null, "Problema voltou após uma semana.")
+            ));
+
+        assertTrue(erro.getMessage().contains("O prazo de 7 dias para reabrir terminou"));
+        assertEquals(StatusChamado.RESOLVIDO, chamado.getStatus());
+        verifyNoInteractions(eventoHistoricoService);
+    }
+
+    @Test
+    void deveRetomarAtendimentoDeChamadoReabertoComResponsavel() {
+        Chamado chamado = chamadoParaDetalhe(StatusChamado.REABERTO);
+        autor.setId(UUID.randomUUID());
+        autor.setNome("Analista Dev Um");
+        chamado.setResponsavel(autor);
+        when(usuarioLogadoService.obterUsuarioLogado()).thenReturn(autor);
+
+        chamadoService.alterarStatus(
+            chamado.getId(),
+            new StatusRequest(StatusChamado.EM_ATENDIMENTO, null, null, null)
+        );
+
+        assertEquals(StatusChamado.EM_ATENDIMENTO, chamado.getStatus());
+        verify(eventoHistoricoService).registrar(
+            eq(chamado),
+            eq(TipoEvento.ATENDIMENTO_RETOMADO),
+            eq(autor),
+            eq(Map.of("status_anterior", "REABERTO"))
+        );
+    }
+
+    @Test
+    void naoDeveRetomarAtendimentoDeChamadoReabertoSemResponsavel() {
+        Chamado chamado = chamadoParaDetalhe(StatusChamado.REABERTO);
+        chamado.setResponsavel(null);
+
+        OperacaoNaoPermitidaException erro = assertThrows(OperacaoNaoPermitidaException.class,
+            () -> chamadoService.alterarStatus(
+                chamado.getId(),
+                new StatusRequest(StatusChamado.EM_ATENDIMENTO, null, null, null)
+            ));
+
+        assertEquals("Atribua um responsável antes de retomar o atendimento.", erro.getMessage());
+        assertEquals(StatusChamado.REABERTO, chamado.getStatus());
+        verifyNoInteractions(eventoHistoricoService);
+    }
+
+    @Test
+    void deveSobrescreverResolucaoECausaRaizAoResolverNovamenteAposReabertura() {
+        Chamado chamado = chamadoParaDetalhe(StatusChamado.EM_ATENDIMENTO);
+        chamado.setResolucao("Serviço de impressão reiniciado.");
+        chamado.setCausaRaiz("Fila de spooler travada.");
+        chamado.setPossivelRecorrencia(false);
+        when(usuarioLogadoService.obterUsuarioLogado()).thenReturn(autor);
+
+        ChamadoDetalheResponse detalhe = chamadoService.resolver(
+            chamado.getId(),
+            new ResolucaoRequest("Placa lógica da impressora substituída.", "Curto na controladora USB.", true)
+        );
+
+        assertEquals(StatusChamado.RESOLVIDO, chamado.getStatus());
+        assertEquals("Placa lógica da impressora substituída.", chamado.getResolucao());
+        assertEquals("Curto na controladora USB.", chamado.getCausaRaiz());
+        assertTrue(chamado.isPossivelRecorrencia());
+        assertNotNull(chamado.getResolvidoEm());
+
+        assertEquals("Placa lógica da impressora substituída.", detalhe.resolucao());
+        assertEquals("Curto na controladora USB.", detalhe.causaRaiz());
+        assertTrue(detalhe.possivelRecorrencia());
+    }
+
     // ---------- apoio ----------
 
     private void prepararCenarioValido(long numeroCodigo) {
@@ -322,5 +532,30 @@ class ChamadoServiceTest {
         ArgumentCaptor<Chamado> captor = ArgumentCaptor.forClass(Chamado.class);
         verify(chamadoRepository).save(captor.capture());
         return captor.getValue();
+    }
+
+    private Chamado chamadoParaDetalhe(StatusChamado status) {
+        UUID chamadoId = UUID.randomUUID();
+        unidade.setId(unidadeId);
+        unidade.setNome("U.03 Boa Viagem");
+        categoria.setId(categoriaId);
+        categoria.setNome("Equipamento de apoio");
+        solicitante.setNome("Recepção Boa Viagem");
+        solicitante.setTelefone("+5581999999999");
+
+        Chamado chamado = new Chamado();
+        chamado.setId(chamadoId);
+        chamado.setCodigo("LUM-2026-000042");
+        chamado.setUnidade(unidade);
+        chamado.setCategoria(categoria);
+        chamado.setSolicitante(solicitante);
+        chamado.setCanalOrigem(CanalOrigem.LIGACAO);
+        chamado.setDescricao("Impressora de etiquetas parada.");
+        chamado.setStatus(status);
+        chamado.setAbertoEm(Instant.now().minusSeconds(1800));
+        chamado.setOrigemDado(OrigemDado.TESTE);
+
+        when(chamadoRepository.findDetalheById(chamadoId)).thenReturn(Optional.of(chamado));
+        return chamado;
     }
 }
