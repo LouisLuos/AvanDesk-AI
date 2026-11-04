@@ -33,6 +33,10 @@ public record ChamadoDetalheResponse(
     Prioridade prioridade,
     Instant abertoEm,
     Instant primeiraRespostaEm,
+    Instant resolvidoEm,
+    String resolucao,
+    String causaRaiz,
+    boolean possivelRecorrencia,
     OrigemDado origemDado,
     List<RegistroContatoResponse> registrosContato,
     List<EventoHistoricoResponse> historico
@@ -58,6 +62,10 @@ public record ChamadoDetalheResponse(
             chamado.getPrioridadeFinal(),
             chamado.getAbertoEm(),
             chamado.getPrimeiraRespostaEm(),
+            chamado.getResolvidoEm(),
+            chamado.getResolucao(),
+            chamado.getCausaRaiz(),
+            chamado.isPossivelRecorrencia(),
             chamado.getOrigemDado(),
             contatos.stream().map(RegistroContatoResponse::de).toList(),
             eventos.stream().map(EventoHistoricoResponse::de).toList()
