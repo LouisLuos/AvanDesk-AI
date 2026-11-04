@@ -10,6 +10,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import com.avandesk.api.catalogo.entity.Categoria;
 import com.avandesk.api.catalogo.entity.SistemaEquipamento;
@@ -20,6 +22,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -129,4 +133,8 @@ public class Chamado {
     @Enumerated(EnumType.STRING)
     @Column(name = "origem_dado", nullable = false, updatable = false)
     private OrigemDado origemDado;
+
+    @OneToMany(mappedBy = "chamado")
+    @OrderBy("enviadoEm ASC")
+    private List<Escalonamento> escalonamentos = new ArrayList<>();
 }
