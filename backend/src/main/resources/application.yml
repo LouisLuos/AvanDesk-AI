@@ -39,6 +39,9 @@ nexo:
     secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
     # 3600000 ms = 1 hora (RNF-007)
     expiration-ms: 3600000
+  usuarios:
+    # Domínios aceitos no e-mail corporativo dos analistas (HU10)
+    dominios-email: lumen.local
 
 springdoc:
   api-docs:

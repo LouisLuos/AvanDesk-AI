@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -39,9 +40,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return responder(HttpStatus.UNAUTHORIZED, "E-mail ou senha inválidos.", null);
     }
 
+    /** Recusa do @PreAuthorize: sem este handler cairia no tratamento genérico e viraria 500. */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> tratarAcessoNegado(AccessDeniedException ex) {
+        return responder(HttpStatus.FORBIDDEN, "Acesso negado para o perfil do usuário.", null);
+    }
+
     @ExceptionHandler(RecursoNaoEncontradoException.class)
     public ResponseEntity<ApiResponse<Void>> tratarRecursoNaoEncontrado(RecursoNaoEncontradoException ex) {
         return responder(HttpStatus.NOT_FOUND, ex.getMessage(), null);
+    }
+
+    @ExceptionHandler(ConflitoException.class)
+    public ResponseEntity<ApiResponse<Void>> tratarConflito(ConflitoException ex) {
+        return responder(HttpStatus.CONFLICT, "Conflito", List.of(ex.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)

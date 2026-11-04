@@ -9,6 +9,7 @@ import com.avandesk.api.chamado.dto.RegistroContatoRequest;
 import com.avandesk.api.chamado.dto.ResolucaoRequest;
 import com.avandesk.api.chamado.dto.ResponsavelRequest;
 import com.avandesk.api.chamado.dto.StatusRequest;
+import com.avandesk.api.chamado.dto.TotalPorResponsavelResponse;
 import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.Prioridade;
 import com.avandesk.api.chamado.entity.StatusChamado;
@@ -77,6 +78,15 @@ public class ChamadoController {
             status, unidadeId, prioridade, canalOrigem, responsavelId, semResponsavel, semPrioridade, codigo);
         FilaChamadosResponse fila = filaChamadosService.listar(filtro, meus, pagina, tamanho);
         return ResponseEntity.ok(ApiResponse.sucesso(HttpStatus.OK, "Chamados recuperados com sucesso", fila));
+    }
+
+    @GetMapping("/totais-por-responsavel")
+    @Operation(summary = "Conta os chamados em andamento de cada responsável (HU10)",
+        description = "Em andamento é tudo o que não está resolvido nem encerrado. Responsáveis sem chamados não "
+            + "aparecem. Responde 200.")
+    public ResponseEntity<ApiResponse<List<TotalPorResponsavelResponse>>> totaisPorResponsavel() {
+        List<TotalPorResponsavelResponse> totais = filaChamadosService.totaisPorResponsavel();
+        return ResponseEntity.ok(ApiResponse.sucesso(HttpStatus.OK, "Totais por responsável recuperados", totais));
     }
 
     @GetMapping("/{id}")

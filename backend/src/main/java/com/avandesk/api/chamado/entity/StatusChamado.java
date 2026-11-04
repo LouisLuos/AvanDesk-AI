@@ -34,4 +34,9 @@ public enum StatusChamado {
     public boolean encerrado() {
         return proximosStatus().isEmpty();
     }
+
+    /** Ainda pede trabalho do responsável: não está resolvido nem encerrado. */
+    public boolean emAndamento() {
+        return this != RESOLVIDO && !encerrado();
+    }
 }

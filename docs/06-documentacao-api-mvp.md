@@ -682,8 +682,71 @@ Mesmo formato do `GET /chamados/{id}` (seção 5), com `"message": "Contato regi
 
 ---
 
-## 11. Evolução do Ciclo de Atendimento (HU03, HU04, HU10 — Planejados)
+## 11. Gerenciar Analistas (HU10)
+
+Cadastro, edição, desativação e reativação dos analistas de suporte (RF-023). A listagem atende qualquer usuário autenticado, porque alimenta a atribuição de chamados; as alterações são só da Liderança de TI (`@PreAuthorize("hasRole('LIDERANCA_TI')")`).
+
+| Endpoint | Quem pode | Resposta |
+| :--- | :--- | :--- |
+| `GET /analistas?ativo=true\|false` | qualquer usuário autenticado | `200` com a lista em ordem alfabética |
+| `POST /analistas` | Liderança de TI | `201` com `analista` e `senha_temporaria` |
+| `PUT /analistas/{id}` | Liderança de TI | `200` com o analista |
+| `PATCH /analistas/{id}/desativar` | Liderança de TI | `200` com o analista (`ativo: false`) |
+| `PATCH /analistas/{id}/reativar` | Liderança de TI | `200` com o analista (`ativo: true`) |
+
+### Request Body de cadastro e edição (`application/json`)
+
+```json
+{ "nome": "Ana Souza", "email": "ana.souza@lumen.local" }
+```
+
+### Response do cadastro: `201 Created`
+
+```json
+{
+  "status_code": 201,
+  "message": "Analista cadastrado com sucesso",
+  "data": {
+    "analista": {
+      "id": "6b1f0f8e-3c1a-4f7e-9a51-0d2c8f4b7a10",
+      "nome": "Ana Souza",
+      "email": "ana.souza@lumen.local",
+      "ativo": true,
+      "criado_em": "2026-11-03T23:40:12.345Z"
+    },
+    "senha_temporaria": "Kp7m-Qx4t-Rz9w"
+  },
+  "errors": null
+}
+```
+
+**Regras:**
+
+* O perfil é sempre `ANALISTA_SUPORTE`; contas de liderança não são criadas por aqui.
+* O e-mail é gravado em minúsculas, precisa ser de um domínio da propriedade `nexo.usuarios.dominios-email` (dev: `lumen.local`; produção: variável `NEXO_DOMINIOS_EMAIL`, separada por vírgula) e não pode repetir entre usuários.
+* A senha temporária é gerada pelo servidor (12 caracteres sem ambíguos) e só aparece na resposta do cadastro; o banco guarda apenas o hash BCrypt.
+* A desativação é lógica: o analista continua como autor no histórico, deixa de aparecer em `GET /analistas?ativo=true` e não pode receber chamados (`PATCH /chamados/{id}/responsavel` responde `422`).
+* A desativação vale na hora: o filtro JWT busca o usuário a cada requisição e só autentica quem está ativo, então um token ainda válido passa a receber `401`. E-mail e perfil também vêm do banco, não do token.
+
+### Erros
+
+| Caso | Status | `errors` / `message` |
+| :--- | :---: | :--- |
+| Sem `nome` ou `email` | `400` | "Campo 'nome' é obrigatório." / "Campo 'email' é obrigatório." |
+| E-mail fora do domínio corporativo | `400` | "Use um e-mail corporativo (@lumen.local)." |
+| Perfil diferente de Liderança de TI | `403` | "Acesso negado para o perfil do usuário." |
+| Analista inexistente (ou o id não é de um analista) | `404` | "Analista não encontrado." |
+| E-mail já usado por outro usuário | `409` | "Já existe um usuário com o e-mail 'ana.souza@lumen.local'." |
+| Sem token ou usuário desativado | `401` | — |
+
+### Chamados em andamento por responsável
+
+* **Endpoint:** `GET /chamados/totais-por-responsavel` (qualquer usuário autenticado)
+* **Response:** `200` com `[{ "responsavel_id": "…", "total": 6 }]`. Conta tudo o que não está `RESOLVIDO`, `FECHADO`, `CANCELADO` ou `MESCLADO`; responsáveis sem chamados não aparecem. A tela de analistas cruza com `GET /analistas` para a coluna "Chamados ativos".
+
+---
+
+## 12. Evolução do Ciclo de Atendimento (HU03, HU04 — Planejados)
 
 * **`POST /chamados/{id}/vinculos`** (`HU03`): associa um registro de contato duplicado a um chamado principal em andamento.
 * **`PATCH /chamados/{id}/prioridade`** (`HU04`): registra a triagem estruturada pela Matriz 3D (`severidade`, `urgencia`, `impacto_operacional`).
-* **`POST /analistas`** (`HU10`): cadastro administrativo de analistas de suporte restrito à Liderança de TI.

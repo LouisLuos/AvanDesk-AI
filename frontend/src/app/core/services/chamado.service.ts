@@ -12,6 +12,7 @@ import {
   FiltrosFila,
   StatusRequest,
   TAMANHO_PAGINA_FILA,
+  TotalChamadosPorResponsavel,
   TotalChamadosPorUnidade,
 } from '../../shared/models/chamado.model';
 import { mapearChamadoDetalhe } from '../../shared/utils/chamado-detalhe.mapper';
@@ -61,6 +62,13 @@ export class ChamadoService {
     const params = new HttpParams().set('dias', dias);
     return this.http
       .get<ApiResponse<TotalChamadosPorUnidade[]>>(`${this.baseUrl}/totais-por-unidade`, { params })
+      .pipe(map((res) => res.data ?? []));
+  }
+
+  /** GET /chamados/totais-por-responsavel — chamados em andamento de cada analista (HU10). */
+  totaisPorResponsavel(): Observable<TotalChamadosPorResponsavel[]> {
+    return this.http
+      .get<ApiResponse<TotalChamadosPorResponsavel[]>>(`${this.baseUrl}/totais-por-responsavel`)
       .pipe(map((res) => res.data ?? []));
   }
 

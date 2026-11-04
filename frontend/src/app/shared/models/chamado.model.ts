@@ -325,6 +325,12 @@ export interface TotalChamadosPorUnidade {
   total: number;
 }
 
+/** Chamados em andamento (nem resolvidos nem encerrados) de cada responsável. Quem não tem não aparece. */
+export interface TotalChamadosPorResponsavel {
+  responsavel_id: string;
+  total: number;
+}
+
 /** Payload para atribuir/assumir responsável (HU12). */
 export interface ResponsavelRequest {
   responsavel_id: string;
