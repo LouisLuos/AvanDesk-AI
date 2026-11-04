@@ -353,4 +353,138 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
     expect(toastSpy).toHaveBeenCalledWith('Status alterado para "Cancelado" com sucesso!');
     expect(component['modalStatusAberto']()).toBe(false);
   });
+
+  it('deve exibir a seção "Registrar Nova Mensagem / Contato" na tela de detalhes (RN16 / US)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(mockDetalhe));
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    const elemento = fixture.nativeElement as HTMLElement;
+    const tituloSecao = elemento.querySelector('#secao-registrar-contato-titulo');
+    expect(tituloSecao?.textContent).toContain('Registrar Nova Mensagem / Contato');
+    expect(elemento.textContent).toContain('WhatsApp');
+    expect(elemento.textContent).toContain('Recebido do solicitante');
+    expect(elemento.textContent).toContain('Proibição de Dados Clínicos & LGPD');
+  });
+
+  it('deve validar e registrar nova mensagem/contato com sucesso atualizando a timeline imediatamente (RN16 / US)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(mockDetalhe));
+
+    const mockDetalheAtualizado: ChamadoDetalhe = {
+      ...mockDetalhe,
+      registrosContato: [
+        {
+          id: 'contato-novo-1',
+          canal: 'WHATSAPP',
+          direcao: 'RECEBIDO',
+          conteudo: 'Impressora voltou a apresentar mensagem de atolamento.',
+          dataHoraLocal: '07/10/2026 10:15',
+          solicitanteNome: 'Mariana Alves',
+          solicitanteContato: '+55 81 9****-1234',
+          registradoPor: 'Ana Souza',
+        },
+      ],
+      historico: [
+        ...mockDetalhe.historico,
+        {
+          id: 'h-2',
+          tipo: 'REGISTRO_DE_CONTATO_RECEBIDO',
+          titulo: 'Contato registrado via WhatsApp (Mariana Alves)',
+          descricao: '"Impressora voltou a apresentar mensagem de atolamento." · Registrado por Ana Souza',
+          hora: '10:15',
+          dataCompleta: '07/10/2026 10:15',
+          estiloDot: 'bg-[#2d5bff]',
+        },
+      ],
+    };
+
+    const registrarSpy = vi.spyOn(chamadoService, 'registrarContato').mockReturnValue(of(mockDetalheAtualizado));
+    const toastSpy = vi.spyOn(toastService, 'sucesso');
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['selecionarCanalContato']('WHATSAPP');
+    component['selecionarDirecaoContato']('RECEBIDO');
+    component['atualizarConteudoContato']('Impressora voltou a apresentar mensagem de atolamento.');
+    component['registrarNovoContato']();
+
+    expect(registrarSpy).toHaveBeenCalledWith('chm-127', {
+      canal: 'WHATSAPP',
+      direcao: 'RECEBIDO',
+      conteudo: 'Impressora voltou a apresentar mensagem de atolamento.',
+    });
+    expect(toastSpy).toHaveBeenCalledWith('Mensagem registrada com sucesso na timeline do chamado!');
+    expect(component['chamado']()?.registrosContato?.length).toBe(1);
+    expect(component['chamado']()?.historico.length).toBe(2);
+    expect(component['novoContatoConteudo']()).toBe('');
+
+    fixture.detectChanges();
+    const elemento = fixture.nativeElement as HTMLElement;
+    expect(elemento.textContent).toContain('Impressora voltou a apresentar mensagem de atolamento.');
+    expect(elemento.textContent).toContain('Contato registrado via WhatsApp');
+  });
+
+  it('não deve permitir registro com conteúdo vazio (RN16)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(mockDetalhe));
+    const registrarSpy = vi.spyOn(chamadoService, 'registrarContato');
+    const toastSpy = vi.spyOn(toastService, 'erro');
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['atualizarConteudoContato']('   ');
+    component['registrarNovoContato']();
+
+    expect(registrarSpy).not.toHaveBeenCalled();
+    expect(toastSpy).toHaveBeenCalledWith('Informe o conteúdo da mensagem ou relato do contato.');
+    expect(component['erroContato']()).toBe('Informe o conteúdo da mensagem ou relato do contato.');
+  });
+
+  it('não deve permitir registro se o chamado estiver encerrado', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'CANCELADO' }));
+    const registrarSpy = vi.spyOn(chamadoService, 'registrarContato');
+    const toastSpy = vi.spyOn(toastService, 'info');
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['atualizarConteudoContato']('Tentando adicionar relato');
+    component['registrarNovoContato']();
+
+    expect(registrarSpy).not.toHaveBeenCalled();
+    expect(toastSpy).toHaveBeenCalledWith('Não é possível registrar contatos em um chamado encerrado.');
+  });
+
+  it('deve registrar contato com interlocutor alternativo (RN16)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(mockDetalhe));
+    const registrarSpy = vi.spyOn(chamadoService, 'registrarContato').mockReturnValue(of(mockDetalhe));
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['alternarOutroSolicitante']();
+    expect(component['novoContatoOutroSolicitante']()).toBe(true);
+
+    component['atualizarNomeContato']('Dr. Carlos Plantonista');
+    component['atualizarIdentificadorContato']('+5581987654321');
+    component['atualizarConteudoContato']('Médico informou urgência no setor de triagem.');
+    component['registrarNovoContato']();
+
+    expect(registrarSpy).toHaveBeenCalledWith('chm-127', {
+      canal: 'WHATSAPP',
+      direcao: 'RECEBIDO',
+      conteudo: 'Médico informou urgência no setor de triagem.',
+      solicitante: {
+        nome: 'Dr. Carlos Plantonista',
+        contato: '+5581987654321',
+      },
+    });
+  });
 });

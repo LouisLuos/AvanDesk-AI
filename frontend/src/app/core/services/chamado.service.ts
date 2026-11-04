@@ -10,6 +10,7 @@ import {
   ChamadoResponse,
   FilaChamados,
   FiltrosFila,
+  RegistroContatoRequest,
   StatusRequest,
   TAMANHO_PAGINA_FILA,
 } from '../../shared/models/chamado.model';
@@ -109,4 +110,17 @@ export class ChamadoService {
       )
       .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
   }
+
+  /**
+   * POST /chamados/{id}/contatos — registra nova mensagem ou interação de contato (RN16 / HU13).
+   */
+  registrarContato(id: string, payload: RegistroContatoRequest): Observable<ChamadoDetalhe> {
+    return this.http
+      .post<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/contatos`,
+        payload,
+      )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
 }
