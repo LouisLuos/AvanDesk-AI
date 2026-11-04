@@ -138,6 +138,7 @@ class ChamadoControllerTest {
                 new SolicitanteResponse("Recepção Boa Viagem", "+5581999999999"),
                 "Analista Dev Um"
             )),
+            List.of(),
             List.of(new EventoHistoricoResponse(
                 eventoId,
                 TipoEvento.CHAMADO_ABERTO,
