@@ -1,7 +1,7 @@
 # 📄 Documentação da API - MVP (Nexo)
 
 > **Projeto:** Nexo - Plataforma de Gerenciamento de Chamados (Rede Lúmen Diagnósticos)  
-> **Referência:** Histórias de Usuário HU01 a HU05, HU09, HU10, HU11 e HU14
+> **Referência:** Histórias de Usuário HU01 a HU06, HU09 a HU14
 
 Esta documentação descreve os endpoints da API RESTful projetada para atender aos fluxos do MVP. O design foi concebido com base nas regras de negócio hospitalares da Rede Lúmen: chamados não devem transitar dados clínicos sensíveis (LGPD / RN01), devem estar associados a uma unidade válida e a auditoria do histórico é estritamente imutável.
 
@@ -276,6 +276,7 @@ Cria um novo chamado estruturado a partir de uma solicitação recebida por um d
 * Unidade, categoria e sistema/equipamento precisam existir (`404 Not Found` caso contrário) e estar ativos (`400 Bad Request` se inativos).
 * `registro_iniciado_em` no futuro ou de mais de 2 h antes da abertura é descartado silenciosamente (gravado como `NULL`), sem recusar o chamado.
 * O registro grava, numa única transação, o chamado, o registro de contato inicial e os eventos `CHAMADO_ABERTO` e `REGISTRO_DE_CONTATO_RECEBIDO` tendo como `autor_id` o usuário autenticado no token JWT.
+* `atribuir_a_mim` (opcional, padrão `false`): com `true`, quem registra assume o chamado na mesma operação (HU12, ver seção 8).
 
 > **Aviso de Negócio (RN01 / LGPD):** O frontend exibe um alerta fixo proibindo o envio de dados clínicos de pacientes ou resultados de exames no campo `descricao`.
 
@@ -300,7 +301,9 @@ Cria um novo chamado estruturado a partir de uma solicitação recebida por um d
 
 ## 5. Consultar Detalhe, Status, Responsável e Histórico do Chamado (HU02 & HU05)
 
-Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 estados do domínio), motivo de espera (quando em `AGUARDANDO`), responsável atual (`null` quando não atribuído), registros de contato e linha do tempo cronológica imutável (`eventos_historico`) em UTC.
+Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 estados do domínio), motivo de espera (quando em `AGUARDANDO`), responsável atual (`null` quando não atribuído), a última resolução registrada (HU06), registros de contato e linha do tempo cronológica imutável (`eventos_historico`) em UTC.
+
+* **Resolução (HU06):** `resolucao`, `causa_raiz` e `possivel_recorrencia` trazem a última resolução registrada e continuam preenchidos se o chamado for reaberto; `resolvido_em` volta a `null` na reabertura. Cada resolução fica também no evento `CHAMADO_RESOLVIDO` do histórico.
 
 * **Endpoint:** `GET /chamados/{id}`
 * **Autenticação:** Bearer Token (Analista de Suporte ou Liderança de TI)
@@ -338,6 +341,10 @@ Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 e
     "prioridade": null,
     "aberto_em": "2026-10-07T14:30:00Z",
     "primeira_resposta_em": null,
+    "resolvido_em": null,
+    "resolucao": null,
+    "causa_raiz": null,
+    "possivel_recorrencia": false,
     "origem_dado": "TESTE",
     "registros_contato": [
       {
@@ -456,11 +463,227 @@ Lista os chamados de forma paginada, **do mais recente para o mais antigo** (`ab
 
 ---
 
-## 7. Evolução do Ciclo de Atendimento (HU03, HU04, HU10, HU12, HU13 — Planejados)
+## 7. Assumir ou Reatribuir o Chamado (HU12)
 
-* **`PATCH /chamados/{id}/responsavel`** (`HU12`): assumir ou reatribuir o chamado a um analista ativo.
-* **`PATCH /chamados/{id}/status`** (`HU12`): atualizar status respeitando a máquina de estados do domínio.
-* **`POST /chamados/{id}/contatos`** (`HU13`): inclui novos registros de contato no histórico do chamado.
+Define o analista responsável pelo chamado. Para **assumir**, o analista manda o próprio id (o login devolve em `usuario.id`); para **reatribuir**, manda o id de outro analista.
+
+* **Endpoint:** `PATCH /chamados/{id}/responsavel`
+* **Autenticação:** Bearer Token (Analista de Suporte ou Liderança de TI)
+
+### Request Body (`application/json`)
+
+```json
+{ "responsavel_id": "00000000-0000-0000-0000-0000000000a2" }
+```
+
+**Regras:**
+
+* Só um usuário ativo com perfil `ANALISTA_SUPORTE` pode ser responsável (RF-016).
+* Grava o evento `CHAMADO_ATRIBUIDO` com o autor do token. Os `detalhes` trazem `responsavel_id` e `responsavel_nome` e, na reatribuição, `responsavel_anterior_id` e `responsavel_anterior_nome`.
+* A primeira ação sobre o chamado preenche `primeira_resposta_em` (M03); as seguintes não mudam o valor.
+* Atribuir não muda o status.
+
+### Response: `200 OK`
+
+Mesmo formato do `GET /chamados/{id}` (seção 5), com `"message": "Responsável atribuído com sucesso"`, o `responsavel` novo e o evento no fim do `historico`.
+
+### Erros
+
+| Caso | Status | `errors` / `message` |
+| :--- | :---: | :--- |
+| Corpo sem `responsavel_id` | `400` | "Campo 'responsavel_id' é obrigatório." |
+| Chamado ou usuário inexistente | `404` | "Chamado não encontrado." / "Usuário não encontrado." |
+| Usuário de outro perfil | `422` | "Só analistas de suporte podem ser responsáveis por chamados." |
+| Analista inativo | `422` | "Analista inativo não pode receber chamados." |
+| Mesmo responsável | `422` | "O chamado já está com este responsável." |
+| Chamado `FECHADO`, `CANCELADO` ou `MESCLADO` | `422` | "Não é possível atribuir um chamado com status CANCELADO." |
+| Sem token | `401` | — |
+
+O `422` usa `"message": "Operação não permitida"` e o motivo em `errors`.
+
+---
+
+## 8. Alterar o Status do Chamado (HU12 e HU06)
+
+Move o chamado pelo ciclo de vida (diagrama v3 da seção 6 da análise de domínio). Transições fora do ciclo são recusadas com mensagem explicativa. A reabertura e a retomada vieram com a HU06.
+
+* **Endpoint:** `PATCH /chamados/{id}/status`
+* **Autenticação:** Bearer Token (Analista de Suporte ou Liderança de TI)
+
+### Request Body (`application/json`)
+
+```json
+{ "status": "AGUARDANDO", "motivo_espera": "FORNECEDOR" }
+```
+
+```json
+{ "status": "CANCELADO", "motivo_cancelamento": "Aberto por engano." }
+```
+
+```json
+{ "status": "REABERTO", "motivo_reabertura": "Solicitante ligou: a impressora voltou a falhar." }
+```
+
+### Transições aceitas
+
+| De | Para | Exige | Evento |
+| :--- | :--- | :--- | :--- |
+| `ABERTO` | `EM_TRIAGEM` | — | `TRIAGEM_INICIADA` |
+| `EM_TRIAGEM` | `EM_ATENDIMENTO` | responsável definido | `CHAMADO_TRIADO` |
+| `EM_ATENDIMENTO` | `AGUARDANDO` | `motivo_espera` (`FORNECEDOR`, `SOLICITANTE` ou `PECA_EQUIPAMENTO`) | `CHAMADO_AGUARDANDO` |
+| `AGUARDANDO` | `EM_ATENDIMENTO` | — | `RETORNO_RECEBIDO` |
+| `ABERTO`, `EM_TRIAGEM` | `CANCELADO` | `motivo_cancelamento` (até 500 caracteres) | `CHAMADO_CANCELADO` |
+| `RESOLVIDO` | `REABERTO` | `motivo_reabertura` (até 500 caracteres), até 7 dias depois de `resolvido_em` | `CHAMADO_REABERTO` |
+| `REABERTO` | `EM_ATENDIMENTO` | responsável definido | `ATENDIMENTO_RETOMADO` |
+
+**Regras:**
+
+* Todo evento traz `status_anterior` nos `detalhes`; `CHAMADO_AGUARDANDO` traz também `motivo_espera`, `CHAMADO_CANCELADO` traz `motivo_cancelamento`, e `CHAMADO_REABERTO`, `motivo_reabertura`.
+* Ao sair de `AGUARDANDO`, `motivo_espera` volta a `null`.
+* **Reabertura (RN20):** no MVP quem reabre é o analista, quando o solicitante avisa que o problema voltou. Depois de 7 dias da resolução, um novo relato vira um novo chamado. Ao reabrir, `resolvido_em` volta a `null`; a resolução anterior continua no chamado e no histórico. O responsável não muda.
+* `RESOLVIDO`, `FECHADO` e `MESCLADO` têm operação própria (seção 9, HU15 e HU03) e não são definidos por aqui.
+* Campos que não servem para a transição pedida são ignorados.
+
+### Response: `200 OK`
+
+Mesmo formato do `GET /chamados/{id}` (seção 5), com `"message": "Status do chamado atualizado com sucesso"`.
+
+### Erros
+
+| Caso | Status | `errors` / `message` |
+| :--- | :---: | :--- |
+| Sem `status`, valor inexistente ou motivo com mais de 500 caracteres | `400` | — |
+| Chamado inexistente | `404` | "Chamado não encontrado." |
+| Fora do ciclo de vida | `422` | "Não é possível ir de ABERTO para EM_ATENDIMENTO." |
+| Mesmo status | `422` | "O chamado já está com status EM_ATENDIMENTO." |
+| Chamado encerrado | `422` | "Não é possível alterar o status de um chamado CANCELADO." |
+| Status com operação própria | `422` | "O status RESOLVIDO tem operação própria e não pode ser definido por aqui." |
+| `EM_ATENDIMENTO` sem responsável | `422` | "Atribua um responsável antes de iniciar o atendimento." |
+| `AGUARDANDO` sem motivo | `422` | "Informe o motivo_espera para colocar o chamado em AGUARDANDO." |
+| `CANCELADO` sem motivo | `422` | "Informe o motivo_cancelamento para cancelar o chamado." |
+| `REABERTO` sem motivo | `422` | "Informe o motivo_reabertura para reabrir o chamado." |
+| Reabertura depois de 7 dias | `422` | "O prazo de 7 dias para reabrir terminou. Registre um novo chamado." |
+| Retomada sem responsável | `422` | "Atribua um responsável antes de retomar o atendimento." |
+| Sem token | `401` | — |
+
+> **Registro com "atribuir a mim":** o `POST /chamados` (seção 4) aceita o campo opcional `"atribuir_a_mim": true`. Quem registra vira o responsável e o chamado passa por `ABERTO`, `EM_TRIAGEM` e `EM_ATENDIMENTO` na mesma operação, com os eventos `TRIAGEM_INICIADA`, `CHAMADO_ATRIBUIDO` e `CHAMADO_TRIADO`. Se quem registra não é analista ativo, responde `422`.
+
+---
+
+## 9. Registrar a Resolução do Chamado (HU06)
+
+Registra como o chamado foi resolvido e, quando identificada, a causa raiz (RF-012). O chamado vai para `RESOLVIDO`.
+
+* **Endpoint:** `PATCH /chamados/{id}/resolucao`
+* **Autenticação:** Bearer Token (Analista de Suporte ou Liderança de TI)
+
+### Request Body (`application/json`)
+
+```json
+{
+  "resolucao": "Cabo de rede da impressora estava solto no rack; recolocado e impressão testada com a recepção.",
+  "causa_raiz": "Cabo sem trava no patch panel da coleta.",
+  "possivel_recorrencia": true
+}
+```
+
+| Campo | Obrigatório | Regra |
+| :--- | :---: | :--- |
+| `resolucao` | sim | 10 a 2000 caracteres (`ck_chamados_resolucao`) |
+| `causa_raiz` | não | até 1000 caracteres; em branco vira `null` |
+| `possivel_recorrencia` | não | padrão `false`; marca causa que pode se repetir (RN09), independente da causa raiz |
+
+**Regras:**
+
+* Só a partir de `EM_ATENDIMENTO` ou `AGUARDANDO`. Vindo de `AGUARDANDO`, `motivo_espera` volta a `null`.
+* Grava `resolvido_em` (UTC) e o evento `CHAMADO_RESOLVIDO` com o autor do token e os `detalhes` `status_anterior`, `resolucao`, `causa_raiz` (quando houver) e `possivel_recorrencia`. O texto vai no evento porque uma nova resolução, depois de reabrir, sobrescreve os campos do chamado.
+* A causa raiz é registrada junto com a resolução. Relacionar chamados à mesma causa (RF-014) não faz parte do MVP.
+* Para reabrir, use o `PATCH /chamados/{id}/status` (seção 8).
+
+### Response: `200 OK`
+
+Mesmo formato do `GET /chamados/{id}` (seção 5), com `"message": "Chamado resolvido com sucesso"`, `status` `RESOLVIDO` e os campos da resolução preenchidos.
+
+### Erros
+
+| Caso | Status | `errors` / `message` |
+| :--- | :---: | :--- |
+| Sem `resolucao` | `400` | "Campo 'resolucao' é obrigatório." |
+| `resolucao` fora de 10 a 2000 caracteres | `400` | "Campo 'resolucao' deve ter entre 10 e 2000 caracteres." |
+| `causa_raiz` com mais de 1000 caracteres | `400` | "Campo 'causa_raiz' deve ter no máximo 1000 caracteres." |
+| Chamado inexistente | `404` | "Chamado não encontrado." |
+| Status que não vai para `RESOLVIDO` | `422` | "Não é possível ir de ABERTO para RESOLVIDO." |
+| Já resolvido | `422` | "O chamado já está com status RESOLVIDO." |
+| Chamado encerrado | `422` | "Não é possível alterar o status de um chamado CANCELADO." |
+| Sem token | `401` | — |
+
+---
+
+## 10. Registrar Novo Contato em Chamado Existente (HU13)
+
+Inclui uma nova ligação, mensagem, e-mail ou visita num chamado que já existe, para que as interações fiquem concentradas no mesmo atendimento (RF-006).
+
+* **Endpoint:** `POST /chamados/{id}/contatos`
+* **Autenticação:** Bearer Token (Analista de Suporte ou Liderança de TI)
+
+### Request Body (`application/json`)
+
+```json
+{
+  "canal": "WHATSAPP",
+  "direcao": "RECEBIDO",
+  "conteudo": "Gestora da unidade avisou que a impressora voltou a falhar.",
+  "ocorrido_em": "2026-11-03T13:10:00Z",
+  "solicitante": { "nome": "Paula Lima", "contato": "+5581987650000" },
+  "identificador_externo": "wamid.HBgM..."
+}
+```
+
+Mínimo:
+
+```json
+{ "canal": "LIGACAO", "conteudo": "Solicitante ligou cobrando retorno." }
+```
+
+| Campo | Obrigatório | Regra |
+| :--- | :---: | :--- |
+| `canal` | sim | `LIGACAO`, `PRESENCIAL`, `WHATSAPP` ou `EMAIL` |
+| `conteudo` | sim | até 2000 caracteres |
+| `direcao` | não | `RECEBIDO` (padrão) ou `ENVIADO` |
+| `ocorrido_em` | não | padrão: agora; não pode estar no futuro (1 min de tolerância) nem antes do minuto da abertura |
+| `solicitante` | não | `{nome?, contato}`, mesma regra do registro (RN13); padrão: o solicitante do chamado |
+| `identificador_externo` | não | até 255 caracteres; único por canal (RN16) |
+
+**Regras:**
+
+* O `solicitante` informado não troca o solicitante do chamado.
+* Aceita contato em qualquer status ativo, inclusive `RESOLVIDO`, e não muda o status.
+* Grava o evento `REGISTRO_DE_CONTATO_RECEBIDO` (também para `ENVIADO`) com o autor do token e os `detalhes` `registro_contato_id`, `canal` e `direcao`.
+* Um contato `ENVIADO` preenche `primeira_resposta_em` se ainda estiver vazio (M03).
+
+### Response: `201 Created`
+
+Mesmo formato do `GET /chamados/{id}` (seção 5), com `"message": "Contato registrado com sucesso"`, o contato novo em `registros_contato` e o evento no fim do `historico`.
+
+### Erros
+
+| Caso | Status | `errors` / `message` |
+| :--- | :---: | :--- |
+| Sem `canal` ou `conteudo` | `400` | "Campo 'canal' é obrigatório." / "Campo 'conteudo' é obrigatório." |
+| `canal` ou `direcao` inexistente | `400` | "Requisição inválida" |
+| Contato do solicitante inválido | `400` | mesma mensagem do registro (seção 4) |
+| `ocorrido_em` no futuro | `400` | "O campo 'ocorrido_em' não pode estar no futuro." |
+| `ocorrido_em` antes da abertura | `400` | "O campo 'ocorrido_em' não pode ser anterior à abertura do chamado." |
+| Identificador externo repetido no canal | `400` | "Este contato já foi registrado (identificador externo repetido no canal WHATSAPP)." |
+| Chamado inexistente | `404` | "Chamado não encontrado." |
+| Chamado `FECHADO` ou `CANCELADO` | `422` | "Não é possível registrar contato em um chamado CANCELADO." |
+| Chamado `MESCLADO` | `422` | "Este chamado foi mesclado ao LUM-2026-000100. Registre o contato no chamado principal." |
+| Sem token | `401` | — |
+
+---
+
+## 11. Evolução do Ciclo de Atendimento (HU03, HU04, HU10 — Planejados)
+
 * **`POST /chamados/{id}/vinculos`** (`HU03`): associa um registro de contato duplicado a um chamado principal em andamento.
 * **`PATCH /chamados/{id}/prioridade`** (`HU04`): registra a triagem estruturada pela Matriz 3D (`severidade`, `urgencia`, `impacto_operacional`).
 * **`POST /analistas`** (`HU10`): cadastro administrativo de analistas de suporte restrito à Liderança de TI.
