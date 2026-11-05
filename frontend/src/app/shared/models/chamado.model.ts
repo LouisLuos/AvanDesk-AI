@@ -314,6 +314,8 @@ export interface ChamadoResumo {
   status: StatusChamado;
   /** Prioridade final; nula enquanto não houver triagem. */
   prioridade: PrioridadeChamado | null;
+  prioridade_final?: PrioridadeChamado | null;
+  prioridade_sugerida?: PrioridadeChamado | null;
   /** Ainda não vem da API (o cálculo de SLA é de outra HU); só o modo simulado preenche. */
   sla?: SlaChamado | null;
   /** Nulo quando o chamado não tem responsável ("Não atribuído"). */
