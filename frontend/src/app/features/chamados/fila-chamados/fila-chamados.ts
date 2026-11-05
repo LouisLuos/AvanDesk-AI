@@ -133,6 +133,12 @@ export class FilaChamados implements OnInit {
 
   protected readonly itensPagina = computed(() => this.fila()?.itens ?? []);
 
+  protected readonly totalEstourados = computed<number>(() => {
+    this.slaService.agora();
+    const itens = this.itensPagina();
+    return itens.filter((ch) => this.obterSla(ch).situacao === 'ESTOURADO').length;
+  });
+
   /** Cartões do topo: contagem do servidor com os filtros atuais, menos o de status. */
   protected readonly indicadores = computed<Indicador[]>(() => {
     const totais = this.fila()?.totais_por_status;
@@ -147,8 +153,7 @@ export class FilaChamados implements OnInit {
         id: 'estourados',
         rotulo: 'Estourados',
         corPonto: 'bg-[#dc2626]',
-        valor: null,
-        dica: 'Disponível quando o cálculo de SLA estiver pronto.',
+        valor: this.totalEstourados(),
       },
     ];
   });
