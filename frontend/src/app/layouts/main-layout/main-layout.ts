@@ -4,7 +4,6 @@ import { MODO_SIMULADO } from '../../core/config/modo-simulado';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ToastContainer } from '../../shared/components/toast-container/toast-container';
-import { USUARIO_ATUAL } from '../../shared/utils/usuario-atual';
 
 const ROTULOS_PERFIL: Record<string, string> = {
   ANALISTA_SUPORTE: 'Analista de suporte',
@@ -26,12 +25,7 @@ export class MainLayout {
   protected readonly usuario = computed(() => {
     const autenticado = this.authService.usuario();
     if (!autenticado) {
-      return {
-        id: USUARIO_ATUAL.id,
-        nome: USUARIO_ATUAL.nome,
-        email: 'analista1@lumen.local',
-        perfil: USUARIO_ATUAL.perfil,
-      };
+      return null;
     }
     return {
       ...autenticado,
@@ -45,10 +39,12 @@ export class MainLayout {
   ];
 
   protected get iniciais(): string {
-    const nome = this.usuario().nome;
+    const nome = this.usuario()?.nome;
+    if (!nome) return '';
     return nome
       .split(' ')
-      .map((p) => p[0])
+      .filter(Boolean)
+      .map((p: string) => p[0])
       .slice(0, 2)
       .join('')
       .toUpperCase();
