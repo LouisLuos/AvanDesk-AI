@@ -121,7 +121,7 @@ components:
           example: TESTE
     ChamadoDetalheResponse:
       type: object
-      description: "Detalhe completo do chamado (HU02 + HU05): status, responsável, contatos e linha do tempo cronológica em UTC."
+      description: "Detalhe completo do chamado (HU02 + HU05): status, responsável, contatos, escalonamentos para fornecedor (HU07) e linha do tempo cronológica em UTC."
       properties:
         id:
           type: string
@@ -231,6 +231,11 @@ components:
               registrado_por:
                 type: string
                 nullable: true
+        escalonamentos:
+          type: array
+          description: "Escalonamentos para fornecedor (HU07), em ordem de envio. Vazia quando o chamado nunca foi escalado."
+          items:
+            $ref: '#/components/schemas/EscalonamentoResponse'
         historico:
           type: array
           items:
@@ -442,7 +447,7 @@ components:
         motivo_espera:
           type: string
           enum: [FORNECEDOR, SOLICITANTE, PECA_EQUIPAMENTO]
-          description: "Obrigatório para AGUARDANDO."
+          description: "Obrigatório para AGUARDANDO. FORNECEDOR responde 422: a espera por fornecedor entra pelo POST /chamados/{id}/escalonamentos (HU07)."
         motivo_cancelamento:
           type: string
           maxLength: 500
@@ -503,6 +508,86 @@ components:
           type: string
           maxLength: 255
           description: "ID da mensagem do WhatsApp ou Message-ID do e-mail. Único por canal (RN16)."
+    EscalonamentoRequest:
+      type: object
+      required: [fornecedor]
+      properties:
+        fornecedor:
+          type: string
+          maxLength: 120
+          description: "Texto livre (cadastro de fornecedores é decisão em aberto)."
+          example: "Philips Healthcare"
+        protocolo_externo:
+          type: string
+          maxLength: 100
+          description: "Número do atendimento no fornecedor."
+          example: "PHC-2026-88123"
+        observacao:
+          type: string
+          maxLength: 1000
+          description: "O que foi pedido ao fornecedor."
+        enviado_em:
+          type: string
+          format: date-time
+          description: "Padrão: agora. Não pode estar no futuro (1 min de tolerância), antes do minuto da abertura nem antes do retorno do escalonamento anterior."
+    RetornoFornecedorRequest:
+      type: object
+      required: [retorno]
+      properties:
+        retorno:
+          type: string
+          maxLength: 2000
+          description: "O que o fornecedor respondeu ou fez."
+          example: "Fornecedor trocou a placa e liberou o equipamento."
+        retorno_em:
+          type: string
+          format: date-time
+          description: "Padrão: agora. Não pode estar no futuro (1 min de tolerância) nem antes de enviado_em."
+    EscalonamentoResponse:
+      type: object
+      description: "Envio do chamado a um fornecedor externo e o retorno dele (HU07). Quem enviou e quem registrou o retorno vêm só pelo nome."
+      properties:
+        id:
+          type: string
+          format: uuid
+        fornecedor:
+          type: string
+          example: "Philips Healthcare"
+        protocolo_externo:
+          type: string
+          nullable: true
+        observacao:
+          type: string
+          nullable: true
+        enviado_em:
+          type: string
+          format: date-time
+        enviado_por:
+          type: string
+          example: "Analista Dev Um"
+        responsavel:
+          type: object
+          description: "Responsável interno pelo chamado no momento do envio (RN07)."
+          properties:
+            id:
+              type: string
+              format: uuid
+            nome:
+              type: string
+        retorno:
+          type: string
+          nullable: true
+        retorno_em:
+          type: string
+          format: date-time
+          nullable: true
+        retorno_registrado_por:
+          type: string
+          nullable: true
+        aberto:
+          type: boolean
+          description: "true enquanto o fornecedor não respondeu."
+          example: true
 security:
   - bearerAuth: []
 paths:
@@ -1084,7 +1169,7 @@ paths:
   /chamados/{id}/status:
     patch:
       summary: Alterar o Status do Chamado (HU12 e HU06)
-      description: "Aceita ABERTO → EM_TRIAGEM, EM_TRIAGEM → EM_ATENDIMENTO (exige responsável), EM_ATENDIMENTO ⇄ AGUARDANDO (AGUARDANDO exige motivo_espera), ABERTO/EM_TRIAGEM → CANCELADO (exige motivo_cancelamento), RESOLVIDO → REABERTO (exige motivo_reabertura, até 7 dias depois da resolução) e REABERTO → EM_ATENDIMENTO (evento ATENDIMENTO_RETOMADO, exige responsável). RESOLVIDO, FECHADO e MESCLADO têm operação própria."
+      description: "Aceita ABERTO → EM_TRIAGEM, EM_TRIAGEM → EM_ATENDIMENTO (exige responsável), EM_ATENDIMENTO ⇄ AGUARDANDO (AGUARDANDO exige motivo_espera), ABERTO/EM_TRIAGEM → CANCELADO (exige motivo_cancelamento), RESOLVIDO → REABERTO (exige motivo_reabertura, até 7 dias depois da resolução) e REABERTO → EM_ATENDIMENTO (evento ATENDIMENTO_RETOMADO, exige responsável). RESOLVIDO, FECHADO e MESCLADO têm operação própria. A espera por fornecedor (motivo FORNECEDOR) não passa por aqui: entra pelo POST /chamados/{id}/escalonamentos e sai pelo PATCH .../escalonamentos/{escalonamentoId}/retorno (HU07)."
       tags:
         - Chamados
       parameters:
@@ -1125,7 +1210,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiResponseError'
         '422':
-          description: Transição fora do ciclo de vida, mesmo status, falta de motivo, prazo de reabertura vencido, atendimento sem responsável ou chamado encerrado
+          description: Transição fora do ciclo de vida, mesmo status, falta de motivo, prazo de reabertura vencido, atendimento sem responsável, chamado encerrado ou espera por fornecedor (entrar ou sair pelo status)
           content:
             application/json:
               schema:
@@ -1139,7 +1224,7 @@ paths:
   /chamados/{id}/resolucao:
     patch:
       summary: Registrar a Resolução do Chamado (HU06)
-      description: "Só a partir de EM_ATENDIMENTO ou AGUARDANDO. Grava resolvido_em e o evento CHAMADO_RESOLVIDO com status_anterior, resolucao, causa_raiz (quando houver) e possivel_recorrencia. Para reabrir, use PATCH /chamados/{id}/status."
+      description: "Só a partir de EM_ATENDIMENTO ou AGUARDANDO. Grava resolvido_em e o evento CHAMADO_RESOLVIDO com status_anterior, resolucao, causa_raiz (quando houver) e possivel_recorrencia. Se o chamado aguarda fornecedor, o retorno precisa ser registrado antes (HU07). Para reabrir, use PATCH /chamados/{id}/status."
       tags:
         - Chamados
       parameters:
@@ -1186,7 +1271,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiResponseError'
         '422':
-          description: Status que não pode ir para RESOLVIDO, chamado já resolvido ou encerrado
+          description: Status que não pode ir para RESOLVIDO, chamado já resolvido ou encerrado, ou chamado aguardando o retorno do fornecedor
           content:
             application/json:
               schema:
@@ -1258,6 +1343,135 @@ paths:
                 data: null
                 errors:
                   - "Não é possível registrar contato em um chamado CANCELADO."
+  /chamados/{id}/escalonamentos:
+    post:
+      summary: Escalar o Chamado para um Fornecedor Externo (HU07)
+      description: "Só a partir de EM_ATENDIMENTO. O chamado vai para AGUARDANDO com motivo FORNECEDOR e o responsável interno não muda (RN07). O escalonamento guarda o responsável da época e quem enviou. Grava CHAMADO_ESCALADO com status_anterior, escalonamento_id, fornecedor e protocolo_externo (quando houver)."
+      tags:
+        - Escalonamentos
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EscalonamentoRequest'
+      responses:
+        '201':
+          description: Chamado escalado; devolve o detalhe atualizado, com o escalonamento aberto no fim de escalonamentos
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '400':
+          description: Fornecedor ausente, campo acima do tamanho, enviado_em no futuro, antes da abertura ou antes do retorno do escalonamento anterior
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 400
+                message: "Erro de validação"
+                data: null
+                errors:
+                  - "Campo 'fornecedor' é obrigatório."
+        '404':
+          description: Chamado não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '422':
+          description: Chamado fora de EM_ATENDIMENTO, sem responsável ou com escalonamento ainda sem retorno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Operação não permitida"
+                data: null
+                errors:
+                  - "Só é possível escalar um chamado EM_ATENDIMENTO (status atual: ABERTO)."
+  /chamados/{id}/escalonamentos/{escalonamentoId}/retorno:
+    patch:
+      summary: Registrar o Retorno do Fornecedor (HU07)
+      description: "Fecha o escalonamento e devolve o chamado de AGUARDANDO (motivo FORNECEDOR) para EM_ATENDIMENTO. Grava RETORNO_RECEBIDO com status_anterior, escalonamento_id e fornecedor."
+      tags:
+        - Escalonamentos
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: escalonamentoId
+          required: true
+          description: "Id do item em escalonamentos no detalhe do chamado."
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetornoFornecedorRequest'
+      responses:
+        '200':
+          description: Retorno registrado; devolve o detalhe atualizado, com o escalonamento fechado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '400':
+          description: Retorno ausente ou com mais de 2000 caracteres, retorno_em no futuro ou antes do envio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 400
+                message: "Erro de validação"
+                data: null
+                errors:
+                  - "O campo 'retorno_em' não pode ser anterior ao envio ao fornecedor."
+        '404':
+          description: Chamado não encontrado, ou escalonamento inexistente ou de outro chamado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '422':
+          description: Retorno já registrado ou chamado que não está aguardando fornecedor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Operação não permitida"
+                data: null
+                errors:
+                  - "O retorno deste escalonamento já foi registrado."
   /chamados/{id}/atualizacoes:
     post:
       summary: Adicionar Atualização ao Histórico (HU02)
