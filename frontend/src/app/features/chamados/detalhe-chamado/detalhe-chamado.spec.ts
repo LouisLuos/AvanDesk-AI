@@ -1,4 +1,4 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
@@ -9,10 +9,16 @@ import { ToastService } from '../../../core/services/toast.service';
 import {
   ChamadoDetalhe,
   ChamadoDetalheApiResponse,
+  EscalonamentoApiResponse,
+  EscalonamentoDetalhe,
   STATUS_CHAMADO,
   StatusChamado,
 } from '../../../shared/models/chamado.model';
-import { formatarDataHoraLocal, mapearChamadoDetalhe } from '../../../shared/utils/chamado-detalhe.mapper';
+import {
+  calcularMinutosEmTerceiros,
+  formatarDataHoraLocal,
+  mapearChamadoDetalhe,
+} from '../../../shared/utils/chamado-detalhe.mapper';
 import { DetalheChamado } from './detalhe-chamado';
 
 describe('DetalheChamado Component & Integração HU02 / HU05', () => {
@@ -62,7 +68,7 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
       },
     ],
     pausasMinutos: 0,
-    tempoTerceirosHoras: 0,
+    tempoTerceirosMinutos: 0,
     relatosVinculados: [],
   };
 
@@ -621,5 +627,290 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
     const badgeResolvidoEm = fixture.nativeElement.querySelector('#badge-resolvido-em');
     expect(badgeResolvidoEm).not.toBeNull();
     expect(badgeResolvidoEm?.textContent).toContain('07/10/2026 · 10:45');
+  });
+
+  describe('Escalonamento para fornecedor (HU07)', () => {
+    const escalonamentoAberto: EscalonamentoDetalhe = {
+      id: 'esc-1',
+      fornecedor: 'TechPrint Suprimentos',
+      protocoloExterno: 'TP-48213',
+      observacao: 'Impressora parou após queda de energia.',
+      enviadoEm: '07/10/2026 10:20',
+      enviadoPor: 'Ana Souza',
+      retorno: null,
+      retornoEm: null,
+      retornoRegistradoPor: null,
+      aberto: true,
+    };
+
+    const aguardandoFornecedor: ChamadoDetalhe = {
+      ...mockDetalhe,
+      status: 'AGUARDANDO',
+      motivo_espera: 'FORNECEDOR',
+      escalonamentos: [escalonamentoAberto],
+    };
+
+    function criar(detalhe: ChamadoDetalhe): HTMLElement {
+      vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(detalhe));
+      fixture = TestBed.createComponent(DetalheChamado);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('mostra o botão de escalar só para chamado Em Atendimento, com responsável e sem escalonamento aberto', () => {
+      expect(criar(mockDetalhe).querySelector('#btn-escalar-fornecedor')).not.toBeNull();
+    });
+
+    it('esconde o botão de escalar sem responsável, fora de Em Atendimento ou com escalonamento aberto', () => {
+      expect(criar({ ...mockDetalhe, responsavel: null }).querySelector('#btn-escalar-fornecedor')).toBeNull();
+      expect(criar({ ...mockDetalhe, status: 'EM_TRIAGEM' }).querySelector('#btn-escalar-fornecedor')).toBeNull();
+      expect(criar(aguardandoFornecedor).querySelector('#btn-escalar-fornecedor')).toBeNull();
+    });
+
+    it('abre o modal com o aviso de que o analista continua responsável (RN07)', () => {
+      const elemento = criar(mockDetalhe);
+      (elemento.querySelector('#btn-escalar-fornecedor') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(component['modalEscalarAberto']()).toBe(true);
+      expect(elemento.querySelector('#modal-escalar-titulo')?.textContent).toContain('Escalar para fornecedor');
+      expect(elemento.querySelector('#aviso-rn07')?.textContent).toContain('Você continua responsável');
+    });
+
+    it('não escala sem fornecedor ou sem descrição', () => {
+      criar(mockDetalhe);
+      const escalarSpy = vi.spyOn(chamadoService, 'escalar');
+      const toastSpy = vi.spyOn(toastService, 'erro');
+
+      component['abrirModalEscalar']();
+      component['atualizarFornecedor']('   ');
+      component['atualizarObservacaoFornecedor']('Descrição do problema.');
+      component['confirmarEscalonamento']();
+
+      expect(escalarSpy).not.toHaveBeenCalled();
+      expect(component['erroFornecedor']()).toBe('Informe o fornecedor externo.');
+      expect(toastSpy).toHaveBeenCalledWith('Preencha o fornecedor e a descrição para o fornecedor.');
+
+      component['atualizarFornecedor']('TechPrint Suprimentos');
+      component['atualizarObservacaoFornecedor']('');
+      component['confirmarEscalonamento']();
+
+      expect(escalarSpy).not.toHaveBeenCalled();
+      expect(component['erroObservacaoFornecedor']()).toBe('Descreva o problema para o fornecedor.');
+    });
+
+    it('escala com sucesso, sem enviar protocolo vazio, e fecha o modal', () => {
+      criar(mockDetalhe);
+      const escalarSpy = vi.spyOn(chamadoService, 'escalar').mockReturnValue(of(aguardandoFornecedor));
+      const toastSpy = vi.spyOn(toastService, 'sucesso');
+
+      component['abrirModalEscalar']();
+      component['atualizarFornecedor']('  TechPrint Suprimentos ');
+      component['atualizarProtocoloExterno']('   ');
+      component['atualizarObservacaoFornecedor']('Impressora parou após queda de energia.');
+      component['confirmarEscalonamento']();
+
+      expect(escalarSpy).toHaveBeenCalledWith('chm-127', {
+        fornecedor: 'TechPrint Suprimentos',
+        observacao: 'Impressora parou após queda de energia.',
+      });
+      expect(toastSpy).toHaveBeenCalledWith('Chamado escalado para TechPrint Suprimentos.');
+      expect(component['modalEscalarAberto']()).toBe(false);
+      expect(component['chamado']()?.status).toBe('AGUARDANDO');
+    });
+
+    it('envia o protocolo do fornecedor quando informado', () => {
+      criar(mockDetalhe);
+      const escalarSpy = vi.spyOn(chamadoService, 'escalar').mockReturnValue(of(aguardandoFornecedor));
+
+      component['abrirModalEscalar']();
+      component['atualizarFornecedor']('TechPrint Suprimentos');
+      component['atualizarProtocoloExterno'](' TP-48213 ');
+      component['atualizarObservacaoFornecedor']('Impressora parou.');
+      component['confirmarEscalonamento']();
+
+      expect(escalarSpy).toHaveBeenCalledWith('chm-127', {
+        fornecedor: 'TechPrint Suprimentos',
+        observacao: 'Impressora parou.',
+        protocolo_externo: 'TP-48213',
+      });
+    });
+
+    it('mostra a mensagem da API e mantém o modal aberto quando o escalonamento falha', () => {
+      criar(mockDetalhe);
+      vi.spyOn(chamadoService, 'escalar').mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 422,
+              error: { message: 'Atribua um responsável antes de escalar o chamado.' },
+            }),
+        ),
+      );
+      const toastSpy = vi.spyOn(toastService, 'erro');
+
+      component['abrirModalEscalar']();
+      component['atualizarFornecedor']('TechPrint Suprimentos');
+      component['atualizarObservacaoFornecedor']('Impressora parou.');
+      component['confirmarEscalonamento']();
+
+      expect(toastSpy).toHaveBeenCalledWith('Atribua um responsável antes de escalar o chamado.');
+      expect(component['modalEscalarAberto']()).toBe(true);
+    });
+
+    it('mostra o card do escalonamento aberto com fornecedor e protocolo', () => {
+      const card = criar(aguardandoFornecedor).querySelector('#card-escalonamento');
+
+      expect(card).not.toBeNull();
+      expect(card?.textContent).toContain('Aguardando fornecedor');
+      expect(card?.textContent).toContain('TechPrint Suprimentos');
+      expect(card?.textContent).toContain('TP-48213');
+      expect(card?.querySelector('#btn-registrar-retorno')).not.toBeNull();
+    });
+
+    it('enquanto aguarda o fornecedor, não oferece Resolver nem Alterar status', () => {
+      const elemento = criar(aguardandoFornecedor);
+
+      expect(component['aguardandoFornecedor']()).toBe(true);
+      expect(elemento.querySelector('#btn-resolver-chamado')).toBeNull();
+      expect(elemento.querySelector('#btn-alterar-status')).toBeNull();
+    });
+
+    it('o modal de status não oferece mais o motivo Fornecedor', () => {
+      const elemento = criar(mockDetalhe);
+      component['abrirModalStatus']();
+      fixture.detectChanges();
+
+      expect(component['statusSelecionado']()).toBe('AGUARDANDO');
+      expect(elemento.querySelector('#motivo-fornecedor')).toBeNull();
+      expect(elemento.querySelector('#dica-escalar-fornecedor')).not.toBeNull();
+    });
+
+    it('não registra retorno vazio', () => {
+      criar(aguardandoFornecedor);
+      const retornoSpy = vi.spyOn(chamadoService, 'registrarRetornoFornecedor');
+
+      component['abrirModalRetorno']();
+      component['atualizarRetornoTexto']('  ');
+      component['confirmarRetorno']();
+
+      expect(retornoSpy).not.toHaveBeenCalled();
+      expect(component['erroRetorno']()).toBe('Descreva o retorno do fornecedor.');
+    });
+
+    it('registra o retorno do escalonamento aberto e o chamado volta para Em Atendimento', () => {
+      criar(aguardandoFornecedor);
+      const retornado: ChamadoDetalhe = {
+        ...mockDetalhe,
+        status: 'EM_ATENDIMENTO',
+        motivo_espera: null,
+        escalonamentos: [
+          {
+            ...escalonamentoAberto,
+            aberto: false,
+            retorno: 'Placa trocada.',
+            retornoEm: '07/10/2026 11:00',
+            retornoRegistradoPor: 'Ana Souza',
+          },
+        ],
+      };
+      const retornoSpy = vi
+        .spyOn(chamadoService, 'registrarRetornoFornecedor')
+        .mockReturnValue(of(retornado));
+      const toastSpy = vi.spyOn(toastService, 'sucesso');
+
+      component['abrirModalRetorno']();
+      component['atualizarRetornoTexto'](' Placa trocada. ');
+      component['confirmarRetorno']();
+      fixture.detectChanges();
+
+      expect(retornoSpy).toHaveBeenCalledWith('chm-127', 'esc-1', { retorno: 'Placa trocada.' });
+      expect(toastSpy).toHaveBeenCalledWith(
+        'Retorno do fornecedor registrado. O chamado voltou para Em Atendimento.',
+      );
+      expect(component['modalRetornoAberto']()).toBe(false);
+      const card = (fixture.nativeElement as HTMLElement).querySelector('#card-escalonamento');
+      expect(card?.textContent).toContain('Retorno recebido');
+      expect(card?.textContent).toContain('Placa trocada.');
+      expect(card?.querySelector('#btn-registrar-retorno')).toBeNull();
+    });
+
+    it('chama POST /escalonamentos e PATCH /escalonamentos/{id}/retorno no backend', () => {
+      chamadoService
+        .escalar('chm-127', { fornecedor: 'TechPrint Suprimentos', observacao: 'Impressora parou.' })
+        .subscribe();
+      const reqEscalar = httpMock.expectOne(
+        (r) => r.url.endsWith('/chamados/chm-127/escalonamentos') && r.method === 'POST',
+      );
+      expect(reqEscalar.request.body).toEqual({
+        fornecedor: 'TechPrint Suprimentos',
+        observacao: 'Impressora parou.',
+      });
+      reqEscalar.flush({ status_code: 201, message: 'ok', data: aguardandoFornecedor, errors: null });
+
+      chamadoService.registrarRetornoFornecedor('chm-127', 'esc-1', { retorno: 'Placa trocada.' }).subscribe();
+      const reqRetorno = httpMock.expectOne(
+        (r) => r.url.endsWith('/chamados/chm-127/escalonamentos/esc-1/retorno') && r.method === 'PATCH',
+      );
+      expect(reqRetorno.request.body).toEqual({ retorno: 'Placa trocada.' });
+      reqRetorno.flush({ status_code: 200, message: 'ok', data: mockDetalhe, errors: null });
+    });
+
+    it('converte os escalonamentos da API e soma o tempo em terceiros (M05)', () => {
+      const escalonamentosApi: EscalonamentoApiResponse[] = [
+        {
+          id: 'esc-1',
+          fornecedor: 'TechPrint Suprimentos',
+          protocolo_externo: 'TP-48213',
+          observacao: null,
+          enviado_em: '2026-10-07T13:00:00Z',
+          enviado_por: 'Ana Souza',
+          responsavel: { id: 'r-1', nome: 'Ana Souza' },
+          retorno: 'Placa trocada.',
+          retorno_em: '2026-10-07T14:30:00Z',
+          retorno_registrado_por: 'Ana Souza',
+          aberto: false,
+        },
+        {
+          id: 'esc-2',
+          fornecedor: 'MedSoft',
+          enviado_em: '2026-10-07T15:00:00Z',
+          enviado_por: 'Ana Souza',
+          responsavel: { id: 'r-1', nome: 'Ana Souza' },
+          aberto: true,
+        },
+      ];
+
+      expect(calcularMinutosEmTerceiros(escalonamentosApi, new Date('2026-10-07T15:20:00Z'))).toBe(110);
+
+      const detalhe = mapearChamadoDetalhe({
+        id: 'c-1',
+        codigo: 'LUM-2026-000001',
+        status: 'AGUARDANDO',
+        motivo_espera: 'FORNECEDOR',
+        descricao: 'Impressora parada.',
+        canal_origem: 'LIGACAO',
+        unidade: { id: 'u-1', nome: 'U.03 Boa Viagem' },
+        categoria: null,
+        solicitante: { contato: '+5581988771234' },
+        responsavel: { id: 'r-1', nome: 'Ana Souza' },
+        prioridade: null,
+        aberto_em: '2026-10-07T12:00:00Z',
+        registros_contato: [],
+        escalonamentos: escalonamentosApi,
+        historico: [],
+      });
+
+      expect(detalhe.escalonamentos).toHaveLength(2);
+      expect(detalhe.escalonamentos![0]).toMatchObject({
+        fornecedor: 'TechPrint Suprimentos',
+        protocoloExterno: 'TP-48213',
+        retorno: 'Placa trocada.',
+        retornoEm: formatarDataHoraLocal('2026-10-07T14:30:00Z'),
+        aberto: false,
+      });
+      expect(detalhe.escalonamentos![1]).toMatchObject({ protocoloExterno: null, retornoEm: null, aberto: true });
+    });
   });
 });
