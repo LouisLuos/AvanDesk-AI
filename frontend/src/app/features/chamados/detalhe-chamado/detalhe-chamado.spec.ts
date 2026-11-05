@@ -361,131 +361,130 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
     component = fixture.componentInstance;
     fixture.detectChanges();
 
-    const btnResolver = fixture.nativeElement.querySelector('#btn-resolver-chamado');
-    expect(btnResolver).not.toBeNull();
-    expect(component['podeResolver']()).toBe(true);
+    const elemento = fixture.nativeElement as HTMLElement;
+    const tituloSecao = elemento.querySelector('#secao-registrar-contato-titulo');
+    expect(tituloSecao?.textContent).toContain('Registrar Nova Mensagem / Contato');
+    expect(elemento.textContent).toContain('WhatsApp');
+    expect(elemento.textContent).toContain('Recebido do solicitante');
+    expect(elemento.textContent).toContain('Proibição de Dados Clínicos & LGPD');
   });
 
-  it('não deve exibir botão de Resolver para chamados ABERTO ou ENCERRADOS (HU06)', () => {
-    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'ABERTO' }));
+  it('deve validar e registrar nova mensagem/contato com sucesso atualizando a timeline imediatamente (RN16 / US)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(mockDetalhe));
 
-    fixture = TestBed.createComponent(DetalheChamado);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-
-    const btnResolver = fixture.nativeElement.querySelector('#btn-resolver-chamado');
-    expect(btnResolver).toBeNull();
-    expect(component['podeResolver']()).toBe(false);
-  });
-
-  it('não deve permitir resolução em branco ou com menos de 10 caracteres (HU06 / QA)', () => {
-    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'EM_ATENDIMENTO' }));
-    const resolverSpy = vi.spyOn(chamadoService, 'resolver');
-    const toastSpy = vi.spyOn(toastService, 'erro');
-
-    fixture = TestBed.createComponent(DetalheChamado);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-
-    component['abrirModalResolucao']();
-    expect(component['modalResolucaoAberto']()).toBe(true);
-
-    // Tentativa com campo em branco
-    component['atualizarResolucaoTexto']('   ');
-    expect(component['resolucaoValida']()).toBe(false);
-    expect(component['erroResolucao']()).toBe('A descrição da solução é obrigatória.');
-
-    component['confirmarResolucao']();
-    expect(resolverSpy).not.toHaveBeenCalled();
-    expect(toastSpy).toHaveBeenCalledWith('Preencha a descrição da solução detalhadamente (mínimo 10 caracteres).');
-
-    // Tentativa com menos de 10 caracteres
-    component['atualizarResolucaoTexto']('Curto');
-    expect(component['resolucaoValida']()).toBe(false);
-    expect(component['erroResolucao']()).toBe('A solução deve conter no mínimo 10 caracteres.');
-
-    component['confirmarResolucao']();
-    expect(resolverSpy).not.toHaveBeenCalled();
-  });
-
-  it('deve selecionar sugestão de causa raiz e alternar possível recorrência (HU06)', () => {
-    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'EM_ATENDIMENTO' }));
-
-    fixture = TestBed.createComponent(DetalheChamado);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-
-    component['abrirModalResolucao']();
-    component['selecionarSugestaoCausaRaiz']('Falha de hardware');
-    expect(component['causaRaizTexto']()).toBe('Falha de hardware');
-
-    component['alternarPossivelRecorrencia'](true);
-    expect(component['possivelRecorrenciaCheck']()).toBe(true);
-  });
-
-  it('deve resolver o chamado com sucesso, atualizar estado e fechar o modal (HU06)', () => {
-    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'EM_ATENDIMENTO' }));
-    const resolvidoMock: ChamadoDetalhe = {
+    const mockDetalheAtualizado: ChamadoDetalhe = {
       ...mockDetalhe,
-      status: 'RESOLVIDO',
-      resolvido_em: '07/10/2026 · 10:45',
-      resolucao: 'Cabo de rede substituído e porta do switch reconfigurada.',
-      causa_raiz: 'Instabilidade de rede / conectividade',
-      possivel_recorrencia: true,
+      registrosContato: [
+        {
+          id: 'contato-novo-1',
+          canal: 'WHATSAPP',
+          direcao: 'RECEBIDO',
+          conteudo: 'Impressora voltou a apresentar mensagem de atolamento.',
+          dataHoraLocal: '07/10/2026 10:15',
+          solicitanteNome: 'Mariana Alves',
+          solicitanteContato: '+55 81 9****-1234',
+          registradoPor: 'Ana Souza',
+        },
+      ],
+      historico: [
+        ...mockDetalhe.historico,
+        {
+          id: 'h-2',
+          tipo: 'REGISTRO_DE_CONTATO_RECEBIDO',
+          titulo: 'Contato registrado via WhatsApp (Mariana Alves)',
+          descricao: '"Impressora voltou a apresentar mensagem de atolamento." · Registrado por Ana Souza',
+          hora: '10:15',
+          dataCompleta: '07/10/2026 10:15',
+          estiloDot: 'bg-[#2d5bff]',
+        },
+      ],
     };
-    const resolverSpy = vi.spyOn(chamadoService, 'resolver').mockReturnValue(of(resolvidoMock));
+
+    const registrarSpy = vi.spyOn(chamadoService, 'registrarContato').mockReturnValue(of(mockDetalheAtualizado));
     const toastSpy = vi.spyOn(toastService, 'sucesso');
 
     fixture = TestBed.createComponent(DetalheChamado);
     component = fixture.componentInstance;
     fixture.detectChanges();
 
-    component['abrirModalResolucao']();
-    component['atualizarResolucaoTexto']('Cabo de rede substituído e porta do switch reconfigurada.');
-    component['selecionarSugestaoCausaRaiz']('Instabilidade de rede / conectividade');
-    component['alternarPossivelRecorrencia'](true);
+    component['selecionarCanalContato']('WHATSAPP');
+    component['selecionarDirecaoContato']('RECEBIDO');
+    component['atualizarConteudoContato']('Impressora voltou a apresentar mensagem de atolamento.');
+    component['registrarNovoContato']();
 
-    component['confirmarResolucao']();
-
-    expect(resolverSpy).toHaveBeenCalledWith('chm-127', {
-      resolucao: 'Cabo de rede substituído e porta do switch reconfigurada.',
-      causa_raiz: 'Instabilidade de rede / conectividade',
-      causaRaiz: 'Instabilidade de rede / conectividade',
-      possivel_recorrencia: true,
-      possivelRecorrencia: true,
+    expect(registrarSpy).toHaveBeenCalledWith('chm-127', {
+      canal: 'WHATSAPP',
+      direcao: 'RECEBIDO',
+      conteudo: 'Impressora voltou a apresentar mensagem de atolamento.',
     });
-    expect(toastSpy).toHaveBeenCalledWith('Chamado resolvido com sucesso!');
-    expect(component['modalResolucaoAberto']()).toBe(false);
-    expect(component['chamado']()?.status).toBe('RESOLVIDO');
-    expect(component['chamado']()?.resolucao).toContain('Cabo de rede');
+    expect(toastSpy).toHaveBeenCalledWith('Mensagem registrada com sucesso na timeline do chamado!');
+    expect(component['chamado']()?.registrosContato?.length).toBe(1);
+    expect(component['chamado']()?.historico.length).toBe(2);
+    expect(component['novoContatoConteudo']()).toBe('');
+
+    fixture.detectChanges();
+    const elemento = fixture.nativeElement as HTMLElement;
+    expect(elemento.textContent).toContain('Impressora voltou a apresentar mensagem de atolamento.');
+    expect(elemento.textContent).toContain('Contato registrado via WhatsApp');
   });
 
-  it('deve exibir o card de solução no cabeçalho quando o status for RESOLVIDO (HU06)', () => {
-    const resolvidoMock: ChamadoDetalhe = {
-      ...mockDetalhe,
-      status: 'RESOLVIDO',
-      resolvido_em: '07/10/2026 · 10:45',
-      resolucao: 'Substituição do cartucho de etiquetas e teste de calibração.',
-      causa_raiz: 'Falha de hardware',
-      possivel_recorrencia: true,
-    };
-    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(resolvidoMock));
+  it('não deve permitir registro com conteúdo vazio (RN16)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(mockDetalhe));
+    const registrarSpy = vi.spyOn(chamadoService, 'registrarContato');
+    const toastSpy = vi.spyOn(toastService, 'erro');
 
     fixture = TestBed.createComponent(DetalheChamado);
     component = fixture.componentInstance;
     fixture.detectChanges();
 
-    const card = fixture.nativeElement.querySelector('#card-resolucao-chamado');
-    expect(card).not.toBeNull();
-    expect(card?.textContent).toContain('Substituição do cartucho de etiquetas');
-    expect(card?.textContent).toContain('Falha de hardware');
+    component['atualizarConteudoContato']('   ');
+    component['registrarNovoContato']();
 
-    const badgeRecorrencia = fixture.nativeElement.querySelector('#badge-alerta-recorrencia');
-    expect(badgeRecorrencia).not.toBeNull();
-    expect(badgeRecorrencia?.textContent).toContain('Alerta de Reincidência');
+    expect(registrarSpy).not.toHaveBeenCalled();
+    expect(toastSpy).toHaveBeenCalledWith('Informe o conteúdo da mensagem ou relato do contato.');
+    expect(component['erroContato']()).toBe('Informe o conteúdo da mensagem ou relato do contato.');
+  });
 
-    const badgeResolvidoEm = fixture.nativeElement.querySelector('#badge-resolvido-em');
-    expect(badgeResolvidoEm).not.toBeNull();
-    expect(badgeResolvidoEm?.textContent).toContain('07/10/2026 · 10:45');
+  it('não deve permitir registro se o chamado estiver encerrado', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'CANCELADO' }));
+    const registrarSpy = vi.spyOn(chamadoService, 'registrarContato');
+    const toastSpy = vi.spyOn(toastService, 'info');
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['atualizarConteudoContato']('Tentando adicionar relato');
+    component['registrarNovoContato']();
+
+    expect(registrarSpy).not.toHaveBeenCalled();
+    expect(toastSpy).toHaveBeenCalledWith('Não é possível registrar contatos em um chamado encerrado.');
+  });
+
+  it('deve registrar contato com interlocutor alternativo (RN16)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(mockDetalhe));
+    const registrarSpy = vi.spyOn(chamadoService, 'registrarContato').mockReturnValue(of(mockDetalhe));
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['alternarOutroSolicitante']();
+    expect(component['novoContatoOutroSolicitante']()).toBe(true);
+
+    component['atualizarNomeContato']('Dr. Carlos Plantonista');
+    component['atualizarIdentificadorContato']('+5581987654321');
+    component['atualizarConteudoContato']('Médico informou urgência no setor de triagem.');
+    component['registrarNovoContato']();
+
+    expect(registrarSpy).toHaveBeenCalledWith('chm-127', {
+      canal: 'WHATSAPP',
+      direcao: 'RECEBIDO',
+      conteudo: 'Médico informou urgência no setor de triagem.',
+      solicitante: {
+        nome: 'Dr. Carlos Plantonista',
+        contato: '+5581987654321',
+      },
+    });
   });
 });

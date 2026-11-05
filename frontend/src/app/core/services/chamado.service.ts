@@ -11,8 +11,10 @@ import {
   FilaChamados,
   FiltrosFila,
   ResolucaoRequest,
+  RegistroContatoRequest,
   StatusRequest,
   TAMANHO_PAGINA_FILA,
+  TotalChamadosPorUnidade,
 } from '../../shared/models/chamado.model';
 import { mapearChamadoDetalhe } from '../../shared/utils/chamado-detalhe.mapper';
 
@@ -50,6 +52,18 @@ export class ChamadoService {
     return this.http
       .get<ApiResponse<FilaChamados>>(this.baseUrl, { params })
       .pipe(map((res) => res.data as FilaChamados));
+  }
+
+  /**
+   * GET /chamados/totais-por-unidade — chamados abertos por unidade nos últimos `dias` (HU11).
+   * Ainda não existe no backend (virá do `contarPorUnidadeDesde`); até lá a requisição falha
+   * e quem chama deve tratar a contagem como indisponível.
+   */
+  totaisPorUnidade(dias = 30): Observable<TotalChamadosPorUnidade[]> {
+    const params = new HttpParams().set('dias', dias);
+    return this.http
+      .get<ApiResponse<TotalChamadosPorUnidade[]>>(`${this.baseUrl}/totais-por-unidade`, { params })
+      .pipe(map((res) => res.data ?? []));
   }
 
   /** POST /chamados — registra um chamado (HU01). */
@@ -133,4 +147,15 @@ export class ChamadoService {
       )
       .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
   }
+   /** POST /chamados/{id}/contatos — registra nova mensagem ou interação de contato (RN16 / HU13).
+   */
+  registrarContato(id: string, payload: RegistroContatoRequest): Observable<ChamadoDetalhe> {
+    return this.http
+      .post<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/contatos`,
+        payload,
+      )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
 }

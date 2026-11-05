@@ -12,6 +12,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { ChamadoService } from '../../../core/services/chamado.service';
 import { ToastService } from '../../../core/services/toast.service';
 import {
+  CANAIS_ORIGEM,
   CanalOrigem,
   ChamadoDetalhe,
   DirecaoContato,
@@ -19,6 +20,7 @@ import {
   PrioridadeChamado,
   ResolucaoRequest,
   StatusChamado,
+  RegistroContatoRequest,
   StatusRequest,
 } from '../../../shared/models/chamado.model';
 import { extrairMensagensErro } from '../../../shared/utils/api-error';
@@ -80,6 +82,16 @@ export class DetalheChamado implements OnInit {
     if (t.length > 2000) return 'A solução deve conter no máximo 2000 caracteres.';
     return null;
   });
+  // Estados do Registro de Novo Contato / Mensagem (RN16 / HU13)
+  protected readonly canaisDisponiveis = CANAIS_ORIGEM;
+  protected readonly novoContatoCanal = signal<CanalOrigem>('WHATSAPP');
+  protected readonly novoContatoDirecao = signal<DirecaoContato>('RECEBIDO');
+  protected readonly novoContatoConteudo = signal('');
+  protected readonly novoContatoOutroSolicitante = signal(false);
+  protected readonly novoContatoNome = signal('');
+  protected readonly novoContatoIdentificador = signal('');
+  protected readonly salvandoContato = signal(false);
+  protected readonly erroContato = signal<string | null>(null);
 
   protected readonly idChamado = computed(() => this.route.snapshot.paramMap.get('id') ?? '');
   protected readonly usuarioLogado = computed(() => this.authService.usuario());
@@ -219,6 +231,105 @@ export class DetalheChamado implements OnInit {
     this.statusSelecionado.set('CANCELADO');
     this.motivoCancelamentoTexto.set('');
     this.modalStatusAberto.set(true);
+  }
+
+  // Métodos de Registro de Novo Contato / Mensagem (RN16 / HU13)
+  protected selecionarCanalContato(canal: CanalOrigem): void {
+    this.novoContatoCanal.set(canal);
+  }
+
+  protected selecionarDirecaoContato(direcao: DirecaoContato): void {
+    this.novoContatoDirecao.set(direcao);
+  }
+
+  protected alternarOutroSolicitante(): void {
+    this.novoContatoOutroSolicitante.update((v) => !v);
+  }
+
+  protected atualizarConteudoContato(texto: string): void {
+    this.novoContatoConteudo.set(texto);
+    if (this.erroContato()) {
+      this.erroContato.set(null);
+    }
+  }
+
+  protected atualizarNomeContato(texto: string): void {
+    this.novoContatoNome.set(texto);
+  }
+
+  protected atualizarIdentificadorContato(texto: string): void {
+    this.novoContatoIdentificador.set(texto);
+  }
+
+  protected limparFormularioContato(): void {
+    this.novoContatoCanal.set('WHATSAPP');
+    this.novoContatoDirecao.set('RECEBIDO');
+    this.novoContatoConteudo.set('');
+    this.novoContatoOutroSolicitante.set(false);
+    this.novoContatoNome.set('');
+    this.novoContatoIdentificador.set('');
+    this.erroContato.set(null);
+  }
+
+  protected registrarNovoContato(): void {
+    if (this.chamadoEncerrado()) {
+      this.toast.info('Não é possível registrar contatos em um chamado encerrado.');
+      return;
+    }
+
+    const id = this.idChamado();
+    if (!id) return;
+
+    const conteudoLimpo = this.novoContatoConteudo().trim();
+    if (!conteudoLimpo) {
+      this.erroContato.set('Informe o conteúdo da mensagem ou relato do contato.');
+      this.toast.erro('Informe o conteúdo da mensagem ou relato do contato.');
+      return;
+    }
+
+    if (conteudoLimpo.length > 2000) {
+      this.erroContato.set('O relato deve ter no máximo 2000 caracteres.');
+      this.toast.erro('O relato deve ter no máximo 2000 caracteres.');
+      return;
+    }
+
+    const payload: RegistroContatoRequest = {
+      canal: this.novoContatoCanal(),
+      direcao: this.novoContatoDirecao(),
+      conteudo: conteudoLimpo,
+    };
+
+    if (this.novoContatoOutroSolicitante()) {
+      const identificador = this.novoContatoIdentificador().trim();
+      if (!identificador) {
+        this.erroContato.set('Informe o telefone ou e-mail do interlocutor.');
+        this.toast.erro('Informe o telefone ou e-mail do interlocutor.');
+        return;
+      }
+      payload.solicitante = {
+        nome: this.novoContatoNome().trim() || undefined,
+        contato: identificador,
+      };
+    }
+
+    this.salvandoContato.set(true);
+    this.erroContato.set(null);
+
+    this.chamadoService
+      .registrarContato(id, payload)
+      .pipe(finalize(() => this.salvandoContato.set(false)))
+      .subscribe({
+        next: (dadosAtualizados) => {
+          this.chamado.set(dadosAtualizados);
+          this.toast.sucesso('Mensagem registrada com sucesso na timeline do chamado!');
+          this.limparFormularioContato();
+        },
+        error: (err) => {
+          const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao registrar contato.';
+          this.erroContato.set(msgApi);
+          this.toast.erro(msgApi);
+        },
+      });
   }
 
   protected fecharModalStatus(): void {

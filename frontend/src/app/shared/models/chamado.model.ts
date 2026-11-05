@@ -337,6 +337,12 @@ export interface FilaChamados {
   totais_por_status: Record<StatusChamado, number>;
 }
 
+/** Chamados abertos por unidade numa janela de dias. Unidades sem chamados não aparecem. */
+export interface TotalChamadosPorUnidade {
+  unidade_id: string;
+  total: number;
+}
+
 /** Payload para atribuir/assumir responsável (HU12). */
 export interface ResponsavelRequest {
   responsavel_id: string;
@@ -350,4 +356,14 @@ export interface StatusRequest {
   motivo_cancelamento?: string | null;
   motivoEspera?: MotivoEspera | null;
   motivoCancelamento?: string | null;
+}
+
+/** Payload para registrar nova mensagem ou interação de contato em chamado aberto (RN16 / HU13). */
+export interface RegistroContatoRequest {
+  canal: CanalOrigem;
+  direcao?: DirecaoContato;
+  conteudo: string;
+  ocorrido_em?: string;
+  solicitante?: Solicitante;
+  identificador_externo?: string;
 }

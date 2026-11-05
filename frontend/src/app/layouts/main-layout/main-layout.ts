@@ -35,7 +35,7 @@ export class MainLayout {
 
   protected readonly menu = [
     { rotulo: 'Fila de Chamados', rota: '/chamados', id: 'nav-fila-chamados' },
-    { rotulo: 'Administração', rota: '/admin/unidades', id: 'nav-administracao' },
+    { rotulo: 'Administração', rota: '/admin', id: 'nav-administracao' },
   ];
 
   protected get iniciais(): string {
