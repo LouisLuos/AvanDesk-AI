@@ -10,6 +10,7 @@ import {
   ChamadoResponse,
   FilaChamados,
   FiltrosFila,
+  ResolucaoRequest,
   StatusRequest,
   TAMANHO_PAGINA_FILA,
 } from '../../shared/models/chamado.model';
@@ -105,6 +106,29 @@ export class ChamadoService {
     return this.http
       .patch<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
         `${this.baseUrl}/${id}/status`,
+        corpoRequisicao,
+      )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  /**
+   * PATCH /chamados/{id}/resolucao — conclui o chamado com a solucao e causa raiz (HU06).
+   */
+  resolver(id: string, payload: ResolucaoRequest): Observable<ChamadoDetalhe> {
+    const corpoRequisicao: Record<string, unknown> = {
+      resolucao: payload.resolucao,
+    };
+    const causa = payload.causa_raiz ?? payload.causaRaiz;
+    if (causa) {
+      corpoRequisicao['causa_raiz'] = causa;
+    }
+    const recorrencia = payload.possivel_recorrencia ?? payload.possivelRecorrencia;
+    if (recorrencia !== undefined && recorrencia !== null) {
+      corpoRequisicao['possivel_recorrencia'] = recorrencia;
+    }
+    return this.http
+      .patch<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/resolucao`,
         corpoRequisicao,
       )
       .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
