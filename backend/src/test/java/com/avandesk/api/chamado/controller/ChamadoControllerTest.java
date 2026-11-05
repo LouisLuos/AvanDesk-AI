@@ -25,6 +25,7 @@ import com.avandesk.api.core.exception.OperacaoNaoPermitidaException;
 import com.avandesk.api.core.exception.RecursoNaoEncontradoException;
 import com.avandesk.api.core.exception.RegraNegocioException;
 import com.avandesk.api.unidade.dto.UnidadeResumoResponse;
+import com.avandesk.api.usuario.repository.UsuarioRepository;
 import com.avandesk.api.usuario.service.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -84,6 +85,9 @@ class ChamadoControllerTest {
 
     @MockitoBean
     private JwtService jwtService;
+
+    @MockitoBean
+    private UsuarioRepository usuarioRepository;
 
     @Test
     @WithMockUser

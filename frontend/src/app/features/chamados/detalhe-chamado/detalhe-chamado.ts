@@ -18,6 +18,7 @@ import {
   DirecaoContato,
   MotivoEspera,
   PrioridadeChamado,
+  ResolucaoRequest,
   StatusChamado,
   RegistroContatoRequest,
   StatusRequest,
@@ -47,6 +48,40 @@ export class DetalheChamado implements OnInit {
   protected readonly motivoEsperaSelecionado = signal<MotivoEspera>('SOLICITANTE');
   protected readonly motivoCancelamentoTexto = signal('');
 
+  // Estados do Modal de Resolução (HU06)
+  protected readonly modalResolucaoAberto = signal(false);
+  protected readonly resolucaoTexto = signal('');
+  protected readonly causaRaizTexto = signal('');
+  protected readonly possivelRecorrenciaCheck = signal(false);
+  protected readonly resolucaoTocou = signal(false);
+
+  protected readonly sugestoesCausaRaiz = [
+    'Falha de hardware',
+    'Falha de software / bug',
+    'Configuração incorreta',
+    'Instabilidade de rede / conectividade',
+    'Erro operacional / usuário',
+    'Problema com fornecedor externo',
+  ];
+
+  protected readonly podeResolver = computed(() => {
+    const s = this.chamado()?.status;
+    return s === 'EM_ATENDIMENTO' || s === 'AGUARDANDO';
+  });
+
+  protected readonly resolucaoValida = computed(() => {
+    const t = this.resolucaoTexto().trim();
+    return t.length >= 10 && t.length <= 2000;
+  });
+
+  protected readonly erroResolucao = computed(() => {
+    if (!this.resolucaoTocou()) return null;
+    const t = this.resolucaoTexto().trim();
+    if (!t) return 'A descrição da solução é obrigatória.';
+    if (t.length < 10) return 'A solução deve conter no mínimo 10 caracteres.';
+    if (t.length > 2000) return 'A solução deve conter no máximo 2000 caracteres.';
+    return null;
+  });
   // Estados do Registro de Novo Contato / Mensagem (RN16 / HU13)
   protected readonly canaisDisponiveis = CANAIS_ORIGEM;
   protected readonly novoContatoCanal = signal<CanalOrigem>('WHATSAPP');
@@ -356,6 +391,80 @@ export class DetalheChamado implements OnInit {
         },
         error: (err) => {
           const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao atualizar status.';
+          this.toast.erro(msgApi);
+        },
+      });
+  }
+
+  /**
+   * Abre o modal de resolução do chamado (HU06).
+   */
+  protected abrirModalResolucao(): void {
+    if (!this.podeResolver()) {
+      this.toast.info('Para resolver o chamado, ele deve estar Em Atendimento ou Aguardando.');
+      return;
+    }
+    this.resolucaoTexto.set('');
+    this.causaRaizTexto.set('');
+    this.possivelRecorrenciaCheck.set(false);
+    this.resolucaoTocou.set(false);
+    this.modalResolucaoAberto.set(true);
+  }
+
+  protected fecharModalResolucao(): void {
+    this.modalResolucaoAberto.set(false);
+  }
+
+  protected atualizarResolucaoTexto(valor: string): void {
+    this.resolucaoTexto.set(valor);
+    this.resolucaoTocou.set(true);
+  }
+
+  protected atualizarCausaRaizTexto(valor: string): void {
+    this.causaRaizTexto.set(valor);
+  }
+
+  protected selecionarSugestaoCausaRaiz(sugestao: string): void {
+    this.causaRaizTexto.set(sugestao);
+  }
+
+  protected alternarPossivelRecorrencia(checked: boolean): void {
+    this.possivelRecorrenciaCheck.set(checked);
+  }
+
+  /**
+   * Confirma a resolução do chamado via PATCH /chamados/{id}/resolucao (HU06).
+   */
+  protected confirmarResolucao(): void {
+    this.resolucaoTocou.set(true);
+    if (!this.resolucaoValida()) {
+      this.toast.erro('Preencha a descrição da solução detalhadamente (mínimo 10 caracteres).');
+      return;
+    }
+
+    const id = this.idChamado();
+    if (!id) return;
+
+    const payload: ResolucaoRequest = {
+      resolucao: this.resolucaoTexto().trim(),
+      causa_raiz: this.causaRaizTexto().trim() || null,
+      causaRaiz: this.causaRaizTexto().trim() || null,
+      possivel_recorrencia: this.possivelRecorrenciaCheck(),
+      possivelRecorrencia: this.possivelRecorrenciaCheck(),
+    };
+
+    this.salvando.set(true);
+    this.chamadoService
+      .resolver(id, payload)
+      .pipe(finalize(() => this.salvando.set(false)))
+      .subscribe({
+        next: (dadosAtualizados) => {
+          this.chamado.set(dadosAtualizados);
+          this.toast.sucesso('Chamado resolvido com sucesso!');
+          this.fecharModalResolucao();
+        },
+        error: (err) => {
+          const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao resolver chamado.';
           this.toast.erro(msgApi);
         },
       });

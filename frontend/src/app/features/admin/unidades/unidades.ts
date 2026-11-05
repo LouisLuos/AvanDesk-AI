@@ -11,17 +11,13 @@ import {
 import { Modal } from '../../../shared/components/modal/modal';
 import { Unidade, UnidadeRequest } from '../../../shared/models/unidade.model';
 import { extrairMensagensErro } from '../../../shared/utils/api-error';
+import { ESTILO_SELO_NEUTRO, ESTILO_SELO_POSITIVO, classeCampo } from '../../../shared/utils/estilos';
 
 type FiltroSituacao = '' | 'ATIVAS' | 'INATIVAS';
 type CampoTexto = 'nome' | 'identificacao' | 'localizacao';
 
 /** Janela da coluna "Chamados (30 d)". */
 const DIAS_CONTAGEM = 30;
-
-const CLASSE_CAMPO =
-  'h-9 w-full rounded-lg border bg-white px-3 text-sm text-[#14161b] shadow-2xs transition placeholder:text-[#9aa2b1] focus:outline-none focus:ring-2';
-const CAMPO_VALIDO = 'border-[#e2e5ec] focus:border-[#2d5bff] focus:ring-[#e8edff]';
-const CAMPO_INVALIDO = 'border-[#e5484d] focus:border-[#e5484d] focus:ring-[#e5484d]/15';
 
 @Component({
   selector: 'app-unidades',
@@ -41,8 +37,8 @@ export class Unidades implements OnInit {
     { valor: 'ATIVAS', rotulo: 'Ativas' },
     { valor: 'INATIVAS', rotulo: 'Inativas' },
   ];
-  protected readonly estiloSim = 'bg-[#22c55e]/10 text-[#16a34a]';
-  protected readonly estiloNao = 'bg-[#f1f3f8] text-[#6b7280]';
+  protected readonly estiloSim = ESTILO_SELO_POSITIVO;
+  protected readonly estiloNao = ESTILO_SELO_NEUTRO;
 
   // Listagem
   protected readonly unidades = signal<Unidade[]>([]);
@@ -161,7 +157,7 @@ export class Unidades implements OnInit {
   }
 
   protected classeCampo(campo: CampoTexto, extra = ''): string {
-    return `${CLASSE_CAMPO} ${this.invalido(campo) ? CAMPO_INVALIDO : CAMPO_VALIDO} ${extra}`;
+    return classeCampo(this.invalido(campo), extra);
   }
 
   protected salvar(): void {

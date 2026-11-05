@@ -10,9 +10,11 @@ import {
   ChamadoResponse,
   FilaChamados,
   FiltrosFila,
+  ResolucaoRequest,
   RegistroContatoRequest,
   StatusRequest,
   TAMANHO_PAGINA_FILA,
+  TotalChamadosPorResponsavel,
   TotalChamadosPorUnidade,
 } from '../../shared/models/chamado.model';
 import { mapearChamadoDetalhe } from '../../shared/utils/chamado-detalhe.mapper';
@@ -62,6 +64,13 @@ export class ChamadoService {
     const params = new HttpParams().set('dias', dias);
     return this.http
       .get<ApiResponse<TotalChamadosPorUnidade[]>>(`${this.baseUrl}/totais-por-unidade`, { params })
+      .pipe(map((res) => res.data ?? []));
+  }
+
+  /** GET /chamados/totais-por-responsavel — chamados em andamento de cada analista (HU10). */
+  totaisPorResponsavel(): Observable<TotalChamadosPorResponsavel[]> {
+    return this.http
+      .get<ApiResponse<TotalChamadosPorResponsavel[]>>(`${this.baseUrl}/totais-por-responsavel`)
       .pipe(map((res) => res.data ?? []));
   }
 
@@ -119,6 +128,29 @@ export class ChamadoService {
     return this.http
       .patch<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
         `${this.baseUrl}/${id}/status`,
+        corpoRequisicao,
+      )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  /**
+   * PATCH /chamados/{id}/resolucao — conclui o chamado com a solucao e causa raiz (HU06).
+   */
+  resolver(id: string, payload: ResolucaoRequest): Observable<ChamadoDetalhe> {
+    const corpoRequisicao: Record<string, unknown> = {
+      resolucao: payload.resolucao,
+    };
+    const causa = payload.causa_raiz ?? payload.causaRaiz;
+    if (causa) {
+      corpoRequisicao['causa_raiz'] = causa;
+    }
+    const recorrencia = payload.possivel_recorrencia ?? payload.possivelRecorrencia;
+    if (recorrencia !== undefined && recorrencia !== null) {
+      corpoRequisicao['possivel_recorrencia'] = recorrencia;
+    }
+    return this.http
+      .patch<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/resolucao`,
         corpoRequisicao,
       )
       .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));

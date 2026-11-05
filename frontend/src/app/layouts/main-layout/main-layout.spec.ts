@@ -42,15 +42,32 @@ describe('MainLayout', () => {
     expect(renderizar(false).querySelector('#badge-modo-simulado')).toBeNull();
   });
 
-  it('deve limpar o token e os dados do usuário no storage e navegar para /login ao clicar em sair', () => {
-    const elemento = renderizar(false);
-    const tokenStorage = TestBed.inject(TokenStorageService);
-    const authService = TestBed.inject(AuthService);
-    const router = TestBed.inject(Router);
-    const toast = TestBed.inject(ToastService);
-    const navegarSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+  it('deve mostrar a Administração só para a Liderança de TI', () => {
+    sessionStorage.setItem(
+      'avandesk.user',
+      JSON.stringify({ id: 'u-3', nome: 'Lideranca Dev', email: 'lideranca@lumen.local', perfil: 'LIDERANCA_TI' }),
+    );
 
-    tokenStorage.salvar('jwt-token-ativo', false);
+    expect(renderizar(false).querySelector('#nav-administracao')).not.toBeNull();
+  });
+
+  it('deve esconder a Administração do analista de suporte', () => {
+    sessionStorage.setItem(
+      'avandesk.user',
+      JSON.stringify({ id: 'u-1', nome: 'Analista Dev Um', email: 'analista1@lumen.local', perfil: 'ANALISTA_SUPORTE' }),
+    );
+
+    const elemento = renderizar(false);
+    expect(elemento.querySelector('#nav-fila-chamados')).not.toBeNull();
+    expect(elemento.querySelector('#nav-administracao')).toBeNull();
+  });
+
+  it('não deve exibir dados de usuário nem botão de logout quando o usuário não estiver autenticado', () => {
+    const elemento = renderizar(false);
+    expect(elemento.querySelector('#btn-logout')).toBeNull();
+  });
+
+  it('deve limpar o token e os dados do usuário no storage e navegar para /login ao clicar em sair', () => {
     sessionStorage.setItem(
       'avandesk.user',
       JSON.stringify({
@@ -61,7 +78,17 @@ describe('MainLayout', () => {
       }),
     );
 
+    const elemento = renderizar(false);
+    const tokenStorage = TestBed.inject(TokenStorageService);
+    const authService = TestBed.inject(AuthService);
+    const router = TestBed.inject(Router);
+    const toast = TestBed.inject(ToastService);
+    const navegarSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    tokenStorage.salvar('jwt-token-ativo', false);
+
     const botaoLogout = elemento.querySelector('#btn-logout') as HTMLButtonElement;
+    expect(botaoLogout).not.toBeNull();
     botaoLogout.click();
 
     expect(tokenStorage.obter()).toBeNull();

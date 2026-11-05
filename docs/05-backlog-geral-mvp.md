@@ -448,22 +448,30 @@ flowchart TD
 
 ### 🏷️ [HU10] Gerenciar analistas
 
-- **Responsável:** Aguinaldo (BE/FE), Marcos (QA) · **RF:** RF-023
+- **Status:** 🔄 Em revisão (BE e FE, PR aberto) · **Responsável:** Aguinaldo (BE/FE), Marcos (QA) · **RF:** RF-023
 
 **História:** Como liderança de TI, quero cadastrar, editar e desativar analistas, para controlar quem pode atuar nos chamados.
 
+**Regras de negócio**
+- Só `LIDERANCA_TI` altera analistas (`@PreAuthorize`); a listagem atende qualquer usuário autenticado, porque alimenta a atribuição.
+- Perfil sempre `ANALISTA_SUPORTE`; e-mail corporativo (`nexo.usuarios.dominios-email`) e único.
+- Senha temporária gerada no cadastro e exibida uma única vez.
+- Desativação lógica (`ativo = false`) com efeito imediato: o filtro JWT confere a situação no banco a cada requisição.
+
 **Critérios de aceite**
-- [ ] Cadastrar analista com nome, e-mail e perfil (e-mail único).
-- [ ] Editar dados de um analista.
-- [ ] Desativar sem apagar o histórico de atuação.
-- [ ] Analista desativado não acessa o sistema nem recebe novos chamados.
+- [x] Cadastrar analista com nome e e-mail (e-mail único); o perfil é sempre `ANALISTA_SUPORTE`.
+- [x] Editar dados de um analista.
+- [x] Desativar sem apagar o histórico de atuação.
+- [x] Analista desativado não acessa o sistema nem recebe novos chamados.
 
 **Tarefas técnicas**
-- [ ] **[BE]** CRUD de usuários restrito ao perfil autorizado.
-- [ ] **[FE]** Tela em `features/admin/analistas/`.
-- [ ] **[QA]** Teste de RBAC: tentar cadastrar/editar analistas com token de `ANALISTA_SUPORTE` e validar rejeição `403 Forbidden`; liberar apenas para `LIDERANCA_TI` / `ADMIN`.
-- [ ] **[QA]** Teste de integridade de e-mail único: validar `409 Conflict` em duplicidade.
-- [ ] **[QA]** Teste de desativação lógica (`ativo = false`): analista inativo não faz login nem recebe atribuição em novos chamados, mas seu nome histórico permanece íntegro nos eventos passados.
+- [x] **[BE]** CRUD de usuários restrito ao perfil autorizado (`UsuarioController` em `/api/v1/analistas`).
+- [x] **[BE]** `GET /chamados/totais-por-responsavel` para a coluna "Chamados ativos".
+- [x] **[FE]** Tela em `features/admin/analistas/`, com `perfilGuard` na área `/admin` e o menu "Administração" só para a Liderança.
+- [x] **[QA]** Teste de RBAC: cadastrar/desativar com `ANALISTA_SUPORTE` recebe `403 Forbidden`; `LIDERANCA_TI` é liberada (`UsuarioControllerTest`).
+- [x] **[QA]** Teste de integridade de e-mail único: `409 Conflict` em duplicidade (`UsuarioServiceTest`, `UsuarioControllerTest`).
+- [x] **[QA]** Teste de desativação lógica: token de analista inativo não autentica (`JwtAuthenticationFilterTest`) e o cadastro não é apagado (`UsuarioServiceTest`).
+- [ ] **[FE]** Seletor de reatribuição no detalhe do chamado usando `GET /analistas?ativo=true` (pendência da HU12).
 
 ### 🏷️ [HU08] Visualizar a situação dos chamados (Painel da Liderança)
 
