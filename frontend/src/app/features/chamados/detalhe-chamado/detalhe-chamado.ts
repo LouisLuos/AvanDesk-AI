@@ -97,7 +97,8 @@ export class DetalheChamado implements OnInit {
     if (!item) return [];
     const agora = this.slaService.agora();
 
-    const dataAbertura = item.aberto_em ? new Date(item.aberto_em).getTime() : agora;
+    const timestampAbertura = this.slaService.parseData(item.aberto_em_iso ?? item.aberto_em);
+    const dataAbertura = isNaN(timestampAbertura) ? agora : timestampAbertura;
     const decorridoMinutos = Math.max(0, Math.floor((agora - dataAbertura) / 60000));
 
     // 1. Triagem

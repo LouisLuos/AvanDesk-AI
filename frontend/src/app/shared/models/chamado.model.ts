@@ -230,7 +230,9 @@ export interface ChamadoDetalhe {
   sistema: string;
   responsavel: ResponsavelChamado | null;
   aberto_em: string;
+  aberto_em_iso?: string;
   primeira_resposta_em?: string | null;
+  primeira_resposta_em_iso?: string | null;
   registrosContato?: RegistroContatoDetalhe[];
   evidencias: EvidenciaAnexo[];
   historico: EventoTimeline[];
@@ -239,6 +241,7 @@ export interface ChamadoDetalhe {
   tempoTerceirosHoras?: number;
   relatosVinculados: RelatoVinculadoItem[];
   resolvido_em?: string | null;
+  resolvido_em_iso?: string | null;
   resolucao?: string | null;
   causa_raiz?: string | null;
   possivel_recorrencia?: boolean | null;

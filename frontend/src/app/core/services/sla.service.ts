@@ -32,6 +32,27 @@ export class SlaService {
   }
 
   /**
+   * Converte strings de data (ISO-8601 ou formato local DD/MM/YYYY HH:mm) para timestamp numérico seguro.
+   */
+  parseData(valor?: string | null): number {
+    if (!valor) return NaN;
+    const str = valor.trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+      return new Date(str).getTime();
+    }
+    const brMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
+    if (brMatch) {
+      const dia = parseInt(brMatch[1], 10);
+      const mes = parseInt(brMatch[2], 10) - 1;
+      const ano = parseInt(brMatch[3], 10);
+      const hora = brMatch[4] ? parseInt(brMatch[4], 10) : 0;
+      const min = brMatch[5] ? parseInt(brMatch[5], 10) : 0;
+      return new Date(ano, mes, dia, hora, min).getTime();
+    }
+    return new Date(str).getTime();
+  }
+
+  /**
    * Calcula o SLA e a situação da barra em relação à meta de tempo em saúde (HU04 / HU14).
    */
   calcularSla(dados: DadosCalculoSla, timestampAtual = this.agora()): SlaChamado {
@@ -45,7 +66,7 @@ export class SlaService {
       };
     }
 
-    const dataAbertura = new Date(dados.aberto_em).getTime();
+    const dataAbertura = this.parseData(dados.aberto_em);
     if (isNaN(dataAbertura)) {
       return {
         situacao: 'DENTRO_DA_META',
@@ -55,7 +76,7 @@ export class SlaService {
     }
 
     if (status === 'RESOLVIDO' || status === 'FECHADO') {
-      const dataResolvido = dados.resolvido_em ? new Date(dados.resolvido_em).getTime() : timestampAtual;
+      const dataResolvido = dados.resolvido_em ? this.parseData(dados.resolvido_em) : timestampAtual;
       const decorridoResolucao = Math.max(0, Math.floor((dataResolvido - dataAbertura) / 60000));
       return {
         situacao: 'CUMPRIDO',
