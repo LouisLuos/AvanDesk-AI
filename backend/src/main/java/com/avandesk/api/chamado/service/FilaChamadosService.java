@@ -3,6 +3,7 @@ package com.avandesk.api.chamado.service;
 import com.avandesk.api.chamado.dto.ChamadoResumoResponse;
 import com.avandesk.api.chamado.dto.FilaChamadosResponse;
 import com.avandesk.api.chamado.dto.FiltroChamados;
+import com.avandesk.api.chamado.dto.TotalPorResponsavelResponse;
 import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.StatusChamado;
 import com.avandesk.api.chamado.repository.ChamadoRepository;
@@ -95,6 +96,14 @@ public class FilaChamadosService {
         return eventoHistoricoRepository.buscarUltimaAtualizacao(ids).stream()
             .filter(linha -> linha.getUltimaAtualizacao() != null)
             .collect(Collectors.toMap(UltimaAtualizacao::getChamadoId, UltimaAtualizacao::getUltimaAtualizacao));
+    }
+
+    /** Chamados em andamento de cada responsável, para a gestão da equipe (HU10). */
+    @Transactional(readOnly = true)
+    public List<TotalPorResponsavelResponse> totaisPorResponsavel() {
+        return chamadoRepository.contarEmAndamentoPorResponsavel().entrySet().stream()
+            .map(total -> new TotalPorResponsavelResponse(total.getKey(), total.getValue()))
+            .toList();
     }
 
     /** Conta com os mesmos filtros, menos o de status, para os cartões continuarem mostrando todos os status. */

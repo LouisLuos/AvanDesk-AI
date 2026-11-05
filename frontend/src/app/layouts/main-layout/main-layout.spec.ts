@@ -42,6 +42,26 @@ describe('MainLayout', () => {
     expect(renderizar(false).querySelector('#badge-modo-simulado')).toBeNull();
   });
 
+  it('deve mostrar a Administração só para a Liderança de TI', () => {
+    sessionStorage.setItem(
+      'avandesk.user',
+      JSON.stringify({ id: 'u-3', nome: 'Lideranca Dev', email: 'lideranca@lumen.local', perfil: 'LIDERANCA_TI' }),
+    );
+
+    expect(renderizar(false).querySelector('#nav-administracao')).not.toBeNull();
+  });
+
+  it('deve esconder a Administração do analista de suporte', () => {
+    sessionStorage.setItem(
+      'avandesk.user',
+      JSON.stringify({ id: 'u-1', nome: 'Analista Dev Um', email: 'analista1@lumen.local', perfil: 'ANALISTA_SUPORTE' }),
+    );
+
+    const elemento = renderizar(false);
+    expect(elemento.querySelector('#nav-fila-chamados')).not.toBeNull();
+    expect(elemento.querySelector('#nav-administracao')).toBeNull();
+  });
+
   it('não deve exibir dados de usuário nem botão de logout quando o usuário não estiver autenticado', () => {
     const elemento = renderizar(false);
     expect(elemento.querySelector('#btn-logout')).toBeNull();

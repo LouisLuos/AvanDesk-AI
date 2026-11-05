@@ -1,0 +1,421 @@
+<section class="flex flex-col gap-6 text-[#14161b]" aria-labelledby="titulo-analistas">
+  <!-- Cabeçalho -->
+  <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <h1 id="titulo-analistas" class="text-2xl font-bold tracking-tight text-[#14161b] sm:text-[28px]">Analistas</h1>
+      <p class="mt-1 text-xs text-[#6b7280]">Equipe de suporte que assume e atende os chamados.</p>
+    </div>
+    <button
+      type="button"
+      id="btn-novo-analista"
+      (click)="abrirCadastro()"
+      class="inline-flex items-center justify-center gap-2 self-start rounded-md bg-[#2d5bff] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1e3fcc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] focus-visible:ring-offset-2"
+    >
+      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 12h14" />
+        <path d="M12 5v14" />
+      </svg>
+      Novo analista
+    </button>
+  </header>
+
+  <!-- Filtros -->
+  <div role="search" aria-label="Filtrar analistas" class="flex flex-col gap-3 sm:flex-row sm:items-center">
+    <div class="relative w-full sm:w-[340px]">
+      <label for="busca-analista" class="sr-only">Buscar analista por nome ou e-mail</label>
+      <svg class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.3-4.3" />
+      </svg>
+      <input
+        id="busca-analista"
+        type="search"
+        placeholder="Buscar analista"
+        autocomplete="off"
+        [value]="busca()"
+        (input)="alterarBusca($event)"
+        class="h-9 w-full rounded-md border border-[#e2e5ec] bg-white pr-3 pl-9 text-xs text-[#14161b] transition placeholder:text-[#9aa2b1] focus:border-[#2d5bff] focus:ring-1 focus:ring-[#2d5bff] focus:outline-none"
+      />
+    </div>
+    <app-custom-dropdown
+      id="filtro-situacao"
+      rotulo="Status"
+      [opcaoPadrao]="{ valor: '', rotulo: 'Todos' }"
+      [opcoes]="opcoesSituacao"
+      [valor]="filtroSituacao()"
+      (valorChange)="alterarSituacao($event)"
+    />
+  </div>
+
+  <!-- Tabela -->
+  <div class="overflow-hidden rounded-xl border border-[#e2e5ec] bg-white shadow-xs">
+    @if (erroCarregamento()) {
+      <div class="flex flex-col items-center gap-3 px-6 py-14 text-center" role="alert">
+        <span class="flex h-10 w-10 items-center justify-center rounded-full bg-[#dc2626]/10 text-[#dc2626]" aria-hidden="true">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+            <path d="M12 9v4" />
+            <path d="M12 17h.01" />
+          </svg>
+        </span>
+        <p class="text-sm font-semibold text-[#14161b]">Não foi possível carregar os analistas</p>
+        <button
+          type="button"
+          id="btn-recarregar"
+          (click)="carregar()"
+          class="rounded-md border border-[#e2e5ec] bg-white px-4 py-2 text-xs font-semibold text-[#363b47] transition hover:bg-[#f8f9fc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff]"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    } @else {
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[760px] border-collapse text-left text-sm" [attr.aria-busy]="carregando()">
+          <caption class="sr-only">Analistas de suporte</caption>
+          <thead class="bg-[#f8f9fc]">
+            <tr class="border-b border-[#e2e5ec] text-[11px] font-semibold tracking-wider text-[#6b7280] uppercase">
+              <th scope="col" class="px-4 py-3.5 font-semibold">Nome</th>
+              <th scope="col" class="px-4 py-3.5 font-semibold">E-mail</th>
+              <th scope="col" class="px-4 py-3.5 font-semibold">Chamados ativos</th>
+              <th scope="col" class="px-4 py-3.5 font-semibold">Status</th>
+              <th scope="col" class="px-4 py-3.5 font-semibold">Ação</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[#e2e5ec]">
+            @if (carregando()) {
+              @for (linha of linhasEsqueleto; track linha) {
+                <tr aria-hidden="true">
+                  <td class="px-4 py-4">
+                    <span class="flex items-center gap-3">
+                      <span class="block h-8 w-8 animate-pulse rounded-full bg-[#e2e5ec]"></span>
+                      <span class="block h-3 w-32 animate-pulse rounded bg-[#e2e5ec]"></span>
+                    </span>
+                  </td>
+                  <td class="px-4 py-4"><span class="block h-3 w-44 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-4 py-4"><span class="block h-3 w-8 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-4 py-4"><span class="block h-4 w-12 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-4 py-4"><span class="block h-8 w-8 animate-pulse rounded-md bg-[#e2e5ec]"></span></td>
+                </tr>
+              }
+            } @else {
+              @for (analista of analistasFiltrados(); track analista.id) {
+                @let total = chamadosAtivos(analista);
+                <tr class="transition-colors hover:bg-[#f8f9fc]">
+                  <td class="px-4 py-3">
+                    <span class="flex items-center gap-3">
+                      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#e8edff] text-[11px] font-semibold text-[#1e3fcc]" aria-hidden="true">
+                        {{ iniciais(analista.nome) }}
+                      </span>
+                      <span class="font-semibold whitespace-nowrap text-[#14161b]">{{ analista.nome }}</span>
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-[#363b47]">{{ analista.email }}</td>
+                  <td class="px-4 py-3">
+                    @if (total === null) {
+                      <span class="text-[#9aa2b1]" title="Contagem indisponível no momento">—</span>
+                    } @else {
+                      <span class="text-[#363b47] tabular-nums">{{ total }}</span>
+                    }
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class="inline-flex rounded px-2 py-0.5 text-[11px] font-medium" [class]="analista.ativo ? estiloAtivo : estiloInativo">
+                      {{ analista.ativo ? 'Ativo' : 'Inativo' }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3">
+                    <button
+                      type="button"
+                      [id]="'btn-editar-' + analista.id"
+                      [attr.aria-label]="'Editar ' + analista.nome"
+                      title="Editar"
+                      (click)="abrirEdicao(analista)"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#e2e5ec] bg-white text-[#363b47] transition hover:border-[#b0b8c6] hover:bg-[#f8f9fc] hover:text-[#14161b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff]"
+                    >
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+                        <path d="m15 5 4 4" />
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="5" class="px-4 py-12 text-center text-sm text-[#6b7280]">
+                    @if (analistas().length) {
+                      Nenhum analista encontrado para os filtros aplicados.
+                    } @else {
+                      Nenhum analista cadastrado ainda.
+                      <button type="button" class="ml-1 font-semibold text-[#2d5bff] hover:underline" (click)="abrirCadastro()">
+                        Cadastrar o primeiro
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+
+  @if (!carregando() && !erroCarregamento()) {
+    <p id="rodape-analistas" class="text-xs text-[#6b7280]" aria-live="polite">
+      Mostrando {{ analistasFiltrados().length }} de {{ analistas().length }} {{ analistas().length === 1 ? 'analista' : 'analistas' }}
+    </p>
+  }
+</section>
+
+<!-- Modal: cadastro / edição / senha temporária -->
+<app-modal [aberto]="modalFormAberto()" [titulo]="tituloModal()" [subtitulo]="subtituloModal()" (fechar)="fecharForm()">
+  <span
+    icone
+    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]"
+    [class]="senhaGerada() ? 'bg-[#22c55e]/10 text-[#16a34a]' : 'bg-[#e8edff] text-[#2d5bff]'"
+    aria-hidden="true"
+  >
+    <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      @if (senhaGerada()) {
+        <circle cx="12" cy="12" r="10" />
+        <path d="m9 12 2 2 4-4" />
+      } @else {
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M19 8v6" />
+        <path d="M22 11h-6" />
+      }
+    </svg>
+  </span>
+
+  @if (senhaGerada(); as gerada) {
+    <div class="flex items-center justify-between gap-3 rounded-lg border border-dashed border-[#b0b8c6] bg-[#f8f9fc] px-3.5 py-3">
+      <span id="senha-temporaria" class="font-mono text-base tracking-wide text-[#14161b] select-all">{{ gerada.senha }}</span>
+      <button
+        type="button"
+        id="btn-copiar-senha"
+        (click)="copiarSenha()"
+        class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[#e2e5ec] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#363b47] transition hover:bg-[#f1f3f8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff]"
+      >
+        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+          <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+        </svg>
+        Copiar
+      </button>
+    </div>
+    <p class="mt-3 text-xs text-[#6b7280]">O analista entra com o e-mail cadastrado e esta senha.</p>
+  } @else {
+    <form id="form-analista" [formGroup]="form" (ngSubmit)="salvar()" novalidate class="space-y-4">
+      @if (analistaEmEdicao()?.ativo === false) {
+        <p id="aviso-analista-inativo" class="rounded-lg border border-[#e2e5ec] bg-[#f8f9fc] px-3.5 py-2.5 text-xs text-[#6b7280]">
+          Acesso desativado: não consegue entrar no sistema nem receber chamados.
+        </p>
+      }
+
+      @if (errosForm().length) {
+        <div id="erros-form-analista" role="alert" class="rounded-lg border border-[#e5484d]/30 bg-[#e5484d]/5 px-3.5 py-3 text-xs text-[#b42318]">
+          <ul class="list-inside list-disc space-y-0.5">
+            @for (erro of errosForm(); track erro) {
+              <li>{{ erro }}</li>
+            }
+          </ul>
+        </div>
+      }
+
+      <div>
+        <label for="analista-nome" class="mb-1.5 block text-xs font-semibold text-[#363b47]">
+          Nome completo <span class="text-[#e5484d]" aria-hidden="true">*</span>
+        </label>
+        <input
+          id="analista-nome"
+          formControlName="nome"
+          placeholder="Ana Souza"
+          autocomplete="off"
+          aria-required="true"
+          [class]="classeCampo('nome')"
+          [attr.aria-invalid]="invalido('nome')"
+          [attr.aria-describedby]="invalido('nome') ? 'erro-analista-nome' : null"
+        />
+        @if (invalido('nome')) {
+          <p id="erro-analista-nome" class="mt-1.5 text-[11px] text-[#e5484d]">
+            {{ form.controls.nome.hasError('required') ? 'Informe o nome do analista.' : 'Máximo de 120 caracteres.' }}
+          </p>
+        }
+      </div>
+
+      <div>
+        <label for="analista-email" class="mb-1.5 block text-xs font-semibold text-[#363b47]">
+          E-mail corporativo <span class="text-[#e5484d]" aria-hidden="true">*</span>
+        </label>
+        <input
+          id="analista-email"
+          type="email"
+          formControlName="email"
+          placeholder="ana.souza@lumen.local"
+          autocomplete="off"
+          aria-required="true"
+          [class]="classeCampo('email')"
+          [attr.aria-invalid]="invalido('email')"
+          aria-describedby="ajuda-analista-email"
+        />
+        <p id="ajuda-analista-email" class="mt-1.5 text-[11px]" [class]="invalido('email') ? 'text-[#e5484d]' : 'text-[#9aa2b1]'">
+          @if (!invalido('email')) {
+            Use o domínio da Rede Lúmen. Será o login do analista.
+          } @else if (form.controls.email.hasError('required')) {
+            Informe o e-mail corporativo.
+          } @else if (form.controls.email.hasError('email')) {
+            Informe um e-mail válido.
+          } @else {
+            Máximo de 254 caracteres.
+          }
+        </p>
+      </div>
+
+      @if (!analistaEmEdicao()) {
+        <p class="flex items-start gap-2.5 rounded-lg border border-[#e2e5ec] bg-[#f8f9fc] px-3.5 py-2.5 text-xs text-[#6b7280]">
+          <svg class="mt-0.5 h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" />
+            <circle cx="16.5" cy="7.5" r=".5" fill="currentColor" />
+          </svg>
+          Uma senha temporária é gerada no cadastro e aparece uma única vez, para você repassar ao analista.
+        </p>
+      }
+    </form>
+  }
+
+  <ng-container rodape>
+    @if (senhaGerada()) {
+      <button
+        type="button"
+        id="btn-concluir-cadastro"
+        (click)="fecharForm()"
+        class="inline-flex items-center gap-1.5 rounded-lg bg-[#2d5bff] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#1e3fcc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] focus-visible:ring-offset-2"
+      >
+        Concluir
+      </button>
+    } @else {
+      @if (analistaEmEdicao(); as emEdicao) {
+        @if (emEdicao.ativo) {
+          <button
+            type="button"
+            id="btn-solicitar-desativacao"
+            (click)="solicitarDesativacao()"
+            [disabled]="salvando()"
+            class="mr-auto inline-flex items-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-[#e5484d] transition hover:bg-[#e5484d]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e5484d] disabled:opacity-50"
+          >
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <path d="m4.9 4.9 14.2 14.2" />
+            </svg>
+            Desativar analista
+          </button>
+        } @else {
+          <button
+            type="button"
+            id="btn-reativar-analista"
+            (click)="reativar()"
+            [disabled]="salvando() || alterandoSituacao()"
+            class="mr-auto inline-flex items-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-[#2d5bff] transition hover:bg-[#e8edff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] disabled:opacity-50"
+          >
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+              <path d="M8 16H3v5" />
+            </svg>
+            Reativar analista
+          </button>
+        }
+      }
+      <button
+        type="button"
+        id="btn-cancelar-analista"
+        (click)="fecharForm()"
+        [disabled]="salvando() || alterandoSituacao()"
+        class="rounded-lg border border-[#e2e5ec] bg-white px-3.5 py-2 text-xs font-semibold text-[#4b5563] shadow-2xs transition hover:bg-[#f8f9fc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] disabled:opacity-50"
+      >
+        Cancelar
+      </button>
+      <button
+        type="submit"
+        form="form-analista"
+        id="btn-salvar-analista"
+        [disabled]="salvando() || alterandoSituacao()"
+        class="inline-flex items-center gap-1.5 rounded-lg bg-[#2d5bff] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#1e3fcc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] focus-visible:ring-offset-2 disabled:opacity-50"
+      >
+        @if (salvando()) {
+          <span class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden="true"></span>
+          Salvando...
+        } @else if (analistaEmEdicao()) {
+          Salvar alterações
+        } @else {
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14" />
+            <path d="M12 5v14" />
+          </svg>
+          Cadastrar analista
+        }
+      </button>
+    }
+  </ng-container>
+</app-modal>
+
+<!-- Modal: confirmação de desativação -->
+<app-modal
+  [aberto]="!!analistaParaDesativar()"
+  tamanho="md"
+  [titulo]="'Desativar ' + analistaParaDesativar()?.nome + '?'"
+  (fechar)="cancelarDesativacao()"
+>
+  <span icone class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e5484d]/10 text-[#e5484d]" aria-hidden="true">
+    <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </svg>
+  </span>
+
+  @if (analistaParaDesativar(); as analista) {
+    @let total = chamadosAtivos(analista);
+    <p class="text-sm text-[#363b47]">{{ analista.nome }} perde o acesso na hora e sai da lista de atribuição de chamados.</p>
+    @if (total) {
+      <p id="aviso-chamados-ativos" class="mt-3 rounded-lg border border-[#f0a202]/40 bg-[#f0a202]/10 px-3.5 py-3 text-xs text-[#8a5a00]">
+        @if (total === 1) {
+          O chamado ativo continua atribuído até ser reatribuído.
+        } @else {
+          Os {{ total }} chamados ativos continuam atribuídos até serem reatribuídos.
+        }
+      </p>
+    } @else {
+      <p id="aviso-chamados-ativos" class="mt-3 rounded-lg border border-[#e2e5ec] bg-[#f8f9fc] px-3.5 py-3 text-xs text-[#6b7280]">
+        A autoria dos atendimentos anteriores continua preservada no histórico.
+      </p>
+    }
+  }
+
+  <ng-container rodape>
+    <button
+      type="button"
+      id="btn-cancelar-desativacao"
+      (click)="cancelarDesativacao()"
+      [disabled]="alterandoSituacao()"
+      class="rounded-lg border border-[#e2e5ec] bg-white px-3.5 py-2 text-xs font-semibold text-[#4b5563] shadow-2xs transition hover:bg-[#f8f9fc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] disabled:opacity-50"
+    >
+      Cancelar
+    </button>
+    <button
+      type="button"
+      id="btn-confirmar-desativacao"
+      (click)="desativar()"
+      [disabled]="alterandoSituacao()"
+      class="inline-flex items-center gap-1.5 rounded-lg bg-[#e5484d] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#d13438] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e5484d] focus-visible:ring-offset-2 disabled:opacity-50"
+    >
+      @if (alterandoSituacao()) {
+        <span class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden="true"></span>
+        Desativando...
+      } @else {
+        Desativar
+      }
+    </button>
+  </ng-container>
+</app-modal>

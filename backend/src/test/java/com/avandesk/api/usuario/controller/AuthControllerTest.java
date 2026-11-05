@@ -5,6 +5,7 @@ import com.avandesk.api.usuario.dto.LoginRequest;
 import com.avandesk.api.usuario.dto.LoginResponse;
 import com.avandesk.api.usuario.dto.UsuarioAutenticadoResponse;
 import com.avandesk.api.usuario.entity.PerfilUsuario;
+import com.avandesk.api.usuario.repository.UsuarioRepository;
 import com.avandesk.api.usuario.service.AuthService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,6 +37,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private UsuarioRepository usuarioRepository;
 
     @Test
     @DisplayName("HU09 / 200 OK: Deve logar com sucesso e devolver envelope ApiResponse com token e usuário")

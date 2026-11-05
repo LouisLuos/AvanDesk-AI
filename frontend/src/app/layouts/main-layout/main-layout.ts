@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MODO_SIMULADO } from '../../core/config/modo-simulado';
+import { PERFIS_ADMINISTRACAO } from '../../core/config/perfis';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ToastContainer } from '../../shared/components/toast-container/toast-container';
@@ -33,10 +34,15 @@ export class MainLayout {
     };
   });
 
-  protected readonly menu = [
-    { rotulo: 'Fila de Chamados', rota: '/chamados', id: 'nav-fila-chamados' },
-    { rotulo: 'Administração', rota: '/admin', id: 'nav-administracao' },
-  ];
+  /** A Administração só aparece para os perfis que o perfilGuard deixa entrar. */
+  protected readonly menu = computed(() => {
+    const perfil = this.authService.usuario()?.perfil;
+    const veAdministracao = this.modoSimulado || (!!perfil && PERFIS_ADMINISTRACAO.includes(perfil));
+    return [
+      { rotulo: 'Fila de Chamados', rota: '/chamados', id: 'nav-fila-chamados' },
+      ...(veAdministracao ? [{ rotulo: 'Administração', rota: '/admin', id: 'nav-administracao' }] : []),
+    ];
+  });
 
   protected get iniciais(): string {
     const nome = this.usuario()?.nome;
