@@ -346,7 +346,7 @@ describe('FilaChamados integrada ao GET /chamados (HU14)', () => {
 
   // ---------- conteúdo da tela ----------
 
-  it('deve montar os cartões a partir dos totais do servidor, com Estourados sem dado', () => {
+  it('deve montar os cartões a partir dos totais do servidor e calcular Estourados', () => {
     configurar();
     const totais = {
       ...pagina().totais_por_status,
@@ -364,9 +364,20 @@ describe('FilaChamados integrada ao GET /chamados (HU14)', () => {
       triagem: 5,
       atendimento: 9,
       aguardando: 4,
-      estourados: null,
+      estourados: 0,
     });
-    expect(fixture.nativeElement.querySelector('#indicador-estourados').textContent).toContain('—');
+    expect(fixture.nativeElement.querySelector('#indicador-estourados').textContent).toContain('0');
+  });
+
+  it('deve exibir a quantidade correta de chamados estourados no cartão', () => {
+    configurar();
+    const itemEstourado = chamado(123, {
+      aberto_em: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+    });
+    responder(pagina({ itens: [itemEstourado] }));
+
+    expect(component['totalEstourados']()).toBe(1);
+    expect(fixture.nativeElement.querySelector('#indicador-estourados').textContent).toContain('1');
   });
 
   it('deve destacar chamado sem responsável e mostrar "—" no prazo quando não há SLA', () => {
