@@ -16,7 +16,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/** Detalhe do chamado (HU02 + HU05): dados, status, responsável, contatos e linha do tempo. */
+/** Detalhe do chamado (HU02 + HU05 + HU04/HU06): dados, status, responsável, prioridade, contatos e linha do tempo. */
 public record ChamadoDetalheResponse(
 
     UUID id,
@@ -31,6 +31,12 @@ public record ChamadoDetalheResponse(
     SolicitanteResponse solicitante,
     ResponsavelResponse responsavel,
     Prioridade prioridade,
+    Short severidade,
+    Short urgencia,
+    Short impactoOperacional,
+    Prioridade prioridadeSugerida,
+    Prioridade prioridadeFinal,
+    String justificativaPrioridade,
     Instant abertoEm,
     Instant primeiraRespostaEm,
     Instant resolvidoEm,
@@ -60,6 +66,12 @@ public record ChamadoDetalheResponse(
             SolicitanteResponse.de(chamado.getSolicitante()),
             ResponsavelResponse.de(chamado.getResponsavel()),
             chamado.getPrioridadeFinal(),
+            chamado.getSeveridade(),
+            chamado.getUrgencia(),
+            chamado.getImpactoOperacional(),
+            chamado.getPrioridadeSugerida(),
+            chamado.getPrioridadeFinal(),
+            chamado.getJustificativaPrioridade(),
             chamado.getAbertoEm(),
             chamado.getPrimeiraRespostaEm(),
             chamado.getResolvidoEm(),
