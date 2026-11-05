@@ -78,30 +78,32 @@
           </svg>
         </button>
 
-        <div class="flex items-center gap-2.5">
-          <span class="flex h-8 w-8 items-center justify-center rounded-full bg-[#e8edff] text-xs font-semibold text-[#1e3fcc]" aria-hidden="true">
-            {{ iniciais }}
-          </span>
-          <div class="hidden leading-tight sm:block">
-            <p class="text-sm font-semibold text-[#14161b]">{{ usuario().nome }}</p>
-            <p class="text-[11px] text-[#6b7280]">{{ usuario().perfil }}</p>
-          </div>
+        @if (usuario(); as u) {
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-full bg-[#e8edff] text-xs font-semibold text-[#1e3fcc]" aria-hidden="true">
+              {{ iniciais }}
+            </span>
+            <div class="hidden leading-tight sm:block">
+              <p class="text-sm font-semibold text-[#14161b]">{{ u.nome }}</p>
+              <p class="text-[11px] text-[#6b7280]">{{ u.perfil }}</p>
+            </div>
 
-          <button
-            type="button"
-            id="btn-logout"
-            (click)="logout()"
-            class="rounded-md p-1.5 text-[#6b7280] transition hover:bg-[#e2e5ec]/40 hover:text-[#dc2626]"
-            aria-label="Sair da plataforma"
-            title="Sair da plataforma"
-          >
-            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" x2="9" y1="12" y2="12" />
-            </svg>
-          </button>
-        </div>
+            <button
+              type="button"
+              id="btn-logout"
+              (click)="logout()"
+              class="rounded-md p-1.5 text-[#6b7280] transition hover:bg-[#e2e5ec]/40 hover:text-[#dc2626]"
+              aria-label="Sair da plataforma"
+              title="Sair da plataforma"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" x2="9" y1="12" y2="12" />
+              </svg>
+            </button>
+          </div>
+        }
       </div>
     </div>
 
