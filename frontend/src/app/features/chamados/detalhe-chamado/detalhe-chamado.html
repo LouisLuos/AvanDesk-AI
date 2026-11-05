@@ -149,13 +149,13 @@
           </button>
         }
 
-        <!-- Ações das Próximas HUs -->
+        <!-- Ação de Avaliar Prioridade (HU04) -->
         <button
           type="button"
-          (click)="acaoNaoDisponivel('Avaliar prioridade', 'Leva 2 (HU04)')"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-[#e2e5ec] bg-white px-3 py-2 text-xs font-semibold text-[#4b5563] shadow-xs transition hover:bg-[#f8f9fc]"
+          (click)="abrirModalPrioridade()"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-[#2d5bff] bg-white px-3 py-2 text-xs font-semibold text-[#2d5bff] shadow-xs transition hover:bg-[#2d5bff]/5 cursor-pointer"
         >
-          <svg class="h-3.5 w-3.5 text-[#6b7280]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
           </svg>
           Avaliar prioridade
@@ -633,182 +633,6 @@
 
       <!-- Coluna Direita: SLA, Detalhes e Relatos Vinculados -->
       <div class="space-y-6">
-        <!-- Card Triagem Matriz 3D (HU04) -->
-        <section class="rounded-xl border border-[#e2e5ec] bg-white p-6 shadow-xs" aria-labelledby="secao-triagem-titulo">
-          <div class="flex items-center justify-between border-b border-[#e2e5ec] pb-3">
-            <div>
-              <h2 id="secao-triagem-titulo" class="text-sm font-bold text-[#14161b]">
-                Triagem & Priorização (Matriz 3D)
-              </h2>
-              <p class="text-[11px] text-[#6b7280]">
-                Critérios objetivos: Severidade + Urgência + Impacto Operacional.
-              </p>
-            </div>
-            <span
-              class="inline-flex rounded px-2 py-0.5 text-[11px] font-bold"
-              [class]="estiloPrioridade(prioridadeSugerida())"
-            >
-              Sugerida: {{ rotuloPrioridade(prioridadeSugerida()) }}
-            </span>
-          </div>
-
-          @if (chamadoEncerrado()) {
-            <p class="mt-3 text-xs text-[#9aa2b1]">Triagem bloqueada para chamados encerrados.</p>
-          } @else {
-            <div class="mt-4 space-y-4">
-              <!-- 1. Severidade -->
-              <div>
-                <div class="flex items-center justify-between text-xs font-semibold text-[#14161b] mb-1">
-                  <span>Severidade (Gravidade técnica)</span>
-                  <span class="text-[#2d5bff]">Nota: {{ severidade() }}</span>
-                </div>
-                <div class="grid grid-cols-3 gap-1.5">
-                  <button
-                    type="button"
-                    (click)="selecionarSeveridade(1)"
-                    class="rounded border p-2 text-left text-[11px] transition cursor-pointer"
-                    [class]="severidade() === 1 ? 'border-[#2d5bff] bg-[#2d5bff]/10 font-bold text-[#1e3fcc]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc] text-[#4b5563]'"
-                  >
-                    1 - Com contorno
-                  </button>
-                  <button
-                    type="button"
-                    (click)="selecionarSeveridade(2)"
-                    class="rounded border p-2 text-left text-[11px] transition cursor-pointer"
-                    [class]="severidade() === 2 ? 'border-[#2d5bff] bg-[#2d5bff]/10 font-bold text-[#1e3fcc]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc] text-[#4b5563]'"
-                  >
-                    2 - Sem contorno
-                  </button>
-                  <button
-                    type="button"
-                    (click)="selecionarSeveridade(3)"
-                    class="rounded border p-2 text-left text-[11px] transition cursor-pointer"
-                    [class]="severidade() === 3 ? 'border-[#2d5bff] bg-[#2d5bff]/10 font-bold text-[#1e3fcc]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc] text-[#4b5563]'"
-                  >
-                    3 - Totalmente inop.
-                  </button>
-                </div>
-              </div>
-
-              <!-- 2. Urgência -->
-              <div>
-                <div class="flex items-center justify-between text-xs font-semibold text-[#14161b] mb-1">
-                  <span>Urgência (Tempo / Paciente)</span>
-                  <span class="text-[#2d5bff]">Nota: {{ urgencia() }}</span>
-                </div>
-                <div class="grid grid-cols-3 gap-1.5">
-                  <button
-                    type="button"
-                    (click)="selecionarUrgencia(1)"
-                    class="rounded border p-2 text-left text-[11px] transition cursor-pointer"
-                    [class]="urgencia() === 1 ? 'border-[#2d5bff] bg-[#2d5bff]/10 font-bold text-[#1e3fcc]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc] text-[#4b5563]'"
-                  >
-                    1 - Pode aguardar
-                  </button>
-                  <button
-                    type="button"
-                    (click)="selecionarUrgencia(2)"
-                    class="rounded border p-2 text-left text-[11px] transition cursor-pointer"
-                    [class]="urgencia() === 2 ? 'border-[#2d5bff] bg-[#2d5bff]/10 font-bold text-[#1e3fcc]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc] text-[#4b5563]'"
-                  >
-                    2 - Atividades do dia
-                  </button>
-                  <button
-                    type="button"
-                    (click)="selecionarUrgencia(3)"
-                    class="rounded border p-2 text-left text-[11px] transition cursor-pointer"
-                    [class]="urgencia() === 3 ? 'border-[#2d5bff] bg-[#2d5bff]/10 font-bold text-[#1e3fcc]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc] text-[#4b5563]'"
-                  >
-                    3 - Paciente aguarda
-                  </button>
-                </div>
-              </div>
-
-              <!-- 3. Impacto Operacional -->
-              <div>
-                <div class="flex items-center justify-between text-xs font-semibold text-[#14161b] mb-1">
-                  <span>Impacto Operacional (Abrangência)</span>
-                  <span class="text-[#2d5bff]">Nota: {{ impacto() }}</span>
-                </div>
-                <div class="grid grid-cols-3 gap-1.5">
-                  <button
-                    type="button"
-                    (click)="selecionarImpacto(1)"
-                    class="rounded border p-2 text-left text-[11px] transition cursor-pointer"
-                    [class]="impacto() === 1 ? 'border-[#2d5bff] bg-[#2d5bff]/10 font-bold text-[#1e3fcc]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc] text-[#4b5563]'"
-                  >
-                    1 - Um colaborador
-                  </button>
-                  <button
-                    type="button"
-                    (click)="selecionarImpacto(2)"
-                    class="rounded border p-2 text-left text-[11px] transition cursor-pointer"
-                    [class]="impacto() === 2 ? 'border-[#2d5bff] bg-[#2d5bff]/10 font-bold text-[#1e3fcc]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc] text-[#4b5563]'"
-                  >
-                    2 - Um setor
-                  </button>
-                  <button
-                    type="button"
-                    (click)="selecionarImpacto(3)"
-                    class="rounded border p-2 text-left text-[11px] transition cursor-pointer"
-                    [class]="impacto() === 3 ? 'border-[#2d5bff] bg-[#2d5bff]/10 font-bold text-[#1e3fcc]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc] text-[#4b5563]'"
-                  >
-                    3 - Unidade inteira
-                  </button>
-                </div>
-              </div>
-
-              <!-- Prioridade Final -->
-              <div class="pt-2 border-t border-[#e2e5ec]">
-                <label class="block text-xs font-semibold text-[#14161b] mb-1.5">
-                  Prioridade Final Definida
-                </label>
-                <div class="grid grid-cols-3 gap-1.5">
-                  @for (prio of ['BAIXA', 'MEDIA', 'ALTA']; track prio) {
-                    <button
-                      type="button"
-                      (click)="selecionarPrioridadeFinal($any(prio))"
-                      class="rounded-lg border py-1.5 text-center text-xs font-semibold transition cursor-pointer"
-                      [class]="prioridadeFinalEfetiva() === prio ? 'border-[#14161b] bg-[#14161b] text-white shadow-xs' : 'border-[#e2e5ec] text-[#4b5563] hover:bg-[#f8f9fc]'"
-                    >
-                      {{ prio }}
-                    </button>
-                  }
-                </div>
-              </div>
-
-              <!-- Justificativa Condicional -->
-              @if (temDivergencia()) {
-                <div class="rounded-lg border border-[#f0a202]/40 bg-[#f0a202]/10 p-3">
-                  <label class="block text-xs font-bold text-[#b45309]">
-                    Justificativa da Divergência <span class="text-[#e5484d]">*</span>
-                  </label>
-                  <p class="text-[10px] text-[#b45309] mb-1.5">
-                    A prioridade final difere da sugerida. Justifique a decisão para auditoria.
-                  </p>
-                  <textarea
-                    rows="2"
-                    [value]="justificativaPrioridade()"
-                    (input)="justificativaPrioridade.set($any($event.target).value)"
-                    placeholder="Ex: Demanda matinal de coletas com impacto assistencial iminente..."
-                    class="w-full rounded border border-[#e2e5ec] bg-white p-2 text-xs text-[#14161b] focus:border-[#b45309] focus:outline-none"
-                  ></textarea>
-                </div>
-              }
-
-              <!-- Botão Confirmar -->
-              <button
-                type="button"
-                [disabled]="salvandoPrioridade() || (temDivergencia() && !justificativaValida())"
-                (click)="salvarTriagemPrioridade()"
-                class="w-full rounded-lg bg-[#2d5bff] py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#1e3fcc] disabled:opacity-50 cursor-pointer"
-              >
-                {{ salvandoPrioridade() ? 'Salvando...' : 'Confirmar Triagem & Prioridade' }}
-              </button>
-            </div>
-          }
-        </section>
-
         <!-- Card Prazo de Referência (SLA) -->
         <section class="rounded-xl border border-[#e2e5ec] bg-white p-6 shadow-xs" aria-labelledby="secao-sla-titulo">
           <h2 id="secao-sla-titulo" class="text-sm font-bold text-[#14161b]">
@@ -819,7 +643,7 @@
           </p>
 
           <div class="mt-5 space-y-4">
-            @for (etapa of item.slaItens; track etapa.etapa) {
+            @for (etapa of slaItensDinamicos(); track etapa.etapa) {
               <div>
                 <div class="flex items-center justify-between text-xs">
                   <span class="font-semibold text-[#363b47]">{{ etapa.etapa }}</span>
@@ -1304,6 +1128,275 @@
                 Concluindo...
               } @else {
                 Concluir chamado
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Modal de Avaliar Prioridade (Matriz 3D em Saúde - HU04) -->
+    @if (modalPrioridadeAberto()) {
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-prioridade-titulo"
+      >
+        <div class="fixed inset-0" (click)="fecharModalPrioridade()" aria-hidden="true"></div>
+
+        <div class="relative z-10 w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl transition-all">
+          <!-- Cabeçalho -->
+          <div class="flex items-start justify-between pb-4">
+            <div>
+              <h2 id="modal-prioridade-titulo" class="text-lg font-bold text-[#14161b]">
+                Avaliar prioridade
+              </h2>
+              <p class="text-xs text-[#6b7280]">
+                {{ item.codigo }} · {{ item.titulo }}
+              </p>
+            </div>
+            <button
+              type="button"
+              (click)="fecharModalPrioridade()"
+              class="rounded-lg p-1 text-[#9aa2b1] hover:bg-[#f1f3f8] hover:text-[#14161b] cursor-pointer"
+              aria-label="Fechar modal"
+            >
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="space-y-4 pt-1">
+            <!-- 1. Severidade -->
+            <div>
+              <label class="block text-xs font-semibold text-[#14161b]">Severidade</label>
+              <p class="text-[11px] text-[#6b7280] mb-1.5">Qual o nível de indisponibilidade?</p>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  (click)="selecionarSeveridade(1)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="severidade() === 1 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="severidade() === 1 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">1</span>
+                    <span class="text-xs font-bold text-[#14161b]">Degradado</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Funciona com contorno</p>
+                </button>
+
+                <button
+                  type="button"
+                  (click)="selecionarSeveridade(2)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="severidade() === 2 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="severidade() === 2 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">2</span>
+                    <span class="text-xs font-bold text-[#14161b]">Indisponível</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Sem contorno</p>
+                </button>
+
+                <button
+                  type="button"
+                  (click)="selecionarSeveridade(3)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="severidade() === 3 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="severidade() === 3 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">3</span>
+                    <span class="text-xs font-bold text-[#14161b]">Parado</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Totalmente indisponível</p>
+                </button>
+              </div>
+            </div>
+
+            <!-- 2. Urgência -->
+            <div>
+              <label class="block text-xs font-semibold text-[#14161b]">Urgência</label>
+              <p class="text-[11px] text-[#6b7280] mb-1.5">Qual o prazo para agir?</p>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  (click)="selecionarUrgencia(1)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="urgencia() === 1 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="urgencia() === 1 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">1</span>
+                    <span class="text-xs font-bold text-[#14161b]">Pode aguardar</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Sem impacto imediato</p>
+                </button>
+
+                <button
+                  type="button"
+                  (click)="selecionarUrgencia(2)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="urgencia() === 2 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="urgencia() === 2 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">2</span>
+                    <span class="text-xs font-bold text-[#14161b]">No dia</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Afeta o trabalho do dia</p>
+                </button>
+
+                <button
+                  type="button"
+                  (click)="selecionarUrgencia(3)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="urgencia() === 3 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="urgencia() === 3 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">3</span>
+                    <span class="text-xs font-bold text-[#14161b]">Agora</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Paciente aguardando</p>
+                </button>
+              </div>
+            </div>
+
+            <!-- 3. Impacto Operacional -->
+            <div>
+              <label class="block text-xs font-semibold text-[#14161b]">Impacto operacional</label>
+              <p class="text-[11px] text-[#6b7280] mb-1.5">Quantas pessoas ou setores são afetados?</p>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  (click)="selecionarImpacto(1)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="impacto() === 1 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="impacto() === 1 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">1</span>
+                    <span class="text-xs font-bold text-[#14161b]">Uma pessoa</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Impacto individual</p>
+                </button>
+
+                <button
+                  type="button"
+                  (click)="selecionarImpacto(2)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="impacto() === 2 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="impacto() === 2 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">2</span>
+                    <span class="text-xs font-bold text-[#14161b]">Um setor</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Parte da unidade</p>
+                </button>
+
+                <button
+                  type="button"
+                  (click)="selecionarImpacto(3)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="impacto() === 3 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="impacto() === 3 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">3</span>
+                    <span class="text-xs font-bold text-[#14161b]">Unidade inteira</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Ou mais de uma</p>
+                </button>
+              </div>
+            </div>
+
+            <!-- Card Sugestão do Sistema -->
+            <div class="flex items-center justify-between rounded-xl border border-[#d9e2fc] bg-[#f0f5ff] p-3.5">
+              <div>
+                <p class="text-xs font-bold text-[#1e3fcc]">
+                  Soma das notas: {{ somaNotas() }}
+                </p>
+                <p class="mt-0.5 text-[11px] text-[#4b5563]">
+                  Meta de referência: {{ metaReferenciaTexto() }}
+                </p>
+              </div>
+              <div class="text-right">
+                <span class="block text-[10px] font-medium text-[#6b7280] mb-1">Sugestão do sistema</span>
+                <span
+                  class="inline-flex rounded px-2.5 py-1 text-xs font-bold"
+                  [class]="estiloPrioridade(prioridadeSugerida())"
+                >
+                  {{ prioridadeSugerida() === 'ALTA' ? 'Alta (P1)' : prioridadeSugerida() === 'MEDIA' ? 'Média (P2)' : 'Baixa (P3)' }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Formulário Final -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label for="prioridade-final-select" class="block text-xs font-semibold text-[#14161b] mb-1">
+                  Prioridade final
+                </label>
+                <select
+                  id="prioridade-final-select"
+                  [value]="prioridadeFinalEfetiva()"
+                  (change)="selecionarPrioridadeFinal($any($event.target).value)"
+                  class="w-full rounded-lg border border-[#e2e5ec] bg-white px-3 py-2 text-xs font-medium text-[#14161b] focus:border-[#2d5bff] focus:outline-none"
+                >
+                  <option value="ALTA">Alta (P1)</option>
+                  <option value="MEDIA">Média (P2)</option>
+                  <option value="BAIXA">Baixa (P3)</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="justificativa-divergencia-input" class="block text-xs font-semibold text-[#14161b] mb-1">
+                  Justificativa (se divergir da sugestão)
+                  @if (temDivergencia()) {
+                    <span class="text-[#dc2626] font-bold">*</span>
+                  }
+                </label>
+                <input
+                  id="justificativa-divergencia-input"
+                  type="text"
+                  [value]="justificativaPrioridade()"
+                  (input)="justificativaPrioridade.set($any($event.target).value)"
+                  placeholder="Opcional quando igual à sugestão"
+                  class="w-full rounded-lg border px-3 py-2 text-xs text-[#14161b] focus:outline-none"
+                  [class]="temDivergencia() && !justificativaValida() ? 'border-[#dc2626] focus:border-[#dc2626]' : 'border-[#e2e5ec] focus:border-[#2d5bff]'"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Rodapé de Ações -->
+          <div class="mt-6 flex items-center justify-end gap-2 border-t border-[#f1f3f8] pt-4">
+            <button
+              type="button"
+              [disabled]="salvandoPrioridade()"
+              (click)="fecharModalPrioridade()"
+              class="rounded-lg border border-[#e2e5ec] bg-white px-4 py-2 text-xs font-semibold text-[#4b5563] shadow-2xs hover:bg-[#f8f9fc] disabled:opacity-50 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              id="btn-confirmar-prioridade"
+              [disabled]="salvandoPrioridade() || (temDivergencia() && !justificativaValida())"
+              (click)="salvarTriagemPrioridade()"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-[#2d5bff] px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#1e3fcc] disabled:opacity-50 cursor-pointer"
+            >
+              @if (salvandoPrioridade()) {
+                <span class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                Confirmando...
+              } @else {
+                Confirmar prioridade
               }
             </button>
           </div>

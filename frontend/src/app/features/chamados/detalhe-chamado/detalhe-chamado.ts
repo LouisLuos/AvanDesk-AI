@@ -10,12 +10,14 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
 import { ChamadoService } from '../../../core/services/chamado.service';
+import { SlaService } from '../../../core/services/sla.service';
 import { ToastService } from '../../../core/services/toast.service';
 import {
   CANAIS_ORIGEM,
   CanalOrigem,
   ChamadoDetalhe,
   DirecaoContato,
+  ItemSlaDetalhe,
   MotivoEspera,
   PrioridadeChamado,
   PrioridadeRequest,
@@ -37,6 +39,7 @@ export class DetalheChamado implements OnInit {
   private readonly chamadoService = inject(ChamadoService);
   private readonly authService = inject(AuthService);
   private readonly toast = inject(ToastService);
+  protected readonly slaService = inject(SlaService);
 
   protected readonly carregando = signal(true);
   protected readonly salvando = signal(false);
@@ -49,7 +52,8 @@ export class DetalheChamado implements OnInit {
   protected readonly motivoEsperaSelecionado = signal<MotivoEspera>('SOLICITANTE');
   protected readonly motivoCancelamentoTexto = signal('');
 
-  // Estados da Matriz 3D (HU04)
+  // Estados da Matriz 3D (HU04) e Modal
+  protected readonly modalPrioridadeAberto = signal(false);
   protected readonly severidade = signal<number>(2);
   protected readonly urgencia = signal<number>(2);
   protected readonly impacto = signal<number>(2);
@@ -57,11 +61,22 @@ export class DetalheChamado implements OnInit {
   protected readonly justificativaPrioridade = signal('');
   protected readonly salvandoPrioridade = signal(false);
 
+  protected readonly somaNotas = computed<number>(() => {
+    return this.severidade() + this.urgencia() + this.impacto();
+  });
+
   protected readonly prioridadeSugerida = computed<PrioridadeChamado>(() => {
-    const soma = this.severidade() + this.urgencia() + this.impacto();
-    if (soma <= 5) return 'BAIXA';
-    if (soma <= 7) return 'MEDIA';
+    const soma = this.somaNotas();
+    if (soma <= 4) return 'BAIXA';
+    if (soma <= 6) return 'MEDIA';
     return 'ALTA';
+  });
+
+  protected readonly metaReferenciaTexto = computed<string>(() => {
+    const prio = this.prioridadeSugerida();
+    if (prio === 'ALTA') return '1ª resposta 15 min · resolução 2 h';
+    if (prio === 'MEDIA') return '1ª resposta 1 h · resolução 8 h';
+    return '1ª resposta 4 h · resolução 3 dias úteis';
   });
 
   protected readonly prioridadeFinalEfetiva = computed<PrioridadeChamado>(() => {
@@ -75,6 +90,114 @@ export class DetalheChamado implements OnInit {
   protected readonly justificativaValida = computed<boolean>(() => {
     if (!this.temDivergencia()) return true;
     return this.justificativaPrioridade().trim().length >= 10;
+  });
+
+  protected readonly slaItensDinamicos = computed<ItemSlaDetalhe[]>(() => {
+    const item = this.chamado();
+    if (!item) return [];
+    const agora = this.slaService.agora();
+
+    const dataAbertura = item.aberto_em ? new Date(item.aberto_em).getTime() : agora;
+    const decorridoMinutos = Math.max(0, Math.floor((agora - dataAbertura) / 60000));
+
+    // 1. Triagem
+    const temTriagem = Boolean(item.prioridade || item.prioridade_final || item.prioridade_sugerida);
+    let triagemTexto = 'Em andamento na fila';
+    let triagemProgresso = Math.min(100, Math.max(10, Math.round((decorridoMinutos / 15) * 100)));
+    let triagemEstilo = 'bg-[#14b8a6]';
+
+    if (temTriagem) {
+      triagemTexto = 'Cumprida';
+      triagemProgresso = 100;
+      triagemEstilo = 'bg-[#22c55e]';
+    } else if (decorridoMinutos > 15) {
+      triagemTexto = `Estourada · +${decorridoMinutos - 15} min`;
+      triagemProgresso = 100;
+      triagemEstilo = 'bg-[#dc2626]';
+    } else if (triagemProgresso >= 80) {
+      triagemTexto = `Em risco · restam ${15 - decorridoMinutos} min`;
+      triagemEstilo = 'bg-[#f59e0b]';
+    } else {
+      triagemTexto = `Em andamento · restam ${15 - decorridoMinutos} min`;
+    }
+
+    // 2. Primeira resposta
+    const temPrimeiraResposta = Boolean(item.primeira_resposta_em);
+    let respTexto = 'Aguardando 1ª ação';
+    let respProgresso = Math.min(100, Math.max(10, Math.round((decorridoMinutos / 15) * 100)));
+    let respEstilo = 'bg-[#9aa2b1]';
+
+    if (temPrimeiraResposta) {
+      respTexto = 'Respondido pelo suporte';
+      respProgresso = 100;
+      respEstilo = 'bg-[#22c55e]';
+    } else if (decorridoMinutos > 15) {
+      respTexto = `Estourada · +${decorridoMinutos - 15} min`;
+      respProgresso = 100;
+      respEstilo = 'bg-[#dc2626]';
+    } else if (respProgresso >= 80) {
+      respTexto = `Em risco · restam ${15 - decorridoMinutos} min`;
+      respEstilo = 'bg-[#f59e0b]';
+    }
+
+    // 3. Resolução
+    const prio = item.prioridade ?? item.prioridade_final ?? item.prioridade_sugerida;
+    let metaMinutos = 120; // Padrão Alta = 2h
+    let metaTexto = '2 h';
+    if (prio === 'MEDIA') {
+      metaMinutos = 480;
+      metaTexto = '8 h úteis';
+    } else if (prio === 'BAIXA') {
+      metaMinutos = 1440;
+      metaTexto = '3 dias úteis';
+    }
+
+    const resolProgresso = Math.round((decorridoMinutos / metaMinutos) * 100);
+    const restantes = metaMinutos - decorridoMinutos;
+    let resolTexto = `Dentro da meta · restam ${this.slaService.formatarTempo(restantes)}`;
+    let resolEstilo = 'bg-[#22c55e]';
+    let resolBarra = Math.min(100, Math.max(5, resolProgresso));
+
+    if (item.status === 'RESOLVIDO' || item.status === 'FECHADO') {
+      resolTexto = 'Cumprida com sucesso';
+      resolBarra = 100;
+      resolEstilo = 'bg-[#22c55e]';
+    } else if (item.status === 'AGUARDANDO') {
+      resolTexto = 'Pausado (aguardando retorno)';
+      resolEstilo = 'bg-[#9aa2b1]';
+    } else if (decorridoMinutos > metaMinutos) {
+      resolTexto = `Estourado · +${this.slaService.formatarTempo(decorridoMinutos - metaMinutos)}`;
+      resolBarra = 100;
+      resolEstilo = 'bg-[#dc2626]';
+    } else if (resolProgresso >= 80) {
+      resolTexto = `Em risco · restam ${this.slaService.formatarTempo(restantes)}`;
+      resolBarra = Math.min(100, resolProgresso);
+      resolEstilo = 'bg-[#f59e0b]';
+    }
+
+    return [
+      {
+        etapa: 'Triagem',
+        meta: '15 min',
+        situacaoTexto: triagemTexto,
+        progresso: triagemProgresso,
+        estiloBarra: triagemEstilo,
+      },
+      {
+        etapa: 'Primeira resposta',
+        meta: '15 min',
+        situacaoTexto: respTexto,
+        progresso: respProgresso,
+        estiloBarra: respEstilo,
+      },
+      {
+        etapa: 'Resolução',
+        meta: metaTexto,
+        situacaoTexto: resolTexto,
+        progresso: resolBarra,
+        estiloBarra: resolEstilo,
+      },
+    ];
   });
 
   // Estados do Modal de Resolução (HU06)
@@ -607,6 +730,17 @@ export class DetalheChamado implements OnInit {
     this.prioridadeManual.set(prio);
   }
 
+  protected abrirModalPrioridade(): void {
+    if (this.chamadoEncerrado()) return;
+    const c = this.chamado();
+    if (c) this.inicializarMatriz(c);
+    this.modalPrioridadeAberto.set(true);
+  }
+
+  protected fecharModalPrioridade(): void {
+    this.modalPrioridadeAberto.set(false);
+  }
+
   protected inicializarMatriz(dados: ChamadoDetalhe): void {
     if (dados.severidade) this.severidade.set(dados.severidade);
     if (dados.urgencia) this.urgencia.set(dados.urgencia);
@@ -640,7 +774,8 @@ export class DetalheChamado implements OnInit {
         next: (dados) => {
           this.chamado.set(dados);
           this.inicializarMatriz(dados);
-          this.toast.sucesso('Triagem e prioridade salvas com sucesso!');
+          this.fecharModalPrioridade();
+          this.toast.sucesso('Prioridade definida com sucesso!');
         },
         error: (err) => {
           const msg = extrairMensagensErro(err)[0] ?? 'Erro ao salvar prioridade.';
