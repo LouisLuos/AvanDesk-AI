@@ -6,6 +6,7 @@ import com.avandesk.api.catalogo.service.SistemaEquipamentoService;
 import com.avandesk.api.chamado.dto.ChamadoDetalheResponse;
 import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
+import com.avandesk.api.chamado.dto.PrioridadeRequest;
 import com.avandesk.api.chamado.dto.ResolucaoRequest;
 import com.avandesk.api.chamado.dto.SolicitanteRequest;
 import com.avandesk.api.chamado.dto.StatusRequest;
@@ -15,6 +16,7 @@ import com.avandesk.api.chamado.entity.DirecaoContato;
 import com.avandesk.api.chamado.entity.EventoHistorico;
 import com.avandesk.api.chamado.entity.MotivoEspera;
 import com.avandesk.api.chamado.entity.OrigemDado;
+import com.avandesk.api.chamado.entity.Prioridade;
 import com.avandesk.api.chamado.entity.RegistroContato;
 import com.avandesk.api.chamado.entity.Solicitante;
 import com.avandesk.api.chamado.entity.StatusChamado;
@@ -25,8 +27,10 @@ import com.avandesk.api.core.config.NexoProperties;
 import com.avandesk.api.core.exception.OperacaoNaoPermitidaException;
 import com.avandesk.api.core.exception.RecursoNaoEncontradoException;
 import com.avandesk.api.core.exception.RegraNegocioException;
+import com.avandesk.api.sla.domain.SlaDomainService;
 import com.avandesk.api.unidade.entity.Unidade;
 import com.avandesk.api.unidade.service.UnidadeService;
+import com.avandesk.api.usuario.entity.PerfilUsuario;
 import com.avandesk.api.usuario.entity.Usuario;
 import com.avandesk.api.usuario.service.UsuarioLogadoService;
 import com.avandesk.api.usuario.service.UsuarioService;
@@ -105,11 +109,58 @@ class ChamadoServiceTest {
     void configurar() {
         chamadoService = new ChamadoService(chamadoRepository, registroContatoRepository, eventoHistoricoService,
             unidadeService, categoriaService, sistemaEquipamentoService, solicitanteService, usuarioLogadoService,
-            usuarioService, new NexoProperties(OrigemDado.TESTE));
+            usuarioService, new NexoProperties(OrigemDado.TESTE), new SlaDomainService());
         autor.setEmail("analista1@lumen.local");
     }
 
     // ---------- sucesso ----------
+
+    @Test
+    void deveDefinirPrioridadeComSucessoSemDivergencia() {
+        Chamado chamado = chamadoParaDetalhe(StatusChamado.EM_TRIAGEM);
+        autor.setPerfil(PerfilUsuario.ANALISTA_SUPORTE);
+        when(usuarioLogadoService.obterUsuarioLogado()).thenReturn(autor);
+
+        PrioridadeRequest req = new PrioridadeRequest((short) 1, (short) 1, (short) 2, null, null);
+        ChamadoDetalheResponse res = chamadoService.definirPrioridade(chamado.getId(), req);
+
+        assertNotNull(res);
+        assertEquals((short) 1, chamado.getSeveridade());
+        assertEquals((short) 1, chamado.getUrgencia());
+        assertEquals((short) 2, chamado.getImpactoOperacional());
+        assertEquals(Prioridade.BAIXA, chamado.getPrioridadeSugerida());
+        assertEquals(Prioridade.BAIXA, chamado.getPrioridadeFinal());
+        assertNull(chamado.getJustificativaPrioridade());
+        verify(eventoHistoricoService).registrar(eq(chamado), eq(TipoEvento.PRIORIDADE_DEFINIDA), eq(autor), any());
+    }
+
+    @Test
+    void deveDefinirPrioridadeComSucessoComDivergenciaEJustificativa() {
+        Chamado chamado = chamadoParaDetalhe(StatusChamado.EM_TRIAGEM);
+        autor.setPerfil(PerfilUsuario.ANALISTA_SUPORTE);
+        when(usuarioLogadoService.obterUsuarioLogado()).thenReturn(autor);
+
+        PrioridadeRequest req = new PrioridadeRequest((short) 1, (short) 1, (short) 1, Prioridade.ALTA, "Demanda crítica");
+        ChamadoDetalheResponse res = chamadoService.definirPrioridade(chamado.getId(), req);
+
+        assertNotNull(res);
+        assertEquals(Prioridade.BAIXA, chamado.getPrioridadeSugerida());
+        assertEquals(Prioridade.ALTA, chamado.getPrioridadeFinal());
+        assertEquals("Demanda crítica", chamado.getJustificativaPrioridade());
+        verify(eventoHistoricoService).registrar(eq(chamado), eq(TipoEvento.PRIORIDADE_DEFINIDA), eq(autor), any());
+    }
+
+    @Test
+    void deveFalharAoDefinirPrioridadeComDivergenciaSemJustificativa() {
+        Chamado chamado = chamadoParaDetalhe(StatusChamado.EM_TRIAGEM);
+        autor.setPerfil(PerfilUsuario.ANALISTA_SUPORTE);
+        when(usuarioLogadoService.obterUsuarioLogado()).thenReturn(autor);
+
+        PrioridadeRequest req = new PrioridadeRequest((short) 1, (short) 1, (short) 1, Prioridade.ALTA, null);
+        assertThrows(OperacaoNaoPermitidaException.class, () ->
+            chamadoService.definirPrioridade(chamado.getId(), req)
+        );
+    }
 
     @Test
     void deveRegistrarChamadoComContatoInicialEDoisEventosDoMesmoAutor() {

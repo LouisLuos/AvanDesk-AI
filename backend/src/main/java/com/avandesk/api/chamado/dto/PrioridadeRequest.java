@@ -13,19 +13,19 @@ public record PrioridadeRequest(
     @NotNull(message = "é obrigatório")
     @Min(value = 1, message = "deve ser no mínimo 1")
     @Max(value = 3, message = "deve ser no máximo 3")
-    Integer severidade,
+    Short severidade,
 
     @NotNull(message = "é obrigatório")
     @Min(value = 1, message = "deve ser no mínimo 1")
     @Max(value = 3, message = "deve ser no máximo 3")
-    Integer urgencia,
+    Short urgencia,
 
     @NotNull(message = "é obrigatório")
     @Min(value = 1, message = "deve ser no mínimo 1")
     @Max(value = 3, message = "deve ser no máximo 3")
     @JsonProperty("impacto_operacional")
     @JsonAlias({"impactoOperacional"})
-    Integer impactoOperacional,
+    Short impactoOperacional,
 
     @JsonProperty("prioridade_final")
     @JsonAlias({"prioridadeFinal"})
@@ -37,4 +37,3 @@ public record PrioridadeRequest(
     String justificativaPrioridade
 ) {
 }
-

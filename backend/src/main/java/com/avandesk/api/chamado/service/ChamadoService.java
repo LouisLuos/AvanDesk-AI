@@ -7,6 +7,7 @@ import com.avandesk.api.catalogo.service.SistemaEquipamentoService;
 import com.avandesk.api.chamado.dto.ChamadoDetalheResponse;
 import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
+import com.avandesk.api.chamado.dto.PrioridadeRequest;
 import com.avandesk.api.chamado.dto.RegistroContatoRequest;
 import com.avandesk.api.chamado.dto.ResolucaoRequest;
 import com.avandesk.api.chamado.dto.StatusRequest;
@@ -14,6 +15,7 @@ import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.DirecaoContato;
 import com.avandesk.api.chamado.entity.EventoHistorico;
 import com.avandesk.api.chamado.entity.MotivoEspera;
+import com.avandesk.api.chamado.entity.Prioridade;
 import com.avandesk.api.chamado.entity.RegistroContato;
 import com.avandesk.api.chamado.entity.Solicitante;
 import com.avandesk.api.chamado.entity.StatusChamado;
@@ -24,8 +26,10 @@ import com.avandesk.api.core.config.NexoProperties;
 import com.avandesk.api.core.exception.OperacaoNaoPermitidaException;
 import com.avandesk.api.core.exception.RecursoNaoEncontradoException;
 import com.avandesk.api.core.exception.RegraNegocioException;
+import com.avandesk.api.sla.domain.SlaDomainService;
 import com.avandesk.api.unidade.entity.Unidade;
 import com.avandesk.api.unidade.service.UnidadeService;
+import com.avandesk.api.usuario.entity.PerfilUsuario;
 import com.avandesk.api.usuario.entity.Usuario;
 import com.avandesk.api.usuario.service.UsuarioLogadoService;
 import com.avandesk.api.usuario.service.UsuarioService;
@@ -63,6 +67,7 @@ public class ChamadoService {
     private final UsuarioLogadoService usuarioLogadoService;
     private final UsuarioService usuarioService;
     private final NexoProperties nexoProperties;
+    private final SlaDomainService slaDomainService;
 
     @Transactional
     public ChamadoResponse registrar(ChamadoRequest request) {
@@ -241,6 +246,46 @@ public class ChamadoService {
         dados.put("possivel_recorrencia", possivelRecorrencia);
         eventoHistoricoService.registrar(chamado, TipoEvento.CHAMADO_RESOLVIDO, autor, dados);
 
+        return montarDetalhe(chamado);
+    }
+
+    @Transactional
+    public ChamadoDetalheResponse definirPrioridade(UUID id, PrioridadeRequest request) {
+        Chamado chamado = buscarParaDetalhe(id);
+        if (chamado.getStatus().encerrado()) {
+            throw new OperacaoNaoPermitidaException(
+                "Não é possível alterar a prioridade de um chamado %s.".formatted(chamado.getStatus())
+            );
+        }
+        if (chamado.getStatus() == StatusChamado.MESCLADO) {
+            throw new OperacaoNaoPermitidaException("Não é possível alterar a prioridade de um chamado mesclado.");
+        }
+        Usuario autor = usuarioLogadoService.obterUsuarioLogado();
+        if (autor.getPerfil() != PerfilUsuario.ANALISTA_SUPORTE 
+            && autor.getPerfil() != PerfilUsuario.LIDERANCA_TI 
+            && autor.getPerfil() != PerfilUsuario.ADMIN) {
+            throw new OperacaoNaoPermitidaException("Apenas analistas de suporte ou liderança podem definir a prioridade do chamado.");
+        }
+        Prioridade sugerida = slaDomainService.calcularPrioridadeSugerida(
+            request.severidade(), request.urgencia(), request.impactoOperacional()
+        );
+        Prioridade finalDefinida = request.prioridadeFinal() != null ? request.prioridadeFinal() : sugerida;
+        String justificativa = textoOuNulo(request.justificativaPrioridade());
+
+        chamado.aplicarTriagemPrioridade(sugerida, finalDefinida, justificativa,
+            request.severidade(), request.urgencia(), request.impactoOperacional());
+        registrarPrimeiraResposta(chamado);
+
+        Map<String, Object> dados = new LinkedHashMap<>();
+        dados.put("severidade", request.severidade());
+        dados.put("urgencia", request.urgencia());
+        dados.put("impacto_operacional", request.impactoOperacional());
+        dados.put("prioridade_sugerida", sugerida.name());
+        dados.put("prioridade_final", finalDefinida.name());
+        if (justificativa != null) {
+            dados.put("justificativa_prioridade", justificativa);
+        }
+        eventoHistoricoService.registrar(chamado, TipoEvento.PRIORIDADE_DEFINIDA, autor, dados);
         return montarDetalhe(chamado);
     }
 
