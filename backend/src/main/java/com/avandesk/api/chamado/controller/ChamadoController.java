@@ -103,8 +103,10 @@ public class ChamadoController {
         description = "Segue o ciclo de vida: ABERTO para EM_TRIAGEM, EM_TRIAGEM para EM_ATENDIMENTO (exige responsável), "
             + "EM_ATENDIMENTO e AGUARDANDO entre si (AGUARDANDO exige motivo_espera), ABERTO ou EM_TRIAGEM para "
             + "CANCELADO (exige motivo_cancelamento), RESOLVIDO para REABERTO (exige motivo_reabertura, até 7 dias "
-            + "depois da resolução) e REABERTO para EM_ATENDIMENTO. Responde 200 com o detalhe; 404 para chamado "
-            + "inexistente; 422 para transição fora do ciclo, falta de motivo, prazo vencido ou chamado encerrado.")
+            + "depois da resolução) e REABERTO para EM_ATENDIMENTO. A espera por fornecedor não passa por aqui: "
+            + "entra e sai pelas rotas de escalonamento (HU07). Responde 200 com o detalhe; 404 para chamado "
+            + "inexistente; 422 para transição fora do ciclo, falta de motivo, prazo vencido, chamado encerrado ou "
+            + "espera por fornecedor.")
     public ResponseEntity<ApiResponse<ChamadoDetalheResponse>> alterarStatus(
         @PathVariable UUID id, @Valid @RequestBody StatusRequest request) {
         ChamadoDetalheResponse chamado = chamadoService.alterarStatus(id, request);
@@ -116,7 +118,7 @@ public class ChamadoController {
         description = "Só a partir de EM_ATENDIMENTO ou AGUARDANDO. Resolução obrigatória (10 a 2000 caracteres); "
             + "causa_raiz e possivel_recorrencia são opcionais. Grava CHAMADO_RESOLVIDO com o texto da resolução. "
             + "Responde 200 com o detalhe; 400 para dados inválidos; 404 para chamado inexistente; "
-            + "422 para status que não pode ir para RESOLVIDO.")
+            + "422 para status que não pode ir para RESOLVIDO ou chamado que aguarda o retorno do fornecedor.")
     public ResponseEntity<ApiResponse<ChamadoDetalheResponse>> resolver(
         @PathVariable UUID id, @Valid @RequestBody ResolucaoRequest request) {
         ChamadoDetalheResponse chamado = chamadoService.resolver(id, request);
