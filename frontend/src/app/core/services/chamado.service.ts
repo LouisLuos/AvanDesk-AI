@@ -11,6 +11,7 @@ import {
   EscalonamentoRequest,
   FilaChamados,
   FiltrosFila,
+  PrioridadeRequest,
   ResolucaoRequest,
   RegistroContatoRequest,
   RetornoFornecedorRequest,
@@ -193,6 +194,18 @@ export class ChamadoService {
     return this.http
       .patch<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
         `${this.baseUrl}/${id}/escalonamentos/${escalonamentoId}/retorno`,
+        payload,
+      )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  /**
+   * PATCH /chamados/{id}/prioridade — define prioridade via Matriz 3D (HU04).
+   */
+  definirPrioridade(id: string, payload: PrioridadeRequest): Observable<ChamadoDetalhe> {
+    return this.http
+      .patch<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/prioridade`,
         payload,
       )
       .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));

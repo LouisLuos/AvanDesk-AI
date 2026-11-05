@@ -8,6 +8,7 @@ import com.avandesk.api.chamado.dto.ChamadoResumoResponse;
 import com.avandesk.api.chamado.dto.EventoHistoricoResponse;
 import com.avandesk.api.chamado.dto.FilaChamadosResponse;
 import com.avandesk.api.chamado.dto.FiltroChamados;
+import com.avandesk.api.chamado.dto.PrioridadeRequest;
 import com.avandesk.api.chamado.dto.RegistroContatoResponse;
 import com.avandesk.api.chamado.dto.ResolucaoRequest;
 import com.avandesk.api.chamado.dto.SolicitanteResponse;
@@ -127,6 +128,12 @@ class ChamadoControllerTest {
             new CategoriaResponse(categoriaId, "Equipamento de apoio"),
             null,
             new SolicitanteResponse("Recepção Boa Viagem", "+5581999999999"),
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             null,
             null,
             abertoEm,
@@ -465,6 +472,51 @@ class ChamadoControllerTest {
             chamadoId,
             new StatusRequest(StatusChamado.REABERTO, null, null, "Problema voltou a ocorrer no turno da tarde.")
         );
+    }
+
+    @Test
+    @WithMockUser
+    void deveDefinirPrioridadeComSucesso() throws Exception {
+        UUID chamadoId = UUID.randomUUID();
+        when(chamadoService.definirPrioridade(eq(chamadoId), any(PrioridadeRequest.class)))
+            .thenReturn(mock(ChamadoDetalheResponse.class));
+
+        mockMvc.perform(patch("/api/v1/chamados/{id}/prioridade", chamadoId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "severidade": 2,
+                      "urgencia": 3,
+                      "impacto_operacional": 2,
+                      "prioridade_final": "ALTA",
+                      "justificativa_prioridade": "Setor crítico de triagem médica."
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status_code").value(200))
+            .andExpect(jsonPath("$.message").value("Prioridade do chamado definida com sucesso"));
+
+        verify(chamadoService).definirPrioridade(eq(chamadoId), any(PrioridadeRequest.class));
+    }
+
+    @Test
+    @WithMockUser
+    void deveRejeitarPrioridadeComNotasForaDoRange() throws Exception {
+        UUID chamadoId = UUID.randomUUID();
+
+        mockMvc.perform(patch("/api/v1/chamados/{id}/prioridade", chamadoId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "severidade": 4,
+                      "urgencia": 0,
+                      "impacto_operacional": 1
+                    }
+                    """))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status_code").value(400));
+
+        verifyNoInteractions(chamadoService);
     }
 
     private static FilaChamadosResponse paginaVazia() {

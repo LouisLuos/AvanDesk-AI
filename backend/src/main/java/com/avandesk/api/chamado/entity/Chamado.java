@@ -112,6 +112,28 @@ public class Chamado {
     @Column(name = "resolvido_em")
     private Instant resolvidoEm;
 
+    /**
+     * Aplica a triagem pela Matriz 3D (HU04 / RF-009 / RF-010).
+     * Garante a invariante de que divergências entre a prioridade sugerida e a final
+     * exigem justificativa obrigatória (constraint ck_chamados_justificativa).
+     */
+    public void aplicarTriagemPrioridade(Prioridade sugerida, Prioridade finalDefinida, String justificativa,
+                                         Short severidade, Short urgencia, Short impactoOperacional) {
+        if (finalDefinida != null && finalDefinida != sugerida) {
+            if (justificativa == null || justificativa.trim().isBlank()) {
+                throw new com.avandesk.api.core.exception.OperacaoNaoPermitidaException(
+                    "É obrigatório informar uma justificativa ao definir uma prioridade final diferente da sugerida pela Matriz 3D."
+                );
+            }
+        }
+        this.severidade = severidade;
+        this.urgencia = urgencia;
+        this.impactoOperacional = impactoOperacional;
+        this.prioridadeSugerida = sugerida;
+        this.prioridadeFinal = finalDefinida != null ? finalDefinida : sugerida;
+        this.justificativaPrioridade = justificativa;
+    }
+
     @Column(name = "fechado_em")
     private Instant fechadoEm;
 
