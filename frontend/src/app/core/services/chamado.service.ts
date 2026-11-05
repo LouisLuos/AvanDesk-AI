@@ -8,11 +8,13 @@ import {
   ChamadoDetalheApiResponse,
   ChamadoRequest,
   ChamadoResponse,
+  EscalonamentoRequest,
   FilaChamados,
   FiltrosFila,
   PrioridadeRequest,
   ResolucaoRequest,
   RegistroContatoRequest,
+  RetornoFornecedorRequest,
   StatusRequest,
   TAMANHO_PAGINA_FILA,
   TotalChamadosPorResponsavel,
@@ -164,6 +166,34 @@ export class ChamadoService {
     return this.http
       .post<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
         `${this.baseUrl}/${id}/contatos`,
+        payload,
+      )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  /**
+   * POST /chamados/{id}/escalonamentos — envia o chamado a um fornecedor externo (HU07).
+   */
+  escalar(id: string, payload: EscalonamentoRequest): Observable<ChamadoDetalhe> {
+    return this.http
+      .post<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/escalonamentos`,
+        payload,
+      )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  /**
+   * PATCH /chamados/{id}/escalonamentos/{escalonamentoId}/retorno — registra o retorno do fornecedor (HU07).
+   */
+  registrarRetornoFornecedor(
+    id: string,
+    escalonamentoId: string,
+    payload: RetornoFornecedorRequest,
+  ): Observable<ChamadoDetalhe> {
+    return this.http
+      .patch<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/escalonamentos/${escalonamentoId}/retorno`,
         payload,
       )
       .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));

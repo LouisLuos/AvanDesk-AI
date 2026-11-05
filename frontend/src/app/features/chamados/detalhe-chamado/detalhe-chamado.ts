@@ -16,12 +16,14 @@ import {
   CanalOrigem,
   ChamadoDetalhe,
   DirecaoContato,
+  EscalonamentoRequest,
   MotivoEspera,
   PrioridadeChamado,
   PrioridadeRequest,
   ResolucaoRequest,
   StatusChamado,
   RegistroContatoRequest,
+  RetornoFornecedorRequest,
   StatusRequest,
 } from '../../../shared/models/chamado.model';
 import { extrairMensagensErro } from '../../../shared/utils/api-error';
@@ -93,9 +95,15 @@ export class DetalheChamado implements OnInit {
     'Problema com fornecedor externo',
   ];
 
+  /** Enquanto espera o fornecedor (HU07), só o retorno tira o chamado de AGUARDANDO. */
+  protected readonly aguardandoFornecedor = computed(() => {
+    const c = this.chamado();
+    return c?.status === 'AGUARDANDO' && c.motivo_espera === 'FORNECEDOR';
+  });
+
   protected readonly podeResolver = computed(() => {
     const s = this.chamado()?.status;
-    return s === 'EM_ATENDIMENTO' || s === 'AGUARDANDO';
+    return (s === 'EM_ATENDIMENTO' || s === 'AGUARDANDO') && !this.aguardandoFornecedor();
   });
 
   protected readonly resolucaoValida = computed(() => {
@@ -111,6 +119,66 @@ export class DetalheChamado implements OnInit {
     if (t.length > 2000) return 'A solução deve conter no máximo 2000 caracteres.';
     return null;
   });
+  protected readonly modalEscalarAberto = signal(false);
+  protected readonly fornecedorTexto = signal('');
+  protected readonly protocoloExternoTexto = signal('');
+  protected readonly observacaoFornecedorTexto = signal('');
+  protected readonly escalarTocou = signal(false);
+
+  protected readonly escalonamentoAberto = computed(
+    () => this.chamado()?.escalonamentos?.find((e) => e.aberto) ?? null,
+  );
+
+  protected readonly podeEscalar = computed(() => {
+    const c = this.chamado();
+    return !!c && c.status === 'EM_ATENDIMENTO' && !!c.responsavel && !this.escalonamentoAberto();
+  });
+
+  protected readonly erroFornecedor = computed(() => {
+    if (!this.escalarTocou()) return null;
+    const t = this.fornecedorTexto().trim();
+    if (!t) return 'Informe o fornecedor externo.';
+    if (t.length > 120) return 'O fornecedor deve ter no máximo 120 caracteres.';
+    return null;
+  });
+
+  protected readonly erroObservacaoFornecedor = computed(() => {
+    if (!this.escalarTocou()) return null;
+    const t = this.observacaoFornecedorTexto().trim();
+    if (!t) return 'Descreva o problema para o fornecedor.';
+    if (t.length > 1000) return 'A descrição deve ter no máximo 1000 caracteres.';
+    return null;
+  });
+
+  protected readonly escalonamentoValido = computed(() => {
+    const fornecedor = this.fornecedorTexto().trim();
+    const observacao = this.observacaoFornecedorTexto().trim();
+    return (
+      fornecedor.length > 0 &&
+      fornecedor.length <= 120 &&
+      this.protocoloExternoTexto().trim().length <= 100 &&
+      observacao.length > 0 &&
+      observacao.length <= 1000
+    );
+  });
+
+  protected readonly modalRetornoAberto = signal(false);
+  protected readonly retornoTexto = signal('');
+  protected readonly retornoTocou = signal(false);
+
+  protected readonly retornoValido = computed(() => {
+    const t = this.retornoTexto().trim();
+    return t.length > 0 && t.length <= 2000;
+  });
+
+  protected readonly erroRetorno = computed(() => {
+    if (!this.retornoTocou()) return null;
+    const t = this.retornoTexto().trim();
+    if (!t) return 'Descreva o retorno do fornecedor.';
+    if (t.length > 2000) return 'O retorno deve ter no máximo 2000 caracteres.';
+    return null;
+  });
+
   // Estados do Registro de Novo Contato / Mensagem (RN16 / HU13)
   protected readonly canaisDisponiveis = CANAIS_ORIGEM;
   protected readonly novoContatoCanal = signal<CanalOrigem>('WHATSAPP');
@@ -151,7 +219,7 @@ export class DetalheChamado implements OnInit {
         proximos = ['AGUARDANDO'];
         break;
       case 'AGUARDANDO':
-        proximos = ['EM_ATENDIMENTO'];
+        proximos = this.aguardandoFornecedor() ? [] : ['EM_ATENDIMENTO'];
         break;
       case 'REABERTO':
         proximos = ['EM_ATENDIMENTO'];
@@ -497,6 +565,119 @@ export class DetalheChamado implements OnInit {
         },
         error: (err) => {
           const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao resolver chamado.';
+          this.toast.erro(msgApi);
+        },
+      });
+  }
+
+  protected abrirModalEscalar(): void {
+    if (!this.podeEscalar()) {
+      this.toast.info('Só é possível escalar um chamado Em Atendimento, com responsável e sem escalonamento em aberto.');
+      return;
+    }
+    this.fornecedorTexto.set('');
+    this.protocoloExternoTexto.set('');
+    this.observacaoFornecedorTexto.set('');
+    this.escalarTocou.set(false);
+    this.modalEscalarAberto.set(true);
+  }
+
+  protected fecharModalEscalar(): void {
+    this.modalEscalarAberto.set(false);
+  }
+
+  protected atualizarFornecedor(valor: string): void {
+    this.fornecedorTexto.set(valor);
+  }
+
+  protected atualizarProtocoloExterno(valor: string): void {
+    this.protocoloExternoTexto.set(valor);
+  }
+
+  protected atualizarObservacaoFornecedor(valor: string): void {
+    this.observacaoFornecedorTexto.set(valor);
+  }
+
+  protected confirmarEscalonamento(): void {
+    this.escalarTocou.set(true);
+    if (!this.escalonamentoValido()) {
+      this.toast.erro('Preencha o fornecedor e a descrição para o fornecedor.');
+      return;
+    }
+
+    const id = this.idChamado();
+    if (!id) return;
+
+    const payload: EscalonamentoRequest = {
+      fornecedor: this.fornecedorTexto().trim(),
+      observacao: this.observacaoFornecedorTexto().trim(),
+    };
+    const protocolo = this.protocoloExternoTexto().trim();
+    if (protocolo) {
+      payload.protocolo_externo = protocolo;
+    }
+
+    this.salvando.set(true);
+    this.chamadoService
+      .escalar(id, payload)
+      .pipe(finalize(() => this.salvando.set(false)))
+      .subscribe({
+        next: (dadosAtualizados) => {
+          this.chamado.set(dadosAtualizados);
+          this.toast.sucesso(`Chamado escalado para ${payload.fornecedor}.`);
+          this.fecharModalEscalar();
+        },
+        error: (err) => {
+          const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao escalar o chamado.';
+          this.toast.erro(msgApi);
+        },
+      });
+  }
+
+  protected abrirModalRetorno(): void {
+    if (!this.escalonamentoAberto()) {
+      this.toast.info('Este chamado não tem escalonamento aguardando retorno.');
+      return;
+    }
+    this.retornoTexto.set('');
+    this.retornoTocou.set(false);
+    this.modalRetornoAberto.set(true);
+  }
+
+  protected fecharModalRetorno(): void {
+    this.modalRetornoAberto.set(false);
+  }
+
+  protected atualizarRetornoTexto(valor: string): void {
+    this.retornoTexto.set(valor);
+    this.retornoTocou.set(true);
+  }
+
+  protected confirmarRetorno(): void {
+    this.retornoTocou.set(true);
+    if (!this.retornoValido()) {
+      this.toast.erro('Descreva o retorno do fornecedor.');
+      return;
+    }
+
+    const id = this.idChamado();
+    const escalonamento = this.escalonamentoAberto();
+    if (!id || !escalonamento) return;
+
+    const payload: RetornoFornecedorRequest = { retorno: this.retornoTexto().trim() };
+
+    this.salvando.set(true);
+    this.chamadoService
+      .registrarRetornoFornecedor(id, escalonamento.id, payload)
+      .pipe(finalize(() => this.salvando.set(false)))
+      .subscribe({
+        next: (dadosAtualizados) => {
+          this.chamado.set(dadosAtualizados);
+          this.toast.sucesso('Retorno do fornecedor registrado. O chamado voltou para Em Atendimento.');
+          this.fecharModalRetorno();
+        },
+        error: (err) => {
+          const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao registrar o retorno do fornecedor.';
           this.toast.erro(msgApi);
         },
       });
