@@ -99,6 +99,10 @@ public class ChamadoService {
         chamado.setAbertoEm(abertoEm);
         chamado.setRegistroIniciadoEm(validarInicioRegistro(request.registroIniciadoEm(), abertoEm));
         chamado.setOrigemDado(nexoProperties.origemDado());
+        if (request.prioridade() != null) {
+            chamado.setPrioridadeSugerida(request.prioridade());
+            chamado.setPrioridadeFinal(request.prioridade());
+        }
         chamadoRepository.save(chamado);
 
         RegistroContato contato = new RegistroContato();
@@ -112,8 +116,12 @@ public class ChamadoService {
         contato.setOrigemDado(chamado.getOrigemDado());
         registroContatoRepository.save(contato);
 
-        eventoHistoricoService.registrar(chamado, TipoEvento.CHAMADO_ABERTO, autor,
-            Map.of("canal", chamado.getCanalOrigem().name()));
+        Map<String, Object> dadosAbertura = new LinkedHashMap<>();
+        dadosAbertura.put("canal", chamado.getCanalOrigem().name());
+        if (chamado.getPrioridadeFinal() != null) {
+            dadosAbertura.put("prioridade", chamado.getPrioridadeFinal().name());
+        }
+        eventoHistoricoService.registrar(chamado, TipoEvento.CHAMADO_ABERTO, autor, dadosAbertura);
         eventoHistoricoService.registrar(chamado, TipoEvento.REGISTRO_DE_CONTATO_RECEBIDO, autor,
             Map.of("registro_contato_id", contato.getId().toString()));
         if (atribuirAoAutor) {

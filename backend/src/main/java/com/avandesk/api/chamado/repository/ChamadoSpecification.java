@@ -59,9 +59,12 @@ public final class ChamadoSpecification {
         return (root, query, cb) -> cb.equal(root.get("unidade").get("id"), unidadeId);
     }
 
-    /** A prioridade da fila é a final, definida pelo analista (a sugerida é só apoio). */
+    /** Prioridade da fila: avalia a prioridade final ou a sugerida como fallback. */
     static Specification<Chamado> comPrioridade(Prioridade prioridade) {
-        return (root, query, cb) -> cb.equal(root.get("prioridadeFinal"), prioridade);
+        return (root, query, cb) -> cb.or(
+            cb.equal(root.get("prioridadeFinal"), prioridade),
+            cb.and(cb.isNull(root.get("prioridadeFinal")), cb.equal(root.get("prioridadeSugerida"), prioridade))
+        );
     }
 
     static Specification<Chamado> doCanal(CanalOrigem canal) {
@@ -76,9 +79,12 @@ public final class ChamadoSpecification {
         return (root, query, cb) -> cb.isNull(root.get("responsavel"));
     }
 
-    /** Chamados ainda sem prioridade final, ou seja, aguardando triagem. */
+    /** Chamados ainda sem prioridade definida (nem final nem sugerida). */
     static Specification<Chamado> semPrioridade() {
-        return (root, query, cb) -> cb.isNull(root.get("prioridadeFinal"));
+        return (root, query, cb) -> cb.and(
+            cb.isNull(root.get("prioridadeFinal")),
+            cb.isNull(root.get("prioridadeSugerida"))
+        );
     }
 
     /** Busca exata: o código é gravado em maiúsculas (LUM-AAAA-NNNNNN). */

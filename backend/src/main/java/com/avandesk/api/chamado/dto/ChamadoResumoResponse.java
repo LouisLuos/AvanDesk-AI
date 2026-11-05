@@ -35,6 +35,9 @@ public record ChamadoResumoResponse(
     static final int TAMANHO_TITULO = 80;
 
     public static ChamadoResumoResponse de(Chamado chamado, Instant ultimaAtualizacao) {
+        Prioridade prioridade = chamado.getPrioridadeFinal() != null
+            ? chamado.getPrioridadeFinal()
+            : chamado.getPrioridadeSugerida();
         return new ChamadoResumoResponse(
             chamado.getId(),
             chamado.getCodigo(),
@@ -43,7 +46,7 @@ public record ChamadoResumoResponse(
             chamado.getCategoria() == null ? null : CategoriaResponse.de(chamado.getCategoria()),
             chamado.getCanalOrigem(),
             chamado.getStatus(),
-            chamado.getPrioridadeFinal(),
+            prioridade,
             ResponsavelResponse.de(chamado.getResponsavel()),
             chamado.getAbertoEm(),
             ultimaAtualizacao != null ? ultimaAtualizacao : chamado.getAbertoEm()
