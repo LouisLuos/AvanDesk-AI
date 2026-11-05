@@ -49,6 +49,18 @@
             </span>
           }
 
+          @if (item.status === 'RESOLVIDO' && item.resolvido_em) {
+            <span
+              id="badge-resolvido-em"
+              class="inline-flex items-center gap-1.5 rounded border border-[#22c55e]/30 bg-[#22c55e]/10 px-2.5 py-1 text-xs font-medium text-[#15803d]"
+            >
+              <svg class="h-3.5 w-3.5 text-[#22c55e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              Resolvido em: {{ item.resolvido_em }}
+            </span>
+          }
+
           @if (item.prioridade; as prio) {
             <span
               class="inline-flex rounded px-2.5 py-1 text-xs font-semibold"
@@ -174,16 +186,20 @@
           Escalar para fornecedor
         </button>
 
-        <button
-          type="button"
-          (click)="acaoNaoDisponivel('Resolver chamado', 'Leva 3 (HU06)')"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-[#22c55e] bg-white px-3.5 py-2 text-xs font-semibold text-[#15803d] shadow-xs transition hover:bg-[#22c55e]/10"
-        >
-          <svg class="h-3.5 w-3.5 text-[#22c55e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-          Resolver
-        </button>
+        @if (podeResolver()) {
+          <button
+            type="button"
+            id="btn-resolver-chamado"
+            [disabled]="salvando()"
+            (click)="abrirModalResolucao()"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-[#22c55e] px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#16a34a] disabled:opacity-50 cursor-pointer"
+          >
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Resolver
+          </button>
+        }
       </div>
     </header>
 
@@ -191,6 +207,53 @@
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <!-- Coluna Esquerda: Descrição, Contatos, Evidências e Linha do Tempo -->
       <div class="space-y-6 lg:col-span-2">
+        <!-- Card Resolução do Chamado (HU06) -->
+        @if (item.status === 'RESOLVIDO' && item.resolucao) {
+          <section id="card-resolucao-chamado" class="rounded-xl border border-[#22c55e]/40 bg-[#f0fdf4] p-5 shadow-xs" aria-labelledby="secao-resolucao-titulo">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#22c55e]/20 pb-3">
+              <div class="flex items-center gap-2">
+                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-[#22c55e] text-white">
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </span>
+                <h2 id="secao-resolucao-titulo" class="text-sm font-bold text-[#15803d]">
+                  Solução Técnica Aplicada
+                </h2>
+              </div>
+              @if (item.resolvido_em) {
+                <span class="text-xs text-[#166534]">
+                  Concluído em: <strong>{{ item.resolvido_em }}</strong>
+                </span>
+              }
+            </div>
+
+            <p class="mt-3 text-xs leading-relaxed text-[#14532d] whitespace-pre-line font-medium">
+              {{ item.resolucao }}
+            </p>
+
+            @if (item.causa_raiz || item.possivel_recorrencia) {
+              <div class="mt-4 flex flex-wrap items-center gap-2 pt-3 border-t border-[#22c55e]/15">
+                @if (item.causa_raiz) {
+                  <span id="badge-causa-raiz" class="inline-flex items-center gap-1.5 rounded-md bg-white border border-[#22c55e]/30 px-2.5 py-1 text-xs font-medium text-[#166534]">
+                    <span class="font-bold text-[#15803d]">Causa raiz:</span> {{ item.causa_raiz }}
+                  </span>
+                }
+                @if (item.possivel_recorrencia) {
+                  <span id="badge-alerta-recorrencia" class="inline-flex items-center gap-1.5 rounded-md bg-[#fef3c7] border border-[#f59e0b]/40 px-2.5 py-1 text-xs font-semibold text-[#b45309]">
+                    <svg class="h-3.5 w-3.5 text-[#d97706]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                      <line x1="12" y1="9" x2="12" y2="13"/>
+                      <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    Alerta de Reincidência / Possível Recorrência
+                  </span>
+                }
+              </div>
+            }
+          </section>
+        }
+
         <!-- Card Descrição -->
         <section class="rounded-xl border border-[#e2e5ec] bg-white p-6 shadow-xs" aria-labelledby="secao-descricao-titulo">
           <h2 id="secao-descricao-titulo" class="text-sm font-bold text-[#14161b]">
@@ -693,5 +756,155 @@
         </div>
       </div>
     }
+    <!-- Modal de Resolução do Chamado (HU06) -->
+    @if (modalResolucaoAberto()) {
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-resolucao-titulo"
+      >
+        <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl border border-[#e2e5ec]">
+          <div class="flex items-center justify-between border-b border-[#f1f3f8] pb-4">
+            <div class="flex items-center gap-2">
+              <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-[#22c55e]/15 text-[#15803d]">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </span>
+              <h2 id="modal-resolucao-titulo" class="text-base font-bold text-[#14161b]">
+                Concluir e Resolver Chamado
+              </h2>
+            </div>
+            <button
+              type="button"
+              (click)="fecharModalResolucao()"
+              class="rounded-lg p-1.5 text-[#9aa2b1] hover:bg-[#f1f3f8] hover:text-[#14161b] transition cursor-pointer"
+              aria-label="Fechar modal"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="mt-4 space-y-4">
+            <p class="text-xs text-[#4b5563]">
+              Descreva a solução técnica aplicada para alimentar a base de conhecimento e encerrar o relógio de SLA deste chamado.
+            </p>
+
+            <!-- Campo Solução (Obrigatório, 10 a 2000 chars) -->
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between">
+                <label for="campo-resolucao" class="block text-xs font-bold text-[#14161b]">
+                  Descrição da Solução <span class="text-[#e5484d]">*</span>
+                </label>
+                <span class="text-[11px] text-[#6b7280]">
+                  {{ resolucaoTexto().trim().length }}/2000
+                </span>
+              </div>
+              <textarea
+                id="campo-resolucao"
+                rows="4"
+                maxlength="2000"
+                placeholder="Detalhe o procedimento ou correção aplicada (mínimo 10 caracteres)..."
+                [value]="resolucaoTexto()"
+                (input)="atualizarResolucaoTexto($any($event.target).value)"
+                class="w-full rounded-lg border bg-white p-3 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:outline-none focus:ring-2 transition"
+                [class]="erroResolucao() ? 'border-[#e5484d] focus:border-[#e5484d] focus:ring-[#e5484d]/20' : 'border-[#e2e5ec] focus:border-[#22c55e] focus:ring-[#22c55e]/20'"
+              ></textarea>
+              @if (erroResolucao(); as msgErro) {
+                <p id="erro-resolucao" class="text-[11px] font-medium text-[#e5484d] flex items-center gap-1">
+                  <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  {{ msgErro }}
+                </p>
+              }
+            </div>
+
+            <!-- Campo Causa Raiz com Chips de Sugestão -->
+            <div class="space-y-2">
+              <label for="campo-causa-raiz" class="block text-xs font-bold text-[#14161b]">
+                Classificação da Causa Raiz <span class="text-[11px] font-normal text-[#6b7280]">(opcional)</span>
+              </label>
+
+              <!-- Chips de Sugestão Rápida -->
+              <div class="flex flex-wrap gap-1.5">
+                @for (sugestao of sugestoesCausaRaiz; track sugestao) {
+                  <button
+                    type="button"
+                    (click)="selecionarSugestaoCausaRaiz(sugestao)"
+                    class="rounded-full border px-2.5 py-0.5 text-[10px] font-medium transition cursor-pointer"
+                    [class]="causaRaizTexto() === sugestao ? 'border-[#2d5bff] bg-[#e8edff] text-[#1e3fcc] font-semibold' : 'border-[#e2e5ec] bg-white text-[#4b5563] hover:border-[#9aa2b1] hover:bg-[#f8f9fc]'"
+                  >
+                    {{ sugestao }}
+                  </button>
+                }
+              </div>
+
+              <input
+                id="campo-causa-raiz"
+                type="text"
+                maxlength="1000"
+                placeholder="Informe ou selecione a causa raiz identificada..."
+                [value]="causaRaizTexto()"
+                (input)="atualizarCausaRaizTexto($any($event.target).value)"
+                class="w-full rounded-lg border border-[#e2e5ec] bg-white px-3 py-2 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:border-[#22c55e] focus:outline-none focus:ring-2 focus:ring-[#22c55e]/20 transition"
+              />
+            </div>
+
+            <!-- Checkbox Possível Recorrência / Alerta de Reincidência -->
+            <div class="rounded-lg border border-[#e2e5ec] bg-[#f8f9fc] p-3.5 flex items-start gap-3">
+              <input
+                type="checkbox"
+                id="check-possivel-recorrencia"
+                [checked]="possivelRecorrenciaCheck()"
+                (change)="alternarPossivelRecorrencia($any($event.target).checked)"
+                class="mt-0.5 h-4 w-4 rounded border-[#e2e5ec] text-[#f59e0b] focus:ring-[#f59e0b] cursor-pointer"
+              />
+              <label for="check-possivel-recorrencia" class="cursor-pointer select-none">
+                <span class="block text-xs font-bold text-[#14161b]">
+                  Alerta de Possível Recorrência
+                </span>
+                <span class="block text-[11px] text-[#6b7280]">
+                  Marque se este incidente tem risco de reincidência na unidade ou necessita de monitoramento proativo.
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Rodapé do Modal -->
+          <div class="mt-6 flex items-center justify-end gap-2.5 border-t border-[#f1f3f8] pt-4">
+            <button
+              type="button"
+              [disabled]="salvando()"
+              (click)="fecharModalResolucao()"
+              class="rounded-lg border border-[#e2e5ec] bg-white px-3.5 py-2 text-xs font-semibold text-[#4b5563] shadow-2xs hover:bg-[#f8f9fc] disabled:opacity-50 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              id="btn-confirmar-resolucao"
+              [disabled]="salvando() || !resolucaoValida()"
+              (click)="confirmarResolucao()"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-[#22c55e] px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#16a34a] disabled:opacity-50 cursor-pointer"
+            >
+              @if (salvando()) {
+                <span class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                Concluindo...
+              } @else {
+                Concluir chamado
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
   }
 </div>
