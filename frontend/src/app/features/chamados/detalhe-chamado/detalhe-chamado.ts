@@ -18,6 +18,7 @@ import {
   DirecaoContato,
   MotivoEspera,
   PrioridadeChamado,
+  PrioridadeRequest,
   ResolucaoRequest,
   StatusChamado,
   RegistroContatoRequest,
@@ -47,6 +48,34 @@ export class DetalheChamado implements OnInit {
   protected readonly statusSelecionado = signal<StatusChamado | null>(null);
   protected readonly motivoEsperaSelecionado = signal<MotivoEspera>('SOLICITANTE');
   protected readonly motivoCancelamentoTexto = signal('');
+
+  // Estados da Matriz 3D (HU04)
+  protected readonly severidade = signal<number>(2);
+  protected readonly urgencia = signal<number>(2);
+  protected readonly impacto = signal<number>(2);
+  protected readonly prioridadeManual = signal<PrioridadeChamado | null>(null);
+  protected readonly justificativaPrioridade = signal('');
+  protected readonly salvandoPrioridade = signal(false);
+
+  protected readonly prioridadeSugerida = computed<PrioridadeChamado>(() => {
+    const soma = this.severidade() + this.urgencia() + this.impacto();
+    if (soma <= 5) return 'BAIXA';
+    if (soma <= 7) return 'MEDIA';
+    return 'ALTA';
+  });
+
+  protected readonly prioridadeFinalEfetiva = computed<PrioridadeChamado>(() => {
+    return this.prioridadeManual() ?? this.prioridadeSugerida();
+  });
+
+  protected readonly temDivergencia = computed<boolean>(() => {
+    return this.prioridadeFinalEfetiva() !== this.prioridadeSugerida();
+  });
+
+  protected readonly justificativaValida = computed<boolean>(() => {
+    if (!this.temDivergencia()) return true;
+    return this.justificativaPrioridade().trim().length >= 10;
+  });
 
   // Estados do Modal de Resolução (HU06)
   protected readonly modalResolucaoAberto = signal(false);
@@ -155,7 +184,10 @@ export class DetalheChamado implements OnInit {
       .buscarPorId(id)
       .pipe(finalize(() => this.carregando.set(false)))
       .subscribe({
-        next: (dados) => this.chamado.set(dados),
+        next: (dados) => {
+          this.chamado.set(dados);
+          this.inicializarMatriz(dados);
+        },
         error: (err) => {
           const msgApi = extrairMensagensErro(err)[0];
           const msgPadrao = 'Não foi possível carregar os detalhes do chamado.';
@@ -557,5 +589,63 @@ export class DetalheChamado implements OnInit {
       .slice(0, 2)
       .join('')
       .toUpperCase();
+  }
+
+  protected selecionarSeveridade(valor: number): void {
+    this.severidade.set(valor);
+  }
+
+  protected selecionarUrgencia(valor: number): void {
+    this.urgencia.set(valor);
+  }
+
+  protected selecionarImpacto(valor: number): void {
+    this.impacto.set(valor);
+  }
+
+  protected selecionarPrioridadeFinal(prio: PrioridadeChamado): void {
+    this.prioridadeManual.set(prio);
+  }
+
+  protected inicializarMatriz(dados: ChamadoDetalhe): void {
+    if (dados.severidade) this.severidade.set(dados.severidade);
+    if (dados.urgencia) this.urgencia.set(dados.urgencia);
+    if (dados.impacto_operacional) this.impacto.set(dados.impacto_operacional);
+    if (dados.prioridade_final) this.prioridadeManual.set(dados.prioridade_final);
+    if (dados.justificativa_prioridade) this.justificativaPrioridade.set(dados.justificativa_prioridade);
+  }
+
+  protected salvarTriagemPrioridade(): void {
+    const id = this.idChamado();
+    if (!id || this.chamadoEncerrado()) return;
+
+    if (this.temDivergencia() && !this.justificativaValida()) {
+      this.toast.erro('Informe uma justificativa de no mínimo 10 caracteres para a divergência de prioridade.');
+      return;
+    }
+
+    this.salvandoPrioridade.set(true);
+    const payload: PrioridadeRequest = {
+      severidade: this.severidade(),
+      urgencia: this.urgencia(),
+      impacto_operacional: this.impacto(),
+      prioridade_final: this.prioridadeFinalEfetiva(),
+      justificativa_prioridade: this.temDivergencia() ? this.justificativaPrioridade().trim() : null,
+    };
+
+    this.chamadoService
+      .definirPrioridade(id, payload)
+      .pipe(finalize(() => this.salvandoPrioridade.set(false)))
+      .subscribe({
+        next: (dados) => {
+          this.chamado.set(dados);
+          this.inicializarMatriz(dados);
+          this.toast.sucesso('Triagem e prioridade salvas com sucesso!');
+        },
+        error: (err) => {
+          const msg = extrairMensagensErro(err)[0] ?? 'Erro ao salvar prioridade.';
+          this.toast.erro(msg);
+        },
+      });
   }
 }
