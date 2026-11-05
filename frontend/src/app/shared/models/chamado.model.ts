@@ -268,7 +268,9 @@ export interface ChamadoDetalhe {
   sistema: string;
   responsavel: ResponsavelChamado | null;
   aberto_em: string;
+  aberto_em_iso?: string;
   primeira_resposta_em?: string | null;
+  primeira_resposta_em_iso?: string | null;
   registrosContato?: RegistroContatoDetalhe[];
   evidencias: EvidenciaAnexo[];
   historico: EventoTimeline[];
@@ -278,6 +280,7 @@ export interface ChamadoDetalhe {
   escalonamentos?: EscalonamentoDetalhe[];
   relatosVinculados: RelatoVinculadoItem[];
   resolvido_em?: string | null;
+  resolvido_em_iso?: string | null;
   resolucao?: string | null;
   causa_raiz?: string | null;
   possivel_recorrencia?: boolean | null;
@@ -353,6 +356,8 @@ export interface ChamadoResumo {
   status: StatusChamado;
   /** Prioridade final; nula enquanto não houver triagem. */
   prioridade: PrioridadeChamado | null;
+  prioridade_final?: PrioridadeChamado | null;
+  prioridade_sugerida?: PrioridadeChamado | null;
   /** Ainda não vem da API (o cálculo de SLA é de outra HU); só o modo simulado preenche. */
   sla?: SlaChamado | null;
   /** Nulo quando o chamado não tem responsável ("Não atribuído"). */

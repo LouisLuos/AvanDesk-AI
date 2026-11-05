@@ -212,6 +212,21 @@ class ChamadoServiceTest {
     }
 
     @Test
+    void devePersistirPrioridadeQuandoInformadaNoRegistro() {
+        prepararCenarioValido(124L);
+
+        ChamadoRequest requestComPrioridade = new ChamadoRequest(unidadeId, CanalOrigem.LIGACAO,
+            new SolicitanteRequest("Recepção Boa Viagem", "81999999999"), "Descrição do chamado.", categoriaId, null,
+            Prioridade.ALTA, null, null);
+
+        chamadoService.registrar(requestComPrioridade);
+
+        Chamado salvo = chamadoSalvo();
+        assertEquals(Prioridade.ALTA, salvo.getPrioridadeSugerida());
+        assertEquals(Prioridade.ALTA, salvo.getPrioridadeFinal());
+    }
+
+    @Test
     void naoDeveConsultarSistemaQuandoNaoInformado() {
         prepararCenarioValido(1L);
 

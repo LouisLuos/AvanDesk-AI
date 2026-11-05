@@ -3,17 +3,20 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subscription, finalize } from 'rxjs';
 import { ChamadoService } from '../../../core/services/chamado.service';
+import { SlaService } from '../../../core/services/sla.service';
 import { UnidadeService } from '../../../core/services/unidade.service';
 import { CustomDropdown } from '../../../shared/components/custom-dropdown/custom-dropdown';
 import {
   CANAIS_ORIGEM,
   CanalOrigem,
+  ChamadoResumo,
   FilaChamados as PaginaFila,
   FiltrosFila,
   PRIORIDADES_CHAMADO,
   PrioridadeChamado,
   STATUS_CHAMADO,
   SituacaoSla,
+  SlaChamado,
   StatusChamado,
   TAMANHO_PAGINA_FILA,
 } from '../../../shared/models/chamado.model';
@@ -76,6 +79,7 @@ const ESTILO_SLA: Record<SituacaoSla, { texto: string; barra: string }> = {
 export class FilaChamados implements OnInit {
   private readonly chamadoService = inject(ChamadoService);
   private readonly unidadeService = inject(UnidadeService);
+  private readonly slaService = inject(SlaService);
   private requisicao?: Subscription;
   /** A busca do cabeçalho só recarrega depois do primeiro carregamento (ngOnInit). */
   private iniciado = false;
@@ -290,6 +294,19 @@ export class FilaChamados implements OnInit {
 
   protected marcado(evento: Event): boolean {
     return (evento.target as HTMLInputElement).checked;
+  }
+
+  protected obterPrioridade(chamado: ChamadoResumo): PrioridadeChamado | null {
+    return chamado.prioridade ?? chamado.prioridade_final ?? chamado.prioridade_sugerida ?? null;
+  }
+
+  protected obterSla(chamado: ChamadoResumo): SlaChamado {
+    if (chamado.sla) return chamado.sla;
+    return this.slaService.calcularSla({
+      aberto_em: chamado.aberto_em,
+      status: chamado.status,
+      prioridade: this.obterPrioridade(chamado),
+    });
   }
 
   protected rotuloStatus(status: StatusChamado): string {

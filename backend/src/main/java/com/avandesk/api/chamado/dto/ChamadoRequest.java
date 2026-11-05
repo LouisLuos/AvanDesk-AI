@@ -1,6 +1,7 @@
 package com.avandesk.api.chamado.dto;
 
 import com.avandesk.api.chamado.entity.CanalOrigem;
+import com.avandesk.api.chamado.entity.Prioridade;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -31,9 +32,17 @@ public record ChamadoRequest(
 
     UUID sistemaEquipamentoId,
 
+    Prioridade prioridade,
+
     Instant registroIniciadoEm,
 
     @JsonProperty("atribuir_a_mim")
     Boolean atribuirAMim
 ) {
+
+    public ChamadoRequest(UUID unidadeId, CanalOrigem canalOrigem, SolicitanteRequest solicitante,
+                          String descricao, UUID categoriaId, UUID sistemaEquipamentoId,
+                          Instant registroIniciadoEm, Boolean atribuirAMim) {
+        this(unidadeId, canalOrigem, solicitante, descricao, categoriaId, sistemaEquipamentoId, null, registroIniciadoEm, atribuirAMim);
+    }
 }

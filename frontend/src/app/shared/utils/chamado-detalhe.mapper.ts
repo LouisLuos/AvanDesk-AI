@@ -140,9 +140,11 @@ export function mapearChamadoDetalhe(
     return {
       ...entrada,
       aberto_em: formatarDataHoraLocal(entrada.aberto_em),
+      aberto_em_iso: entrada.aberto_em_iso ?? (entrada.aberto_em?.includes('T') ? entrada.aberto_em : undefined),
       primeira_resposta_em: entrada.primeira_resposta_em
         ? formatarDataHoraLocal(entrada.primeira_resposta_em)
         : null,
+      primeira_resposta_em_iso: entrada.primeira_resposta_em_iso ?? entrada.primeira_resposta_em ?? null,
       solicitante: {
         ...entrada.solicitante,
         telefoneMascarado:
@@ -155,6 +157,7 @@ export function mapearChamadoDetalhe(
       historico: entrada.historico ?? [],
       slaItens: entrada.slaItens ?? construirSlaPadrao(entrada.aberto_em, entrada.primeira_resposta_em),
       relatosVinculados: entrada.relatosVinculados ?? [],
+      resolvido_em_iso: entrada.resolvido_em_iso ?? entrada.resolvido_em ?? null,
     };
   }
 
@@ -216,9 +219,11 @@ export function mapearChamadoDetalhe(
     sistema: entrada.sistema_equipamento?.nome ?? '',
     responsavel: entrada.responsavel ?? null,
     aberto_em: formatarDataHoraLocal(entrada.aberto_em),
+    aberto_em_iso: entrada.aberto_em,
     primeira_resposta_em: entrada.primeira_resposta_em
       ? formatarDataHoraLocal(entrada.primeira_resposta_em)
       : null,
+    primeira_resposta_em_iso: entrada.primeira_resposta_em ?? null,
     registrosContato,
     escalonamentos: escalonamentosApi.map(mapearEscalonamento),
     evidencias: [],
@@ -228,6 +233,7 @@ export function mapearChamadoDetalhe(
     tempoTerceirosMinutos: calcularMinutosEmTerceiros(escalonamentosApi),
     relatosVinculados: [],
     resolvido_em: entrada.resolvido_em ? formatarDataHoraLocal(entrada.resolvido_em) : null,
+    resolvido_em_iso: entrada.resolvido_em ?? null,
     resolucao: entrada.resolucao ?? null,
     causa_raiz: (entrada as any).causa_raiz ?? (entrada as any).causaRaiz ?? null,
     possivel_recorrencia: (entrada as any).possivel_recorrencia ?? (entrada as any).possivelRecorrencia ?? null,
