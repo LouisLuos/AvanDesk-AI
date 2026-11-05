@@ -353,4 +353,139 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
     expect(toastSpy).toHaveBeenCalledWith('Status alterado para "Cancelado" com sucesso!');
     expect(component['modalStatusAberto']()).toBe(false);
   });
+
+  it('deve exibir botão de Resolver para chamados EM_ATENDIMENTO ou AGUARDANDO (HU06)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'EM_ATENDIMENTO' }));
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    const btnResolver = fixture.nativeElement.querySelector('#btn-resolver-chamado');
+    expect(btnResolver).not.toBeNull();
+    expect(component['podeResolver']()).toBe(true);
+  });
+
+  it('não deve exibir botão de Resolver para chamados ABERTO ou ENCERRADOS (HU06)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'ABERTO' }));
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    const btnResolver = fixture.nativeElement.querySelector('#btn-resolver-chamado');
+    expect(btnResolver).toBeNull();
+    expect(component['podeResolver']()).toBe(false);
+  });
+
+  it('não deve permitir resolução em branco ou com menos de 10 caracteres (HU06 / QA)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'EM_ATENDIMENTO' }));
+    const resolverSpy = vi.spyOn(chamadoService, 'resolver');
+    const toastSpy = vi.spyOn(toastService, 'erro');
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['abrirModalResolucao']();
+    expect(component['modalResolucaoAberto']()).toBe(true);
+
+    // Tentativa com campo em branco
+    component['atualizarResolucaoTexto']('   ');
+    expect(component['resolucaoValida']()).toBe(false);
+    expect(component['erroResolucao']()).toBe('A descrição da solução é obrigatória.');
+
+    component['confirmarResolucao']();
+    expect(resolverSpy).not.toHaveBeenCalled();
+    expect(toastSpy).toHaveBeenCalledWith('Preencha a descrição da solução detalhadamente (mínimo 10 caracteres).');
+
+    // Tentativa com menos de 10 caracteres
+    component['atualizarResolucaoTexto']('Curto');
+    expect(component['resolucaoValida']()).toBe(false);
+    expect(component['erroResolucao']()).toBe('A solução deve conter no mínimo 10 caracteres.');
+
+    component['confirmarResolucao']();
+    expect(resolverSpy).not.toHaveBeenCalled();
+  });
+
+  it('deve selecionar sugestão de causa raiz e alternar possível recorrência (HU06)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'EM_ATENDIMENTO' }));
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['abrirModalResolucao']();
+    component['selecionarSugestaoCausaRaiz']('Falha de hardware');
+    expect(component['causaRaizTexto']()).toBe('Falha de hardware');
+
+    component['alternarPossivelRecorrencia'](true);
+    expect(component['possivelRecorrenciaCheck']()).toBe(true);
+  });
+
+  it('deve resolver o chamado com sucesso, atualizar estado e fechar o modal (HU06)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'EM_ATENDIMENTO' }));
+    const resolvidoMock: ChamadoDetalhe = {
+      ...mockDetalhe,
+      status: 'RESOLVIDO',
+      resolvido_em: '07/10/2026 · 10:45',
+      resolucao: 'Cabo de rede substituído e porta do switch reconfigurada.',
+      causa_raiz: 'Instabilidade de rede / conectividade',
+      possivel_recorrencia: true,
+    };
+    const resolverSpy = vi.spyOn(chamadoService, 'resolver').mockReturnValue(of(resolvidoMock));
+    const toastSpy = vi.spyOn(toastService, 'sucesso');
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['abrirModalResolucao']();
+    component['atualizarResolucaoTexto']('Cabo de rede substituído e porta do switch reconfigurada.');
+    component['selecionarSugestaoCausaRaiz']('Instabilidade de rede / conectividade');
+    component['alternarPossivelRecorrencia'](true);
+
+    component['confirmarResolucao']();
+
+    expect(resolverSpy).toHaveBeenCalledWith('chm-127', {
+      resolucao: 'Cabo de rede substituído e porta do switch reconfigurada.',
+      causa_raiz: 'Instabilidade de rede / conectividade',
+      causaRaiz: 'Instabilidade de rede / conectividade',
+      possivel_recorrencia: true,
+      possivelRecorrencia: true,
+    });
+    expect(toastSpy).toHaveBeenCalledWith('Chamado resolvido com sucesso!');
+    expect(component['modalResolucaoAberto']()).toBe(false);
+    expect(component['chamado']()?.status).toBe('RESOLVIDO');
+    expect(component['chamado']()?.resolucao).toContain('Cabo de rede');
+  });
+
+  it('deve exibir o card de solução no cabeçalho quando o status for RESOLVIDO (HU06)', () => {
+    const resolvidoMock: ChamadoDetalhe = {
+      ...mockDetalhe,
+      status: 'RESOLVIDO',
+      resolvido_em: '07/10/2026 · 10:45',
+      resolucao: 'Substituição do cartucho de etiquetas e teste de calibração.',
+      causa_raiz: 'Falha de hardware',
+      possivel_recorrencia: true,
+    };
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(resolvidoMock));
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector('#card-resolucao-chamado');
+    expect(card).not.toBeNull();
+    expect(card?.textContent).toContain('Substituição do cartucho de etiquetas');
+    expect(card?.textContent).toContain('Falha de hardware');
+
+    const badgeRecorrencia = fixture.nativeElement.querySelector('#badge-alerta-recorrencia');
+    expect(badgeRecorrencia).not.toBeNull();
+    expect(badgeRecorrencia?.textContent).toContain('Alerta de Reincidência');
+
+    const badgeResolvidoEm = fixture.nativeElement.querySelector('#badge-resolvido-em');
+    expect(badgeResolvidoEm).not.toBeNull();
+    expect(badgeResolvidoEm?.textContent).toContain('07/10/2026 · 10:45');
+  });
 });
