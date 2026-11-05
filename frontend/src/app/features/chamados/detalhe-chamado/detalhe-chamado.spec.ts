@@ -622,4 +622,80 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
     expect(badgeResolvidoEm).not.toBeNull();
     expect(badgeResolvidoEm?.textContent).toContain('07/10/2026 · 10:45');
   });
+
+  describe('Triagem e Priorização pela Matriz 3D (HU04)', () => {
+    beforeEach(() => {
+      vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(mockDetalhe));
+      fixture = TestBed.createComponent(DetalheChamado);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+    });
+
+    it('deve calcular a prioridade sugerida em tempo real', () => {
+      // 1 + 1 + 1 = 3 -> BAIXA
+      component['selecionarSeveridade'](1);
+      component['selecionarUrgencia'](1);
+      component['selecionarImpacto'](1);
+      expect(component['prioridadeSugerida']()).toBe('BAIXA');
+
+      // 2 + 2 + 2 = 6 -> MEDIA (faixa 6 a 7)
+      component['selecionarSeveridade'](2);
+      component['selecionarUrgencia'](2);
+      component['selecionarImpacto'](2);
+      expect(component['prioridadeSugerida']()).toBe('MEDIA');
+
+      // 3 + 3 + 2 = 8 -> ALTA (faixa 8 a 9)
+      component['selecionarSeveridade'](3);
+      component['selecionarUrgencia'](3);
+      component['selecionarImpacto'](2);
+      expect(component['prioridadeSugerida']()).toBe('ALTA');
+    });
+
+    it('deve identificar divergência e validar justificativa', () => {
+      component['selecionarSeveridade'](1);
+      component['selecionarUrgencia'](1);
+      component['selecionarImpacto'](1); // Sugerida: BAIXA
+
+      // Sem override manual -> sem divergência
+      expect(component['temDivergencia']()).toBe(false);
+      expect(component['justificativaValida']()).toBe(true);
+
+      // Override para ALTA -> divergência ativa
+      component['selecionarPrioridadeFinal']('ALTA');
+      expect(component['temDivergencia']()).toBe(true);
+      expect(component['justificativaValida']()).toBe(false);
+
+      // Justificativa curta (< 10) -> inválida
+      component['justificativaPrioridade'].set('Curta');
+      expect(component['justificativaValida']()).toBe(false);
+
+      // Justificativa válida (>= 10) -> válida
+      component['justificativaPrioridade'].set('Justificativa válida com mais de 10 caracteres');
+      expect(component['justificativaValida']()).toBe(true);
+    });
+
+    it('deve chamar chamadoService.definirPrioridade com o payload correto', () => {
+      const definirSpy = vi.spyOn(chamadoService, 'definirPrioridade').mockReturnValue(of({
+        ...mockDetalhe,
+        prioridade: 'MEDIA',
+      }));
+      const toastSpy = vi.spyOn(toastService, 'sucesso');
+
+      component['selecionarSeveridade'](2);
+      component['selecionarUrgencia'](2);
+      component['selecionarImpacto'](2);
+      component['selecionarPrioridadeFinal']('MEDIA');
+
+      component['salvarTriagemPrioridade']();
+
+      expect(definirSpy).toHaveBeenCalledWith('chm-127', {
+        severidade: 2,
+        urgencia: 2,
+        impacto_operacional: 2,
+        prioridade_final: 'MEDIA',
+        justificativa_prioridade: null,
+      });
+      expect(toastSpy).toHaveBeenCalledWith('Triagem e prioridade salvas com sucesso!');
+    });
+  });
 });

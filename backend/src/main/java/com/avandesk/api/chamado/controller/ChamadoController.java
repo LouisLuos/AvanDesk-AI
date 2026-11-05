@@ -5,6 +5,7 @@ import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
 import com.avandesk.api.chamado.dto.FilaChamadosResponse;
 import com.avandesk.api.chamado.dto.FiltroChamados;
+import com.avandesk.api.chamado.dto.PrioridadeRequest;
 import com.avandesk.api.chamado.dto.RegistroContatoRequest;
 import com.avandesk.api.chamado.dto.ResolucaoRequest;
 import com.avandesk.api.chamado.dto.ResponsavelRequest;
@@ -146,5 +147,17 @@ public class ChamadoController {
         ChamadoDetalheResponse chamado = chamadoService.registrarContato(id, request);
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.sucesso(HttpStatus.CREATED, "Contato registrado com sucesso", chamado));
+    }
+
+    @PatchMapping("/{id}/prioridade")
+    @Operation(summary = "Define a prioridade do chamado pela Matriz 3D (HU04)",
+        description = "Calcula a prioridade sugerida com base em severidade, urgência e impacto (1 a 3). "
+            + "Se a prioridade final for diferente da sugerida, a justificativa é obrigatória. "
+            + "Grava o evento PRIORIDADE_DEFINIDA. Responde 200 com o detalhe atualizado; 400 para notas fora de 1 a 3; "
+            + "404 para chamado inexistente; 422 para divergência sem justificativa ou chamado encerrado.")
+    public ResponseEntity<ApiResponse<ChamadoDetalheResponse>> definirPrioridade(
+        @PathVariable UUID id, @Valid @RequestBody PrioridadeRequest request) {
+        ChamadoDetalheResponse chamado = chamadoService.definirPrioridade(id, request);
+        return ResponseEntity.ok(ApiResponse.sucesso(HttpStatus.OK, "Prioridade do chamado definida com sucesso", chamado));
     }
 }

@@ -128,6 +128,16 @@ export interface ChamadoDetalheApiResponse {
   };
   responsavel: ResponsavelChamado | null;
   prioridade: PrioridadeChamado | null;
+  severidade?: number | null;
+  urgencia?: number | null;
+  impacto_operacional?: number | null;
+  impactoOperacional?: number | null;
+  prioridade_sugerida?: PrioridadeChamado | null;
+  prioridadeSugerida?: PrioridadeChamado | null;
+  prioridade_final?: PrioridadeChamado | null;
+  prioridadeFinal?: PrioridadeChamado | null;
+  justificativa_prioridade?: string | null;
+  justificativaPrioridade?: string | null;
   aberto_em: string;
   primeira_resposta_em?: string | null;
   resolvido_em?: string | null;
@@ -210,6 +220,12 @@ export interface ChamadoDetalhe {
   status: StatusChamado;
   motivo_espera?: MotivoEspera | null;
   prioridade: PrioridadeChamado | null;
+  severidade?: number | null;
+  urgencia?: number | null;
+  impacto_operacional?: number | null;
+  prioridade_sugerida?: PrioridadeChamado | null;
+  prioridade_final?: PrioridadeChamado | null;
+  justificativa_prioridade?: string | null;
   categoria: string;
   sistema: string;
   responsavel: ResponsavelChamado | null;
@@ -372,4 +388,12 @@ export interface RegistroContatoRequest {
   ocorrido_em?: string;
   solicitante?: Solicitante;
   identificador_externo?: string;
+}
+
+export interface PrioridadeRequest {
+  severidade: number;
+  urgencia: number;
+  impacto_operacional: number;
+  prioridade_final?: PrioridadeChamado;
+  justificativa_prioridade?: string | null;
 }
