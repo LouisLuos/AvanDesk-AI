@@ -42,15 +42,12 @@ describe('MainLayout', () => {
     expect(renderizar(false).querySelector('#badge-modo-simulado')).toBeNull();
   });
 
-  it('deve limpar o token e os dados do usuário no storage e navegar para /login ao clicar em sair', () => {
+  it('não deve exibir dados de usuário nem botão de logout quando o usuário não estiver autenticado', () => {
     const elemento = renderizar(false);
-    const tokenStorage = TestBed.inject(TokenStorageService);
-    const authService = TestBed.inject(AuthService);
-    const router = TestBed.inject(Router);
-    const toast = TestBed.inject(ToastService);
-    const navegarSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    expect(elemento.querySelector('#btn-logout')).toBeNull();
+  });
 
-    tokenStorage.salvar('jwt-token-ativo', false);
+  it('deve limpar o token e os dados do usuário no storage e navegar para /login ao clicar em sair', () => {
     sessionStorage.setItem(
       'avandesk.user',
       JSON.stringify({
@@ -61,7 +58,17 @@ describe('MainLayout', () => {
       }),
     );
 
+    const elemento = renderizar(false);
+    const tokenStorage = TestBed.inject(TokenStorageService);
+    const authService = TestBed.inject(AuthService);
+    const router = TestBed.inject(Router);
+    const toast = TestBed.inject(ToastService);
+    const navegarSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    tokenStorage.salvar('jwt-token-ativo', false);
+
     const botaoLogout = elemento.querySelector('#btn-logout') as HTMLButtonElement;
+    expect(botaoLogout).not.toBeNull();
     botaoLogout.click();
 
     expect(tokenStorage.obter()).toBeNull();

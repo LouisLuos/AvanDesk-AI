@@ -96,6 +96,14 @@ export interface RegistroContatoApiResponse {
   registrado_por?: string | null;
 }
 
+export interface ResolucaoRequest {
+  resolucao: string;
+  causa_raiz?: string | null;
+  causaRaiz?: string | null;
+  possivel_recorrencia?: boolean | null;
+  possivelRecorrencia?: boolean | null;
+}
+
 export interface EventoHistoricoApiResponse {
   id_evento: string;
   tipo: TipoEventoHistorico | string;
@@ -122,6 +130,12 @@ export interface ChamadoDetalheApiResponse {
   prioridade: PrioridadeChamado | null;
   aberto_em: string;
   primeira_resposta_em?: string | null;
+  resolvido_em?: string | null;
+  resolucao?: string | null;
+  causa_raiz?: string | null;
+  causaRaiz?: string | null;
+  possivel_recorrencia?: boolean | null;
+  possivelRecorrencia?: boolean | null;
   origem_dado?: OrigemDado;
   registros_contato: RegistroContatoApiResponse[];
   historico: EventoHistoricoApiResponse[];
@@ -208,6 +222,10 @@ export interface ChamadoDetalhe {
   pausasMinutos?: number;
   tempoTerceirosHoras?: number;
   relatosVinculados: RelatoVinculadoItem[];
+  resolvido_em?: string | null;
+  resolucao?: string | null;
+  causa_raiz?: string | null;
+  possivel_recorrencia?: boolean | null;
   origem_dado?: OrigemDado;
 }
 

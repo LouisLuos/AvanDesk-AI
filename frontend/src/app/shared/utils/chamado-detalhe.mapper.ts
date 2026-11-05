@@ -215,6 +215,10 @@ export function mapearChamadoDetalhe(
     pausasMinutos: 0,
     tempoTerceirosHoras: 0,
     relatosVinculados: [],
+    resolvido_em: entrada.resolvido_em ? formatarDataHoraLocal(entrada.resolvido_em) : null,
+    resolucao: entrada.resolucao ?? null,
+    causa_raiz: (entrada as any).causa_raiz ?? (entrada as any).causaRaiz ?? null,
+    possivel_recorrencia: (entrada as any).possivel_recorrencia ?? (entrada as any).possivelRecorrencia ?? null,
     origem_dado: entrada.origem_dado,
   };
 }
@@ -364,11 +368,18 @@ function construirTextoEvento(
       };
     }
 
-    case 'CHAMADO_RESOLVIDO':
+    case 'CHAMADO_RESOLVIDO': {
+      const resolucao = detalhes['resolucao'] as string | undefined;
+      const causa = detalhes['causa_raiz'] as string | undefined;
+      const descPartes: string[] = [];
+      if (resolucao) descPartes.push(`Solução: "${resolucao}"`);
+      if (causa) descPartes.push(`Causa raiz: ${causa}`);
+      const infoResolucao = descPartes.length > 0 ? ` — ${descPartes.join(' | ')}` : '';
       return {
         titulo: 'Chamado resolvido',
-        descricao: sufixoAutor,
+        descricao: `${sufixoAutor}${infoResolucao}`,
       };
+    }
 
     case 'CHAMADO_REABERTO':
       return {
