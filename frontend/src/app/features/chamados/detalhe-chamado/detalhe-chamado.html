@@ -49,6 +49,18 @@
             </span>
           }
 
+          @if (item.status === 'RESOLVIDO' && item.resolvido_em) {
+            <span
+              id="badge-resolvido-em"
+              class="inline-flex items-center gap-1.5 rounded border border-[#22c55e]/30 bg-[#22c55e]/10 px-2.5 py-1 text-xs font-medium text-[#15803d]"
+            >
+              <svg class="h-3.5 w-3.5 text-[#22c55e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              Resolvido em: {{ item.resolvido_em }}
+            </span>
+          }
+
           @if (item.prioridade; as prio) {
             <span
               class="inline-flex rounded px-2.5 py-1 text-xs font-semibold"
@@ -137,13 +149,13 @@
           </button>
         }
 
-        <!-- Ações das Próximas HUs -->
+        <!-- Ação de Avaliar Prioridade (HU04) -->
         <button
           type="button"
-          (click)="acaoNaoDisponivel('Avaliar prioridade', 'Leva 2 (HU04)')"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-[#e2e5ec] bg-white px-3 py-2 text-xs font-semibold text-[#4b5563] shadow-xs transition hover:bg-[#f8f9fc]"
+          (click)="abrirModalPrioridade()"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-[#2d5bff] bg-white px-3 py-2 text-xs font-semibold text-[#2d5bff] shadow-xs transition hover:bg-[#2d5bff]/5 cursor-pointer"
         >
-          <svg class="h-3.5 w-3.5 text-[#6b7280]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
           </svg>
           Avaliar prioridade
@@ -162,28 +174,37 @@
           Mesclar
         </button>
 
-        <button
-          type="button"
-          (click)="acaoNaoDisponivel('Escalar para fornecedor', 'Leva 3 (HU07)')"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-[#e2e5ec] bg-white px-3 py-2 text-xs font-semibold text-[#4b5563] shadow-xs transition hover:bg-[#f8f9fc]"
-        >
-          <svg class="h-3.5 w-3.5 text-[#6b7280]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M5 12h14" />
-            <path d="m12 5 7 7-7 7" />
-          </svg>
-          Escalar para fornecedor
-        </button>
+        <!-- Ação HU07: Escalar para Fornecedor -->
+        @if (podeEscalar()) {
+          <button
+            type="button"
+            id="btn-escalar-fornecedor"
+            [disabled]="salvando()"
+            (click)="abrirModalEscalar()"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-[#2d5bff] bg-white px-3.5 py-2 text-xs font-semibold text-[#2d5bff] shadow-xs transition hover:bg-[#e8edff]/50 disabled:opacity-50 cursor-pointer"
+          >
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+            Escalar para fornecedor
+          </button>
+        }
 
-        <button
-          type="button"
-          (click)="acaoNaoDisponivel('Resolver chamado', 'Leva 3 (HU06)')"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-[#22c55e] bg-white px-3.5 py-2 text-xs font-semibold text-[#15803d] shadow-xs transition hover:bg-[#22c55e]/10"
-        >
-          <svg class="h-3.5 w-3.5 text-[#22c55e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-          Resolver
-        </button>
+        @if (podeResolver()) {
+          <button
+            type="button"
+            id="btn-resolver-chamado"
+            [disabled]="salvando()"
+            (click)="abrirModalResolucao()"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-[#22c55e] px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#16a34a] disabled:opacity-50 cursor-pointer"
+          >
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Resolver
+          </button>
+        }
       </div>
     </header>
 
@@ -191,6 +212,137 @@
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <!-- Coluna Esquerda: Descrição, Contatos, Evidências e Linha do Tempo -->
       <div class="space-y-6 lg:col-span-2">
+        <!-- Card Resolução do Chamado (HU06) -->
+        @if (item.status === 'RESOLVIDO' && item.resolucao) {
+          <section id="card-resolucao-chamado" class="rounded-xl border border-[#22c55e]/40 bg-[#f0fdf4] p-5 shadow-xs" aria-labelledby="secao-resolucao-titulo">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#22c55e]/20 pb-3">
+              <div class="flex items-center gap-2">
+                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-[#22c55e] text-white">
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </span>
+                <h2 id="secao-resolucao-titulo" class="text-sm font-bold text-[#15803d]">
+                  Solução Técnica Aplicada
+                </h2>
+              </div>
+              @if (item.resolvido_em) {
+                <span class="text-xs text-[#166534]">
+                  Concluído em: <strong>{{ item.resolvido_em }}</strong>
+                </span>
+              }
+            </div>
+
+            <p class="mt-3 text-xs leading-relaxed text-[#14532d] whitespace-pre-line font-medium">
+              {{ item.resolucao }}
+            </p>
+
+            @if (item.causa_raiz || item.possivel_recorrencia) {
+              <div class="mt-4 flex flex-wrap items-center gap-2 pt-3 border-t border-[#22c55e]/15">
+                @if (item.causa_raiz) {
+                  <span id="badge-causa-raiz" class="inline-flex items-center gap-1.5 rounded-md bg-white border border-[#22c55e]/30 px-2.5 py-1 text-xs font-medium text-[#166534]">
+                    <span class="font-bold text-[#15803d]">Causa raiz:</span> {{ item.causa_raiz }}
+                  </span>
+                }
+                @if (item.possivel_recorrencia) {
+                  <span id="badge-alerta-recorrencia" class="inline-flex items-center gap-1.5 rounded-md bg-[#fef3c7] border border-[#f59e0b]/40 px-2.5 py-1 text-xs font-semibold text-[#b45309]">
+                    <svg class="h-3.5 w-3.5 text-[#d97706]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                      <line x1="12" y1="9" x2="12" y2="13"/>
+                      <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    Alerta de Reincidência / Possível Recorrência
+                  </span>
+                }
+              </div>
+            }
+          </section>
+        }
+
+        <!-- Card Escalonamento para Fornecedor (HU07) -->
+        @if (item.escalonamentos?.length) {
+          <section
+            id="card-escalonamento"
+            class="rounded-xl border p-5 shadow-xs"
+            [class]="escalonamentoAberto() ? 'border-[#f59e0b]/40 bg-[#fffbeb]' : 'border-[#e2e5ec] bg-white'"
+            aria-labelledby="secao-escalonamento-titulo"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#f1f3f8] pb-3">
+              <div class="flex items-center gap-2">
+                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-[#f59e0b]/15 text-[#b45309]">
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M5 12h14" />
+                    <path d="m12 5 7 7-7 7" />
+                  </svg>
+                </span>
+                <h2 id="secao-escalonamento-titulo" class="text-sm font-bold text-[#14161b]">
+                  @if (escalonamentoAberto()) {
+                    Aguardando fornecedor
+                  } @else {
+                    Escalonamentos para fornecedor
+                  }
+                </h2>
+              </div>
+              @if (escalonamentoAberto()) {
+                <button
+                  type="button"
+                  id="btn-registrar-retorno"
+                  [disabled]="salvando()"
+                  (click)="abrirModalRetorno()"
+                  class="inline-flex items-center gap-1.5 rounded-lg bg-[#2d5bff] px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-[#1e3fcc] disabled:opacity-50 cursor-pointer"
+                >
+                  Registrar retorno do fornecedor
+                </button>
+              }
+            </div>
+
+            <ul class="mt-3 space-y-3">
+              @for (esc of item.escalonamentos; track esc.id) {
+                <li class="rounded-lg border border-[#e2e5ec] bg-white p-3.5 text-xs" [attr.data-escalonamento]="esc.id">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <span class="font-bold text-[#14161b]">{{ esc.fornecedor }}</span>
+                    @if (esc.aberto) {
+                      <span class="rounded-md border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-2 py-0.5 text-[11px] font-semibold text-[#b45309]">
+                        Aguardando retorno
+                      </span>
+                    } @else {
+                      <span class="rounded-md border border-[#22c55e]/30 bg-[#22c55e]/10 px-2 py-0.5 text-[11px] font-semibold text-[#15803d]">
+                        Retorno recebido
+                      </span>
+                    }
+                  </div>
+                  <dl class="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-[#4b5563] sm:grid-cols-2">
+                    <div>
+                      <dt class="inline text-[#6b7280]">Protocolo:</dt>
+                      <dd class="inline font-medium text-[#14161b]">{{ esc.protocoloExterno || '—' }}</dd>
+                    </div>
+                    <div>
+                      <dt class="inline text-[#6b7280]">Enviado:</dt>
+                      <dd class="inline font-medium text-[#14161b]">{{ esc.enviadoEm }} por {{ esc.enviadoPor }}</dd>
+                    </div>
+                    @if (esc.retornoEm) {
+                      <div class="sm:col-span-2">
+                        <dt class="inline text-[#6b7280]">Retorno:</dt>
+                        <dd class="inline font-medium text-[#14161b]">
+                          {{ esc.retornoEm }}@if (esc.retornoRegistradoPor) { por {{ esc.retornoRegistradoPor }}}
+                        </dd>
+                      </div>
+                    }
+                  </dl>
+                  @if (esc.observacao) {
+                    <p class="mt-2 whitespace-pre-line text-[#363b47]">{{ esc.observacao }}</p>
+                  }
+                  @if (esc.retorno) {
+                    <p class="mt-2 whitespace-pre-line rounded-md bg-[#f0fdf4] p-2 text-[#14532d]">
+                      <span class="font-bold">Resposta do fornecedor:</span> {{ esc.retorno }}
+                    </p>
+                  }
+                </li>
+              }
+            </ul>
+          </section>
+        }
+
         <!-- Card Descrição -->
         <section class="rounded-xl border border-[#e2e5ec] bg-white p-6 shadow-xs" aria-labelledby="secao-descricao-titulo">
           <h2 id="secao-descricao-titulo" class="text-sm font-bold text-[#14161b]">
@@ -214,15 +366,240 @@
           </div>
         </section>
 
-        <!-- Card Registros de Contato Associados (HU02) -->
-        @if (item.registrosContato?.length) {
-          <section class="rounded-xl border border-[#e2e5ec] bg-white p-6 shadow-xs" aria-labelledby="secao-contatos-titulo">
-            <div class="flex items-center justify-between">
-              <h2 id="secao-contatos-titulo" class="text-sm font-bold text-[#14161b]">
-                Registros de contato ({{ item.registrosContato!.length }})
-              </h2>
+        <!-- Card Seção Registrar Nova Mensagem/Contato (RN16 / HU13) -->
+        <section class="rounded-xl border border-[#e2e5ec] bg-white p-6 shadow-xs" aria-labelledby="secao-registrar-contato-titulo">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#e2e5ec] pb-4">
+            <div class="flex items-center gap-2.5">
+              <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2d5bff]/10 text-[#2d5bff]">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+              </div>
+              <div>
+                <h2 id="secao-registrar-contato-titulo" class="text-sm font-bold text-[#14161b]">
+                  Registrar Nova Mensagem / Contato
+                </h2>
+                <p class="text-[11px] text-[#6b7280]">
+                  Centralize conversas do chamado (WhatsApp, Ligação, E-mail) no ticket em vez de fragmentadas (RN16).
+                </p>
+              </div>
             </div>
+            @if (chamadoEncerrado()) {
+              <span class="rounded bg-[#94a3b8]/15 px-2.5 py-1 text-xs font-medium text-[#64748b]">
+                Chamado encerrado
+              </span>
+            }
+          </div>
 
+          @if (chamadoEncerrado()) {
+            <div class="mt-4 rounded-lg border border-[#e2e5ec] bg-[#f8f9fc] p-4 text-xs text-[#64748b]">
+              Este chamado se encontra em estado final (<strong class="font-medium text-[#14161b]">{{ rotuloStatus(item.status) }}</strong>). Conforme as regras de governança da Rede Lúmen, novos registros de contato não podem ser inseridos em chamados encerrados.
+            </div>
+          } @else {
+            <div class="mt-4 space-y-4">
+              <!-- Seletor de Canal e Direção -->
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <!-- Canal -->
+                <div>
+                  <label class="block text-xs font-semibold text-[#14161b] mb-1.5">
+                    Canal de comunicação
+                  </label>
+                  <div class="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                    @for (c of canaisDisponiveis; track c.valor) {
+                      <button
+                        type="button"
+                        (click)="selecionarCanalContato(c.valor)"
+                        class="flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition cursor-pointer"
+                        [class]="novoContatoCanal() === c.valor
+                          ? 'border-[#2d5bff] bg-[#2d5bff] text-white shadow-xs'
+                          : 'border-[#e2e5ec] bg-white text-[#4b5563] hover:bg-[#f8f9fc]'"
+                      >
+                        {{ c.rotulo }}
+                      </button>
+                    }
+                  </div>
+                </div>
+
+                <!-- Direção -->
+                <div>
+                  <label class="block text-xs font-semibold text-[#14161b] mb-1.5">
+                    Direção da interação
+                  </label>
+                  <div class="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      (click)="selecionarDirecaoContato('RECEBIDO')"
+                      class="flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition cursor-pointer"
+                      [class]="novoContatoDirecao() === 'RECEBIDO'
+                        ? 'border-[#0ea5e9] bg-[#0ea5e9] text-white shadow-xs'
+                        : 'border-[#e2e5ec] bg-white text-[#4b5563] hover:bg-[#f8f9fc]'"
+                    >
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                      </svg>
+                      Recebido do solicitante
+                    </button>
+                    <button
+                      type="button"
+                      (click)="selecionarDirecaoContato('ENVIADO')"
+                      class="flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition cursor-pointer"
+                      [class]="novoContatoDirecao() === 'ENVIADO'
+                        ? 'border-[#2d5bff] bg-[#2d5bff] text-white shadow-xs'
+                        : 'border-[#e2e5ec] bg-white text-[#4b5563] hover:bg-[#f8f9fc]'"
+                    >
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <line x1="22" y1="2" x2="11" y2="13"/>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                      </svg>
+                      Enviado pelo suporte
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quem enviou / Interlocutor (RN16) -->
+              <div class="rounded-lg border border-[#e2e5ec] bg-[#f8f9fc] p-3 text-xs">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-semibold text-[#14161b]">Interlocutor:</span>
+                    @if (!novoContatoOutroSolicitante()) {
+                      <span class="inline-flex items-center gap-1.5 rounded-md bg-white px-2 py-0.5 text-xs text-[#363b47] border border-[#e2e5ec]">
+                        <strong>{{ item.solicitante.nome || 'Solicitante original' }}</strong>
+                        <span class="font-mono text-[#6b7280]">({{ item.solicitante.telefoneMascarado || item.solicitante.contato }})</span>
+                      </span>
+                    } @else {
+                      <span class="text-[#2d5bff] font-medium">Outro profissional ou contato da unidade</span>
+                    }
+                  </div>
+                  <button
+                    type="button"
+                    (click)="alternarOutroSolicitante()"
+                    class="text-xs font-medium text-[#2d5bff] hover:underline cursor-pointer"
+                  >
+                    {{ novoContatoOutroSolicitante() ? 'Usar solicitante original' : 'Informar outro interlocutor' }}
+                  </button>
+                </div>
+
+                @if (novoContatoOutroSolicitante()) {
+                  <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-[#e2e5ec]">
+                    <div>
+                      <label for="campo-nome-contato" class="block text-[11px] font-medium text-[#4b5563] mb-1">
+                        Nome do interlocutor
+                      </label>
+                      <input
+                        id="campo-nome-contato"
+                        type="text"
+                        [value]="novoContatoNome()"
+                        (input)="atualizarNomeContato($any($event.target).value)"
+                        placeholder="Ex: Dra. Juliana (Plantão Noturno)"
+                        class="w-full rounded-md border border-[#e2e5ec] bg-white px-2.5 py-1.5 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff]"
+                      />
+                    </div>
+                    <div>
+                      <label for="campo-identificador-contato" class="block text-[11px] font-medium text-[#4b5563] mb-1">
+                        Telefone ou e-mail de contato <span class="text-[#dc2626]">*</span>
+                      </label>
+                      <input
+                        id="campo-identificador-contato"
+                        type="text"
+                        [value]="novoContatoIdentificador()"
+                        (input)="atualizarIdentificadorContato($any($event.target).value)"
+                        placeholder="Ex: +55 81 99999-8888 ou juliana@lumen.com.br"
+                        class="w-full rounded-md border border-[#e2e5ec] bg-white px-2.5 py-1.5 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff]"
+                      />
+                    </div>
+                  </div>
+                }
+              </div>
+
+              <!-- Conteúdo da Mensagem / Relato -->
+              <div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <label for="campo-conteudo-contato" class="block text-xs font-semibold text-[#14161b]">
+                    Conteúdo da mensagem / relato do contato <span class="text-[#dc2626]">*</span>
+                  </label>
+                  <span class="text-[11px] text-[#6b7280] tabular-nums">
+                    {{ novoContatoConteudo().length }}/2000 caracteres
+                  </span>
+                </div>
+                <textarea
+                  id="campo-conteudo-contato"
+                  rows="3"
+                  [value]="novoContatoConteudo()"
+                  (input)="atualizarConteudoContato($any($event.target).value)"
+                  placeholder="Descreva a mensagem recebida ou a resposta transmitida ao solicitante. Ex: Solicitante informou pelo WhatsApp que a impressora voltou a funcionar após a reinicialização da estação..."
+                  maxlength="2000"
+                  class="w-full rounded-lg border border-[#e2e5ec] bg-white p-3 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff]"
+                ></textarea>
+                @if (erroContato()) {
+                  <p class="mt-1 text-xs text-[#dc2626]">{{ erroContato() }}</p>
+                }
+              </div>
+
+              <!-- Alerta LGPD e Restrição Clínica (RN16) -->
+              <div class="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900">
+                <svg class="h-4 w-4 shrink-0 text-amber-600 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                <div class="space-y-0.5">
+                  <p class="font-semibold text-amber-950">
+                    Proibição de Dados Clínicos & LGPD (RN16)
+                  </p>
+                  <p class="text-[11px] text-amber-800 leading-relaxed">
+                    É estritamente proibido registrar laudos de exames, dados de prontuário, diagnósticos ou qualquer dado sensível de pacientes. Registre exclusivamente detalhes operacionais e técnicos do atendimento.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Ações -->
+              <div class="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  (click)="limparFormularioContato()"
+                  [disabled]="salvandoContato() || (!novoContatoConteudo() && !novoContatoOutroSolicitante())"
+                  class="rounded-lg border border-[#e2e5ec] bg-white px-3 py-1.5 text-xs font-semibold text-[#4b5563] transition hover:bg-[#f8f9fc] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  Limpar
+                </button>
+                <button
+                  type="button"
+                  (click)="registrarNovoContato()"
+                  [disabled]="salvandoContato() || !novoContatoConteudo().trim()"
+                  class="inline-flex items-center gap-1.5 rounded-lg bg-[#2d5bff] px-4 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-[#1e3fcc] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  @if (salvandoContato()) {
+                    <svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    <span>Registrando...</span>
+                  } @else {
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                      <polyline points="17 21 17 13 7 13 7 21"/>
+                      <polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    <span>Registrar Mensagem</span>
+                  }
+                </button>
+              </div>
+            </div>
+          }
+        </section>
+
+        <!-- Card Registros de Contato Associados (HU02 / HU13) -->
+        <section class="rounded-xl border border-[#e2e5ec] bg-white p-6 shadow-xs" aria-labelledby="secao-contatos-titulo">
+          <div class="flex items-center justify-between">
+            <h2 id="secao-contatos-titulo" class="text-sm font-bold text-[#14161b]">
+              Histórico de Mensagens e Contatos ({{ item.registrosContato?.length || 0 }})
+            </h2>
+            <span class="text-[11px] text-[#6b7280]">
+              {{ item.registrosContato?.length ? 'Conversas centralizadas no ticket' : 'Nenhuma interação registrada' }}
+            </span>
+          </div>
+
+          @if (item.registrosContato?.length) {
             <div class="mt-4 space-y-3">
               @for (contato of item.registrosContato; track contato.id) {
                 <article class="rounded-lg border border-[#e2e5ec] bg-[#f8f9fc] p-4 text-xs">
@@ -258,8 +635,12 @@
                 </article>
               }
             </div>
-          </section>
-        }
+          } @else {
+            <p class="mt-4 text-xs text-[#9aa2b1]">
+              Nenhum contato ou mensagem registrado neste chamado além da abertura inicial. Utilize o formulário acima para adicionar interações.
+            </p>
+          }
+        </section>
 
         <!-- Card Evidências -->
         <section class="rounded-xl border border-[#e2e5ec] bg-white p-6 shadow-xs" aria-labelledby="secao-evidencias-titulo">
@@ -351,7 +732,7 @@
           </p>
 
           <div class="mt-5 space-y-4">
-            @for (etapa of item.slaItens; track etapa.etapa) {
+            @for (etapa of slaItensDinamicos(); track etapa.etapa) {
               <div>
                 <div class="flex items-center justify-between text-xs">
                   <span class="font-semibold text-[#363b47]">{{ etapa.etapa }}</span>
@@ -377,7 +758,7 @@
               </div>
               <div class="flex justify-between">
                 <span>Tempo em terceiros</span>
-                <span class="font-medium text-[#14161b]">{{ item.tempoTerceirosHoras ?? 0 }}</span>
+                <span class="font-medium text-[#14161b]">{{ item.tempoTerceirosMinutos ?? 0 }} min</span>
               </div>
             </div>
           </div>
@@ -570,6 +951,9 @@
                 <p class="text-[11px] leading-tight text-[#6b7280]">
                   Selecione quem está impedindo a evolução do chamado:
                 </p>
+                <p id="dica-escalar-fornecedor" class="text-[11px] leading-tight text-[#6b7280]">
+                  Depende de fornecedor externo? Use <strong>Escalar para fornecedor</strong>.
+                </p>
                 <div class="mt-2 space-y-2 text-xs">
                   <div
                     (click)="selecionarMotivoEspera('SOLICITANTE')"
@@ -589,28 +973,6 @@
                       <span class="block font-medium text-[#14161b]">
                         Aguardando solicitante
                         <span class="ml-1 text-[10px] text-[#16a34a] font-semibold">(pausa relógio de SLA)</span>
-                      </span>
-                    </label>
-                  </div>
-
-                  <div
-                    (click)="selecionarMotivoEspera('FORNECEDOR')"
-                    class="flex items-start gap-2.5 rounded-lg border p-2.5 transition cursor-pointer"
-                    [class]="motivoEsperaSelecionado() === 'FORNECEDOR' ? 'border-[#2d5bff] bg-white ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] bg-white/70 hover:bg-white'"
-                  >
-                    <input
-                      type="radio"
-                      id="motivo-fornecedor"
-                      name="motivoEspera"
-                      value="FORNECEDOR"
-                      [checked]="motivoEsperaSelecionado() === 'FORNECEDOR'"
-                      (change)="selecionarMotivoEspera('FORNECEDOR')"
-                      class="mt-0.5 text-[#2d5bff] focus:ring-[#2d5bff]"
-                    />
-                    <label for="motivo-fornecedor" class="cursor-pointer">
-                      <span class="block font-medium text-[#14161b]">
-                        Fornecedor externo
-                        <span class="ml-1 text-[10px] text-[#b45309] font-semibold">(tempo em terceiros, sem pausa)</span>
                       </span>
                     </label>
                   </div>
@@ -693,5 +1055,635 @@
         </div>
       </div>
     }
+    <!-- Modal de Escalonamento para Fornecedor (HU07) -->
+    @if (modalEscalarAberto()) {
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-escalar-titulo"
+      >
+        <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl border border-[#e2e5ec]">
+          <div class="flex items-start justify-between border-b border-[#f1f3f8] pb-4">
+            <div>
+              <h2 id="modal-escalar-titulo" class="text-base font-bold text-[#14161b]">
+                Escalar para fornecedor
+              </h2>
+              <p class="mt-0.5 text-[11px] text-[#6b7280]">
+                {{ item.codigo }} · o time interno continua responsável
+              </p>
+            </div>
+            <button
+              type="button"
+              (click)="fecharModalEscalar()"
+              class="rounded-lg p-1.5 text-[#9aa2b1] hover:bg-[#f1f3f8] hover:text-[#14161b] transition cursor-pointer"
+              aria-label="Fechar modal"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="mt-4 space-y-4">
+            <div class="space-y-1.5">
+              <label for="campo-fornecedor" class="block text-xs font-bold text-[#14161b]">
+                Fornecedor externo <span class="text-[#e5484d]">*</span>
+              </label>
+              <input
+                id="campo-fornecedor"
+                type="text"
+                maxlength="120"
+                placeholder="Ex.: TechPrint Suprimentos"
+                [value]="fornecedorTexto()"
+                (input)="atualizarFornecedor($any($event.target).value)"
+                class="w-full rounded-lg border bg-white px-3 py-2 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:outline-none focus:ring-2 transition"
+                [class]="erroFornecedor() ? 'border-[#e5484d] focus:border-[#e5484d] focus:ring-[#e5484d]/20' : 'border-[#e2e5ec] focus:border-[#2d5bff] focus:ring-[#2d5bff]/20'"
+              />
+              @if (erroFornecedor(); as msgErro) {
+                <p id="erro-fornecedor" class="text-[11px] font-medium text-[#e5484d]">{{ msgErro }}</p>
+              }
+            </div>
+
+            <div class="space-y-1.5">
+              <label for="campo-protocolo-externo" class="block text-xs font-bold text-[#14161b]">
+                Protocolo do fornecedor <span class="text-[11px] font-normal text-[#6b7280]">(opcional)</span>
+              </label>
+              <input
+                id="campo-protocolo-externo"
+                type="text"
+                maxlength="100"
+                placeholder="Ex.: TP-48213 (se já existir)"
+                [value]="protocoloExternoTexto()"
+                (input)="atualizarProtocoloExterno($any($event.target).value)"
+                class="w-full rounded-lg border border-[#e2e5ec] bg-white px-3 py-2 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:border-[#2d5bff] focus:outline-none focus:ring-2 focus:ring-[#2d5bff]/20 transition"
+              />
+            </div>
+
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between">
+                <label for="campo-observacao-fornecedor" class="block text-xs font-bold text-[#14161b]">
+                  Descrição para o fornecedor <span class="text-[#e5484d]">*</span>
+                </label>
+                <span class="text-[11px] text-[#6b7280]">
+                  {{ observacaoFornecedorTexto().trim().length }}/1000
+                </span>
+              </div>
+              <textarea
+                id="campo-observacao-fornecedor"
+                rows="4"
+                maxlength="1000"
+                placeholder="O que aconteceu e o que já foi tentado. Sem dados de pacientes."
+                [value]="observacaoFornecedorTexto()"
+                (input)="atualizarObservacaoFornecedor($any($event.target).value)"
+                class="w-full rounded-lg border bg-white p-3 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:outline-none focus:ring-2 transition"
+                [class]="erroObservacaoFornecedor() ? 'border-[#e5484d] focus:border-[#e5484d] focus:ring-[#e5484d]/20' : 'border-[#e2e5ec] focus:border-[#2d5bff] focus:ring-[#2d5bff]/20'"
+              ></textarea>
+              @if (erroObservacaoFornecedor(); as msgErro) {
+                <p id="erro-observacao-fornecedor" class="text-[11px] font-medium text-[#e5484d]">{{ msgErro }}</p>
+              }
+            </div>
+
+            <div id="aviso-rn07" class="flex items-start gap-2 rounded-lg bg-[#fdebe4] p-3 text-[11px] text-[#b42318]">
+              <svg class="mt-0.5 h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span>
+                Você continua responsável pelo chamado (RN07). O tempo no fornecedor é registrado à parte e não pausa o prazo.
+              </span>
+            </div>
+          </div>
+
+          <div class="mt-6 flex items-center justify-end gap-2.5 border-t border-[#f1f3f8] pt-4">
+            <button
+              type="button"
+              [disabled]="salvando()"
+              (click)="fecharModalEscalar()"
+              class="rounded-lg border border-[#2d5bff] bg-white px-3.5 py-2 text-xs font-semibold text-[#2d5bff] shadow-2xs hover:bg-[#e8edff]/50 disabled:opacity-50 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              id="btn-confirmar-escalonamento"
+              [disabled]="salvando() || !escalonamentoValido()"
+              (click)="confirmarEscalonamento()"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-[#2d5bff] px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#1e3fcc] disabled:opacity-50 cursor-pointer"
+            >
+              @if (salvando()) {
+                <span class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                Escalando...
+              } @else {
+                Confirmar escalonamento
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Modal de Retorno do Fornecedor (HU07) -->
+    @if (modalRetornoAberto() && escalonamentoAberto(); as esc) {
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-retorno-titulo"
+      >
+        <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl border border-[#e2e5ec]">
+          <div class="flex items-start justify-between border-b border-[#f1f3f8] pb-4">
+            <div>
+              <h2 id="modal-retorno-titulo" class="text-base font-bold text-[#14161b]">
+                Retorno do fornecedor
+              </h2>
+              <p class="mt-0.5 text-[11px] text-[#6b7280]">
+                {{ esc.fornecedor }}@if (esc.protocoloExterno) { · protocolo {{ esc.protocoloExterno }}} · o chamado volta para Em Atendimento
+              </p>
+            </div>
+            <button
+              type="button"
+              (click)="fecharModalRetorno()"
+              class="rounded-lg p-1.5 text-[#9aa2b1] hover:bg-[#f1f3f8] hover:text-[#14161b] transition cursor-pointer"
+              aria-label="Fechar modal"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="mt-4 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label for="campo-retorno-fornecedor" class="block text-xs font-bold text-[#14161b]">
+                O que o fornecedor respondeu <span class="text-[#e5484d]">*</span>
+              </label>
+              <span class="text-[11px] text-[#6b7280]">{{ retornoTexto().trim().length }}/2000</span>
+            </div>
+            <textarea
+              id="campo-retorno-fornecedor"
+              rows="4"
+              maxlength="2000"
+              placeholder="Ex.: Técnico trocou a placa de alimentação; impressora testada e funcionando."
+              [value]="retornoTexto()"
+              (input)="atualizarRetornoTexto($any($event.target).value)"
+              class="w-full rounded-lg border bg-white p-3 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:outline-none focus:ring-2 transition"
+              [class]="erroRetorno() ? 'border-[#e5484d] focus:border-[#e5484d] focus:ring-[#e5484d]/20' : 'border-[#e2e5ec] focus:border-[#2d5bff] focus:ring-[#2d5bff]/20'"
+            ></textarea>
+            @if (erroRetorno(); as msgErro) {
+              <p id="erro-retorno-fornecedor" class="text-[11px] font-medium text-[#e5484d]">{{ msgErro }}</p>
+            }
+          </div>
+
+          <div class="mt-6 flex items-center justify-end gap-2.5 border-t border-[#f1f3f8] pt-4">
+            <button
+              type="button"
+              [disabled]="salvando()"
+              (click)="fecharModalRetorno()"
+              class="rounded-lg border border-[#2d5bff] bg-white px-3.5 py-2 text-xs font-semibold text-[#2d5bff] shadow-2xs hover:bg-[#e8edff]/50 disabled:opacity-50 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              id="btn-confirmar-retorno"
+              [disabled]="salvando() || !retornoValido()"
+              (click)="confirmarRetorno()"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-[#2d5bff] px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#1e3fcc] disabled:opacity-50 cursor-pointer"
+            >
+              @if (salvando()) {
+                <span class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                Registrando...
+              } @else {
+                Registrar retorno
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Modal de Resolução do Chamado (HU06) -->
+    @if (modalResolucaoAberto()) {
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-resolucao-titulo"
+      >
+        <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl border border-[#e2e5ec]">
+          <div class="flex items-center justify-between border-b border-[#f1f3f8] pb-4">
+            <div class="flex items-center gap-2">
+              <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-[#22c55e]/15 text-[#15803d]">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </span>
+              <h2 id="modal-resolucao-titulo" class="text-base font-bold text-[#14161b]">
+                Concluir e Resolver Chamado
+              </h2>
+            </div>
+            <button
+              type="button"
+              (click)="fecharModalResolucao()"
+              class="rounded-lg p-1.5 text-[#9aa2b1] hover:bg-[#f1f3f8] hover:text-[#14161b] transition cursor-pointer"
+              aria-label="Fechar modal"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="mt-4 space-y-4">
+            <p class="text-xs text-[#4b5563]">
+              Descreva a solução técnica aplicada para alimentar a base de conhecimento e encerrar o relógio de SLA deste chamado.
+            </p>
+
+            <!-- Campo Solução (Obrigatório, 10 a 2000 chars) -->
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between">
+                <label for="campo-resolucao" class="block text-xs font-bold text-[#14161b]">
+                  Descrição da Solução <span class="text-[#e5484d]">*</span>
+                </label>
+                <span class="text-[11px] text-[#6b7280]">
+                  {{ resolucaoTexto().trim().length }}/2000
+                </span>
+              </div>
+              <textarea
+                id="campo-resolucao"
+                rows="4"
+                maxlength="2000"
+                placeholder="Detalhe o procedimento ou correção aplicada (mínimo 10 caracteres)..."
+                [value]="resolucaoTexto()"
+                (input)="atualizarResolucaoTexto($any($event.target).value)"
+                class="w-full rounded-lg border bg-white p-3 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:outline-none focus:ring-2 transition"
+                [class]="erroResolucao() ? 'border-[#e5484d] focus:border-[#e5484d] focus:ring-[#e5484d]/20' : 'border-[#e2e5ec] focus:border-[#22c55e] focus:ring-[#22c55e]/20'"
+              ></textarea>
+              @if (erroResolucao(); as msgErro) {
+                <p id="erro-resolucao" class="text-[11px] font-medium text-[#e5484d] flex items-center gap-1">
+                  <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  {{ msgErro }}
+                </p>
+              }
+            </div>
+
+            <!-- Campo Causa Raiz com Chips de Sugestão -->
+            <div class="space-y-2">
+              <label for="campo-causa-raiz" class="block text-xs font-bold text-[#14161b]">
+                Classificação da Causa Raiz <span class="text-[11px] font-normal text-[#6b7280]">(opcional)</span>
+              </label>
+
+              <!-- Chips de Sugestão Rápida -->
+              <div class="flex flex-wrap gap-1.5">
+                @for (sugestao of sugestoesCausaRaiz; track sugestao) {
+                  <button
+                    type="button"
+                    (click)="selecionarSugestaoCausaRaiz(sugestao)"
+                    class="rounded-full border px-2.5 py-0.5 text-[10px] font-medium transition cursor-pointer"
+                    [class]="causaRaizTexto() === sugestao ? 'border-[#2d5bff] bg-[#e8edff] text-[#1e3fcc] font-semibold' : 'border-[#e2e5ec] bg-white text-[#4b5563] hover:border-[#9aa2b1] hover:bg-[#f8f9fc]'"
+                  >
+                    {{ sugestao }}
+                  </button>
+                }
+              </div>
+
+              <input
+                id="campo-causa-raiz"
+                type="text"
+                maxlength="1000"
+                placeholder="Informe ou selecione a causa raiz identificada..."
+                [value]="causaRaizTexto()"
+                (input)="atualizarCausaRaizTexto($any($event.target).value)"
+                class="w-full rounded-lg border border-[#e2e5ec] bg-white px-3 py-2 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:border-[#22c55e] focus:outline-none focus:ring-2 focus:ring-[#22c55e]/20 transition"
+              />
+            </div>
+
+            <!-- Checkbox Possível Recorrência / Alerta de Reincidência -->
+            <div class="rounded-lg border border-[#e2e5ec] bg-[#f8f9fc] p-3.5 flex items-start gap-3">
+              <input
+                type="checkbox"
+                id="check-possivel-recorrencia"
+                [checked]="possivelRecorrenciaCheck()"
+                (change)="alternarPossivelRecorrencia($any($event.target).checked)"
+                class="mt-0.5 h-4 w-4 rounded border-[#e2e5ec] text-[#f59e0b] focus:ring-[#f59e0b] cursor-pointer"
+              />
+              <label for="check-possivel-recorrencia" class="cursor-pointer select-none">
+                <span class="block text-xs font-bold text-[#14161b]">
+                  Alerta de Possível Recorrência
+                </span>
+                <span class="block text-[11px] text-[#6b7280]">
+                  Marque se este incidente tem risco de reincidência na unidade ou necessita de monitoramento proativo.
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Rodapé do Modal -->
+          <div class="mt-6 flex items-center justify-end gap-2.5 border-t border-[#f1f3f8] pt-4">
+            <button
+              type="button"
+              [disabled]="salvando()"
+              (click)="fecharModalResolucao()"
+              class="rounded-lg border border-[#e2e5ec] bg-white px-3.5 py-2 text-xs font-semibold text-[#4b5563] shadow-2xs hover:bg-[#f8f9fc] disabled:opacity-50 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              id="btn-confirmar-resolucao"
+              [disabled]="salvando() || !resolucaoValida()"
+              (click)="confirmarResolucao()"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-[#22c55e] px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#16a34a] disabled:opacity-50 cursor-pointer"
+            >
+              @if (salvando()) {
+                <span class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                Concluindo...
+              } @else {
+                Concluir chamado
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Modal de Avaliar Prioridade (Matriz 3D em Saúde - HU04) -->
+    @if (modalPrioridadeAberto()) {
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-prioridade-titulo"
+      >
+        <div class="fixed inset-0" (click)="fecharModalPrioridade()" aria-hidden="true"></div>
+
+        <div class="relative z-10 w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl transition-all">
+          <!-- Cabeçalho -->
+          <div class="flex items-start justify-between pb-4">
+            <div>
+              <h2 id="modal-prioridade-titulo" class="text-lg font-bold text-[#14161b]">
+                Avaliar prioridade
+              </h2>
+              <p class="text-xs text-[#6b7280]">
+                {{ item.codigo }} · {{ item.titulo }}
+              </p>
+            </div>
+            <button
+              type="button"
+              (click)="fecharModalPrioridade()"
+              class="rounded-lg p-1 text-[#9aa2b1] hover:bg-[#f1f3f8] hover:text-[#14161b] cursor-pointer"
+              aria-label="Fechar modal"
+            >
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="space-y-4 pt-1">
+            <!-- 1. Severidade -->
+            <div>
+              <label class="block text-xs font-semibold text-[#14161b]">Severidade</label>
+              <p class="text-[11px] text-[#6b7280] mb-1.5">Qual o nível de indisponibilidade?</p>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  (click)="selecionarSeveridade(1)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="severidade() === 1 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="severidade() === 1 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">1</span>
+                    <span class="text-xs font-bold text-[#14161b]">Degradado</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Funciona com contorno</p>
+                </button>
+
+                <button
+                  type="button"
+                  (click)="selecionarSeveridade(2)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="severidade() === 2 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="severidade() === 2 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">2</span>
+                    <span class="text-xs font-bold text-[#14161b]">Indisponível</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Sem contorno</p>
+                </button>
+
+                <button
+                  type="button"
+                  (click)="selecionarSeveridade(3)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="severidade() === 3 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="severidade() === 3 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">3</span>
+                    <span class="text-xs font-bold text-[#14161b]">Parado</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Totalmente indisponível</p>
+                </button>
+              </div>
+            </div>
+
+            <!-- 2. Urgência -->
+            <div>
+              <label class="block text-xs font-semibold text-[#14161b]">Urgência</label>
+              <p class="text-[11px] text-[#6b7280] mb-1.5">Qual o prazo para agir?</p>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  (click)="selecionarUrgencia(1)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="urgencia() === 1 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="urgencia() === 1 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">1</span>
+                    <span class="text-xs font-bold text-[#14161b]">Pode aguardar</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Sem impacto imediato</p>
+                </button>
+
+                <button
+                  type="button"
+                  (click)="selecionarUrgencia(2)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="urgencia() === 2 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="urgencia() === 2 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">2</span>
+                    <span class="text-xs font-bold text-[#14161b]">No dia</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Afeta o trabalho do dia</p>
+                </button>
+
+                <button
+                  type="button"
+                  (click)="selecionarUrgencia(3)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="urgencia() === 3 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="urgencia() === 3 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">3</span>
+                    <span class="text-xs font-bold text-[#14161b]">Agora</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Paciente aguardando</p>
+                </button>
+              </div>
+            </div>
+
+            <!-- 3. Impacto Operacional -->
+            <div>
+              <label class="block text-xs font-semibold text-[#14161b]">Impacto operacional</label>
+              <p class="text-[11px] text-[#6b7280] mb-1.5">Quantas pessoas ou setores são afetados?</p>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  (click)="selecionarImpacto(1)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="impacto() === 1 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="impacto() === 1 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">1</span>
+                    <span class="text-xs font-bold text-[#14161b]">Uma pessoa</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Impacto individual</p>
+                </button>
+
+                <button
+                  type="button"
+                  (click)="selecionarImpacto(2)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="impacto() === 2 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="impacto() === 2 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">2</span>
+                    <span class="text-xs font-bold text-[#14161b]">Um setor</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Parte da unidade</p>
+                </button>
+
+                <button
+                  type="button"
+                  (click)="selecionarImpacto(3)"
+                  class="rounded-xl border p-2.5 text-left transition cursor-pointer"
+                  [class]="impacto() === 3 ? 'border-[#2d5bff] bg-[#2d5bff]/10 ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] hover:bg-[#f8f9fc]'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      [class]="impacto() === 3 ? 'bg-[#2d5bff] text-white' : 'bg-[#e2e5ec] text-[#363b47]'">3</span>
+                    <span class="text-xs font-bold text-[#14161b]">Unidade inteira</span>
+                  </div>
+                  <p class="mt-1 text-[10px] text-[#6b7280]">Ou mais de uma</p>
+                </button>
+              </div>
+            </div>
+
+            <!-- Card Sugestão do Sistema -->
+            <div class="flex items-center justify-between rounded-xl border border-[#d9e2fc] bg-[#f0f5ff] p-3.5">
+              <div>
+                <p class="text-xs font-bold text-[#1e3fcc]">
+                  Soma das notas: {{ somaNotas() }}
+                </p>
+                <p class="mt-0.5 text-[11px] text-[#4b5563]">
+                  Meta de referência: {{ metaReferenciaTexto() }}
+                </p>
+              </div>
+              <div class="text-right">
+                <span class="block text-[10px] font-medium text-[#6b7280] mb-1">Sugestão do sistema</span>
+                <span
+                  class="inline-flex rounded px-2.5 py-1 text-xs font-bold"
+                  [class]="estiloPrioridade(prioridadeSugerida())"
+                >
+                  {{ prioridadeSugerida() === 'ALTA' ? 'Alta (P1)' : prioridadeSugerida() === 'MEDIA' ? 'Média (P2)' : 'Baixa (P3)' }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Formulário Final -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label for="prioridade-final-select" class="block text-xs font-semibold text-[#14161b] mb-1">
+                  Prioridade final
+                </label>
+                <select
+                  id="prioridade-final-select"
+                  [value]="prioridadeFinalEfetiva()"
+                  (change)="selecionarPrioridadeFinal($any($event.target).value)"
+                  class="w-full rounded-lg border border-[#e2e5ec] bg-white px-3 py-2 text-xs font-medium text-[#14161b] focus:border-[#2d5bff] focus:outline-none"
+                >
+                  <option value="ALTA">Alta (P1)</option>
+                  <option value="MEDIA">Média (P2)</option>
+                  <option value="BAIXA">Baixa (P3)</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="justificativa-divergencia-input" class="block text-xs font-semibold text-[#14161b] mb-1">
+                  Justificativa (se divergir da sugestão)
+                  @if (temDivergencia()) {
+                    <span class="text-[#dc2626] font-bold">*</span>
+                  }
+                </label>
+                <input
+                  id="justificativa-divergencia-input"
+                  type="text"
+                  [value]="justificativaPrioridade()"
+                  (input)="justificativaPrioridade.set($any($event.target).value)"
+                  placeholder="Opcional quando igual à sugestão"
+                  class="w-full rounded-lg border px-3 py-2 text-xs text-[#14161b] focus:outline-none"
+                  [class]="temDivergencia() && !justificativaValida() ? 'border-[#dc2626] focus:border-[#dc2626]' : 'border-[#e2e5ec] focus:border-[#2d5bff]'"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Rodapé de Ações -->
+          <div class="mt-6 flex items-center justify-end gap-2 border-t border-[#f1f3f8] pt-4">
+            <button
+              type="button"
+              [disabled]="salvandoPrioridade()"
+              (click)="fecharModalPrioridade()"
+              class="rounded-lg border border-[#e2e5ec] bg-white px-4 py-2 text-xs font-semibold text-[#4b5563] shadow-2xs hover:bg-[#f8f9fc] disabled:opacity-50 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              id="btn-confirmar-prioridade"
+              [disabled]="salvandoPrioridade() || (temDivergencia() && !justificativaValida())"
+              (click)="salvarTriagemPrioridade()"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-[#2d5bff] px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#1e3fcc] disabled:opacity-50 cursor-pointer"
+            >
+              @if (salvandoPrioridade()) {
+                <span class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                Confirmando...
+              } @else {
+                Confirmar prioridade
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
   }
 </div>

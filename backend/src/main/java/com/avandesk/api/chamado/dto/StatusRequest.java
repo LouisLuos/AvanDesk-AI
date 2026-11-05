@@ -19,6 +19,11 @@ public record StatusRequest(
     @JsonProperty("motivo_cancelamento")
     @JsonAlias({"motivoCancelamento"})
     @Size(max = 500, message = "deve ter no máximo 500 caracteres")
-    String motivoCancelamento
+    String motivoCancelamento,
+
+    @JsonProperty("motivo_reabertura")
+    @JsonAlias({"motivoReabertura"})
+    @Size(max = 500, message = "deve ter no máximo 500 caracteres")
+    String motivoReabertura
 ) {
 }

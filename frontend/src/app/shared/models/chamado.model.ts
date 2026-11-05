@@ -96,6 +96,38 @@ export interface RegistroContatoApiResponse {
   registrado_por?: string | null;
 }
 
+export interface ResolucaoRequest {
+  resolucao: string;
+  causa_raiz?: string | null;
+  causaRaiz?: string | null;
+  possivel_recorrencia?: boolean | null;
+  possivelRecorrencia?: boolean | null;
+}
+
+export interface EscalonamentoRequest {
+  fornecedor: string;
+  protocolo_externo?: string;
+  observacao?: string;
+}
+
+export interface RetornoFornecedorRequest {
+  retorno: string;
+}
+
+export interface EscalonamentoApiResponse {
+  id: string;
+  fornecedor: string;
+  protocolo_externo?: string | null;
+  observacao?: string | null;
+  enviado_em: string;
+  enviado_por: string;
+  responsavel: ResponsavelChamado | null;
+  retorno?: string | null;
+  retorno_em?: string | null;
+  retorno_registrado_por?: string | null;
+  aberto: boolean;
+}
+
 export interface EventoHistoricoApiResponse {
   id_evento: string;
   tipo: TipoEventoHistorico | string;
@@ -120,10 +152,27 @@ export interface ChamadoDetalheApiResponse {
   };
   responsavel: ResponsavelChamado | null;
   prioridade: PrioridadeChamado | null;
+  severidade?: number | null;
+  urgencia?: number | null;
+  impacto_operacional?: number | null;
+  impactoOperacional?: number | null;
+  prioridade_sugerida?: PrioridadeChamado | null;
+  prioridadeSugerida?: PrioridadeChamado | null;
+  prioridade_final?: PrioridadeChamado | null;
+  prioridadeFinal?: PrioridadeChamado | null;
+  justificativa_prioridade?: string | null;
+  justificativaPrioridade?: string | null;
   aberto_em: string;
   primeira_resposta_em?: string | null;
+  resolvido_em?: string | null;
+  resolucao?: string | null;
+  causa_raiz?: string | null;
+  causaRaiz?: string | null;
+  possivel_recorrencia?: boolean | null;
+  possivelRecorrencia?: boolean | null;
   origem_dado?: OrigemDado;
   registros_contato: RegistroContatoApiResponse[];
+  escalonamentos?: EscalonamentoApiResponse[];
   historico: EventoHistoricoApiResponse[];
 }
 
@@ -154,6 +203,19 @@ export interface RegistroContatoDetalhe {
   solicitanteNome: string;
   solicitanteContato: string;
   registradoPor?: string | null;
+}
+
+export interface EscalonamentoDetalhe {
+  id: string;
+  fornecedor: string;
+  protocoloExterno: string | null;
+  observacao: string | null;
+  enviadoEm: string;
+  enviadoPor: string;
+  retorno: string | null;
+  retornoEm: string | null;
+  retornoRegistradoPor: string | null;
+  aberto: boolean;
 }
 
 export interface EvidenciaAnexo {
@@ -196,18 +258,32 @@ export interface ChamadoDetalhe {
   status: StatusChamado;
   motivo_espera?: MotivoEspera | null;
   prioridade: PrioridadeChamado | null;
+  severidade?: number | null;
+  urgencia?: number | null;
+  impacto_operacional?: number | null;
+  prioridade_sugerida?: PrioridadeChamado | null;
+  prioridade_final?: PrioridadeChamado | null;
+  justificativa_prioridade?: string | null;
   categoria: string;
   sistema: string;
   responsavel: ResponsavelChamado | null;
   aberto_em: string;
+  aberto_em_iso?: string;
   primeira_resposta_em?: string | null;
+  primeira_resposta_em_iso?: string | null;
   registrosContato?: RegistroContatoDetalhe[];
   evidencias: EvidenciaAnexo[];
   historico: EventoTimeline[];
   slaItens: ItemSlaDetalhe[];
   pausasMinutos?: number;
-  tempoTerceirosHoras?: number;
+  tempoTerceirosMinutos?: number;
+  escalonamentos?: EscalonamentoDetalhe[];
   relatosVinculados: RelatoVinculadoItem[];
+  resolvido_em?: string | null;
+  resolvido_em_iso?: string | null;
+  resolucao?: string | null;
+  causa_raiz?: string | null;
+  possivel_recorrencia?: boolean | null;
   origem_dado?: OrigemDado;
 }
 
@@ -280,6 +356,8 @@ export interface ChamadoResumo {
   status: StatusChamado;
   /** Prioridade final; nula enquanto não houver triagem. */
   prioridade: PrioridadeChamado | null;
+  prioridade_final?: PrioridadeChamado | null;
+  prioridade_sugerida?: PrioridadeChamado | null;
   /** Ainda não vem da API (o cálculo de SLA é de outra HU); só o modo simulado preenche. */
   sla?: SlaChamado | null;
   /** Nulo quando o chamado não tem responsável ("Não atribuído"). */
@@ -319,6 +397,18 @@ export interface FilaChamados {
   totais_por_status: Record<StatusChamado, number>;
 }
 
+/** Chamados abertos por unidade numa janela de dias. Unidades sem chamados não aparecem. */
+export interface TotalChamadosPorUnidade {
+  unidade_id: string;
+  total: number;
+}
+
+/** Chamados em andamento (nem resolvidos nem encerrados) de cada responsável. Quem não tem não aparece. */
+export interface TotalChamadosPorResponsavel {
+  responsavel_id: string;
+  total: number;
+}
+
 /** Payload para atribuir/assumir responsável (HU12). */
 export interface ResponsavelRequest {
   responsavel_id: string;
@@ -332,4 +422,22 @@ export interface StatusRequest {
   motivo_cancelamento?: string | null;
   motivoEspera?: MotivoEspera | null;
   motivoCancelamento?: string | null;
+}
+
+/** Payload para registrar nova mensagem ou interação de contato em chamado aberto (RN16 / HU13). */
+export interface RegistroContatoRequest {
+  canal: CanalOrigem;
+  direcao?: DirecaoContato;
+  conteudo: string;
+  ocorrido_em?: string;
+  solicitante?: Solicitante;
+  identificador_externo?: string;
+}
+
+export interface PrioridadeRequest {
+  severidade: number;
+  urgencia: number;
+  impacto_operacional: number;
+  prioridade_final?: PrioridadeChamado;
+  justificativa_prioridade?: string | null;
 }

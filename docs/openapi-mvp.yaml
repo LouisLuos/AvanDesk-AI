@@ -121,7 +121,7 @@ components:
           example: TESTE
     ChamadoDetalheResponse:
       type: object
-      description: "Detalhe completo do chamado (HU02 + HU05): status, responsável, contatos e linha do tempo cronológica em UTC."
+      description: "Detalhe completo do chamado (HU02 + HU05): status, responsável, contatos, escalonamentos para fornecedor (HU07) e linha do tempo cronológica em UTC."
       properties:
         id:
           type: string
@@ -183,6 +183,21 @@ components:
           type: string
           format: date-time
           nullable: true
+        resolvido_em:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Data da resolução atual (HU06). Volta a null quando o chamado é reaberto."
+        resolucao:
+          type: string
+          nullable: true
+          description: "Última resolução registrada (HU06). Continua preenchida se o chamado for reaberto."
+        causa_raiz:
+          type: string
+          nullable: true
+        possivel_recorrencia:
+          type: boolean
+          example: false
         origem_dado:
           type: string
           enum: [REAL, TESTE, SIMULADO]
@@ -216,6 +231,11 @@ components:
               registrado_por:
                 type: string
                 nullable: true
+        escalonamentos:
+          type: array
+          description: "Escalonamentos para fornecedor (HU07), em ordem de envio. Vazia quando o chamado nunca foi escalado."
+          items:
+            $ref: '#/components/schemas/EscalonamentoResponse'
         historico:
           type: array
           items:
@@ -357,6 +377,217 @@ components:
           type: string
           enum: [ANALISTA_SUPORTE, LIDERANCA_TI]
           example: ANALISTA_SUPORTE
+    AnalistaRequest:
+      type: object
+      required: [nome, email]
+      properties:
+        nome:
+          type: string
+          maxLength: 120
+          example: Ana Souza
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: Domínio corporativo; é gravado em minúsculas e não pode repetir.
+          example: ana.souza@lumen.local
+    AnalistaResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+          example: Ana Souza
+        email:
+          type: string
+          example: ana.souza@lumen.local
+        ativo:
+          type: boolean
+          example: true
+        criado_em:
+          type: string
+          format: date-time
+    AnalistaCadastradoResponse:
+      type: object
+      properties:
+        analista:
+          $ref: '#/components/schemas/AnalistaResponse'
+        senha_temporaria:
+          type: string
+          description: Só aparece nesta resposta. 12 caracteres sem ambíguos (0/O, 1/l/I).
+          example: Kp7m-Qx4t-Rz9w
+    TotalPorResponsavelResponse:
+      type: object
+      properties:
+        responsavel_id:
+          type: string
+          format: uuid
+        total:
+          type: integer
+          example: 6
+    ResponsavelRequest:
+      type: object
+      required: [responsavel_id]
+      properties:
+        responsavel_id:
+          type: string
+          format: uuid
+          description: "Id de um analista de suporte ativo. Para assumir, o próprio id (o login devolve em usuario.id)."
+          example: "00000000-0000-0000-0000-0000000000a2"
+    StatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ABERTO, EM_TRIAGEM, EM_ATENDIMENTO, AGUARDANDO, RESOLVIDO, REABERTO, FECHADO, CANCELADO, MESCLADO]
+          example: AGUARDANDO
+        motivo_espera:
+          type: string
+          enum: [FORNECEDOR, SOLICITANTE, PECA_EQUIPAMENTO]
+          description: "Obrigatório para AGUARDANDO. FORNECEDOR responde 422: a espera por fornecedor entra pelo POST /chamados/{id}/escalonamentos (HU07)."
+        motivo_cancelamento:
+          type: string
+          maxLength: 500
+          description: "Obrigatório para CANCELADO."
+        motivo_reabertura:
+          type: string
+          maxLength: 500
+          description: "Obrigatório para REABERTO (HU06). Só até 7 dias depois da resolução."
+    ResolucaoRequest:
+      type: object
+      required: [resolucao]
+      properties:
+        resolucao:
+          type: string
+          minLength: 10
+          maxLength: 2000
+          example: "Cabo de rede da impressora estava solto no rack; recolocado e impressão testada."
+        causa_raiz:
+          type: string
+          maxLength: 1000
+          description: "Opcional. Em branco vira null."
+        possivel_recorrencia:
+          type: boolean
+          default: false
+          description: "Marca causa que pode se repetir (RN09)."
+    RegistroContatoRequest:
+      type: object
+      required: [canal, conteudo]
+      properties:
+        canal:
+          type: string
+          enum: [LIGACAO, PRESENCIAL, WHATSAPP, EMAIL]
+        direcao:
+          type: string
+          enum: [RECEBIDO, ENVIADO]
+          default: RECEBIDO
+        conteudo:
+          type: string
+          maxLength: 2000
+          example: "Solicitante ligou cobrando retorno."
+        ocorrido_em:
+          type: string
+          format: date-time
+          description: "Padrão: agora. Não pode estar no futuro (1 min de tolerância) nem antes do minuto da abertura do chamado."
+        solicitante:
+          type: object
+          description: "Quem relatou. Padrão: o solicitante do chamado, que não muda."
+          required: [contato]
+          properties:
+            nome:
+              type: string
+              maxLength: 120
+            contato:
+              type: string
+              maxLength: 254
+              example: "+5581987650000"
+        identificador_externo:
+          type: string
+          maxLength: 255
+          description: "ID da mensagem do WhatsApp ou Message-ID do e-mail. Único por canal (RN16)."
+    EscalonamentoRequest:
+      type: object
+      required: [fornecedor]
+      properties:
+        fornecedor:
+          type: string
+          maxLength: 120
+          description: "Texto livre (cadastro de fornecedores é decisão em aberto)."
+          example: "Philips Healthcare"
+        protocolo_externo:
+          type: string
+          maxLength: 100
+          description: "Número do atendimento no fornecedor."
+          example: "PHC-2026-88123"
+        observacao:
+          type: string
+          maxLength: 1000
+          description: "O que foi pedido ao fornecedor."
+        enviado_em:
+          type: string
+          format: date-time
+          description: "Padrão: agora. Não pode estar no futuro (1 min de tolerância), antes do minuto da abertura nem antes do retorno do escalonamento anterior."
+    RetornoFornecedorRequest:
+      type: object
+      required: [retorno]
+      properties:
+        retorno:
+          type: string
+          maxLength: 2000
+          description: "O que o fornecedor respondeu ou fez."
+          example: "Fornecedor trocou a placa e liberou o equipamento."
+        retorno_em:
+          type: string
+          format: date-time
+          description: "Padrão: agora. Não pode estar no futuro (1 min de tolerância) nem antes de enviado_em."
+    EscalonamentoResponse:
+      type: object
+      description: "Envio do chamado a um fornecedor externo e o retorno dele (HU07). Quem enviou e quem registrou o retorno vêm só pelo nome."
+      properties:
+        id:
+          type: string
+          format: uuid
+        fornecedor:
+          type: string
+          example: "Philips Healthcare"
+        protocolo_externo:
+          type: string
+          nullable: true
+        observacao:
+          type: string
+          nullable: true
+        enviado_em:
+          type: string
+          format: date-time
+        enviado_por:
+          type: string
+          example: "Analista Dev Um"
+        responsavel:
+          type: object
+          description: "Responsável interno pelo chamado no momento do envio (RN07)."
+          properties:
+            id:
+              type: string
+              format: uuid
+            nome:
+              type: string
+        retorno:
+          type: string
+          nullable: true
+        retorno_em:
+          type: string
+          format: date-time
+          nullable: true
+        retorno_registrado_por:
+          type: string
+          nullable: true
+        aberto:
+          type: boolean
+          description: "true enquanto o fornecedor não respondeu."
+          example: true
 security:
   - bearerAuth: []
 paths:
@@ -790,6 +1021,10 @@ paths:
                   format: date-time
                   description: "Opcional. Quando a tela de registro foi aberta, em UTC (métrica M11). Valor no futuro ou de mais de 2 h antes da abertura é descartado, sem recusar o chamado."
                   example: "2026-10-07T14:29:15Z"
+                atribuir_a_mim:
+                  type: boolean
+                  default: false
+                  description: "Opcional (HU12). Com true, quem registra vira o responsável e o chamado vai para EM_ATENDIMENTO, com os eventos TRIAGEM_INICIADA, CHAMADO_ATRIBUIDO e CHAMADO_TRIADO. Quem não é analista ativo recebe 422."
       responses:
         '201':
           description: Chamado criado com sucesso
@@ -819,6 +1054,28 @@ paths:
                 message: "Unidade não encontrada."
                 data: null
                 errors: null
+  /chamados/totais-por-responsavel:
+    get:
+      summary: Contar chamados em andamento por responsável (HU10)
+      description: >-
+        Em andamento é tudo o que não está resolvido nem encerrado (RESOLVIDO, FECHADO, CANCELADO e MESCLADO
+        ficam de fora). Responsáveis sem chamados não aparecem.
+      tags:
+        - Chamados
+      responses:
+        '200':
+          description: Totais por responsável
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TotalPorResponsavelResponse'
   /chamados/{id}:
     get:
       summary: Consultar o Chamado, Status, Responsável e Histórico (HU02 & HU05)
@@ -854,6 +1111,367 @@ paths:
                 message: "Chamado não encontrado."
                 data: null
                 errors: null
+  /chamados/{id}/responsavel:
+    patch:
+      summary: Assumir ou Reatribuir o Chamado (HU12)
+      description: "Só analista de suporte ativo pode ser responsável. Grava CHAMADO_ATRIBUIDO; a primeira ação preenche primeira_resposta_em."
+      tags:
+        - Chamados
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResponsavelRequest'
+      responses:
+        '200':
+          description: Responsável atribuído; devolve o detalhe atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '400':
+          description: Corpo sem responsavel_id ou com valor que não é UUID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Chamado ou usuário não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '422':
+          description: Usuário de outro perfil ou inativo, mesmo responsável ou chamado encerrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Operação não permitida"
+                data: null
+                errors:
+                  - "O chamado já está com este responsável."
+  /chamados/{id}/status:
+    patch:
+      summary: Alterar o Status do Chamado (HU12 e HU06)
+      description: "Aceita ABERTO → EM_TRIAGEM, EM_TRIAGEM → EM_ATENDIMENTO (exige responsável), EM_ATENDIMENTO ⇄ AGUARDANDO (AGUARDANDO exige motivo_espera), ABERTO/EM_TRIAGEM → CANCELADO (exige motivo_cancelamento), RESOLVIDO → REABERTO (exige motivo_reabertura, até 7 dias depois da resolução) e REABERTO → EM_ATENDIMENTO (evento ATENDIMENTO_RETOMADO, exige responsável). RESOLVIDO, FECHADO e MESCLADO têm operação própria. A espera por fornecedor (motivo FORNECEDOR) não passa por aqui: entra pelo POST /chamados/{id}/escalonamentos e sai pelo PATCH .../escalonamentos/{escalonamentoId}/retorno (HU07)."
+      tags:
+        - Chamados
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusRequest'
+      responses:
+        '200':
+          description: Status atualizado; devolve o detalhe atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '400':
+          description: Sem status, valor inexistente ou motivo com mais de 500 caracteres
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Chamado não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '422':
+          description: Transição fora do ciclo de vida, mesmo status, falta de motivo, prazo de reabertura vencido, atendimento sem responsável, chamado encerrado ou espera por fornecedor (entrar ou sair pelo status)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Operação não permitida"
+                data: null
+                errors:
+                  - "Não é possível ir de ABERTO para EM_ATENDIMENTO."
+  /chamados/{id}/resolucao:
+    patch:
+      summary: Registrar a Resolução do Chamado (HU06)
+      description: "Só a partir de EM_ATENDIMENTO ou AGUARDANDO. Grava resolvido_em e o evento CHAMADO_RESOLVIDO com status_anterior, resolucao, causa_raiz (quando houver) e possivel_recorrencia. Se o chamado aguarda fornecedor, o retorno precisa ser registrado antes (HU07). Para reabrir, use PATCH /chamados/{id}/status."
+      tags:
+        - Chamados
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolucaoRequest'
+      responses:
+        '200':
+          description: Chamado resolvido; devolve o detalhe atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '400':
+          description: Resolução ausente ou fora de 10 a 2000 caracteres, ou causa_raiz com mais de 1000
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 400
+                message: "Erro de validação"
+                data: null
+                errors:
+                  - "Campo 'resolucao' deve ter entre 10 e 2000 caracteres."
+        '404':
+          description: Chamado não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '422':
+          description: Status que não pode ir para RESOLVIDO, chamado já resolvido ou encerrado, ou chamado aguardando o retorno do fornecedor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Operação não permitida"
+                data: null
+                errors:
+                  - "Não é possível ir de ABERTO para RESOLVIDO."
+  /chamados/{id}/contatos:
+    post:
+      summary: Registrar Novo Contato em Chamado Existente (HU13)
+      description: "Grava o contato e o evento REGISTRO_DE_CONTATO_RECEBIDO (também para ENVIADO), com registro_contato_id, canal e direcao nos detalhes. Não muda o status. Um contato ENVIADO preenche primeira_resposta_em se ainda estiver vazio."
+      tags:
+        - Chamados
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistroContatoRequest'
+      responses:
+        '201':
+          description: Contato registrado; devolve o detalhe atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '400':
+          description: Campo obrigatório ausente, valor fora da lista, contato inválido, ocorrido_em no futuro ou antes da abertura, ou identificador externo repetido no canal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 400
+                message: "Erro de validação"
+                data: null
+                errors:
+                  - "Este contato já foi registrado (identificador externo repetido no canal WHATSAPP)."
+        '404':
+          description: Chamado não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '422':
+          description: Chamado fechado, cancelado ou mesclado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Operação não permitida"
+                data: null
+                errors:
+                  - "Não é possível registrar contato em um chamado CANCELADO."
+  /chamados/{id}/escalonamentos:
+    post:
+      summary: Escalar o Chamado para um Fornecedor Externo (HU07)
+      description: "Só a partir de EM_ATENDIMENTO. O chamado vai para AGUARDANDO com motivo FORNECEDOR e o responsável interno não muda (RN07). O escalonamento guarda o responsável da época e quem enviou. Grava CHAMADO_ESCALADO com status_anterior, escalonamento_id, fornecedor e protocolo_externo (quando houver)."
+      tags:
+        - Escalonamentos
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EscalonamentoRequest'
+      responses:
+        '201':
+          description: Chamado escalado; devolve o detalhe atualizado, com o escalonamento aberto no fim de escalonamentos
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '400':
+          description: Fornecedor ausente, campo acima do tamanho, enviado_em no futuro, antes da abertura ou antes do retorno do escalonamento anterior
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 400
+                message: "Erro de validação"
+                data: null
+                errors:
+                  - "Campo 'fornecedor' é obrigatório."
+        '404':
+          description: Chamado não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '422':
+          description: Chamado fora de EM_ATENDIMENTO, sem responsável ou com escalonamento ainda sem retorno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Operação não permitida"
+                data: null
+                errors:
+                  - "Só é possível escalar um chamado EM_ATENDIMENTO (status atual: ABERTO)."
+  /chamados/{id}/escalonamentos/{escalonamentoId}/retorno:
+    patch:
+      summary: Registrar o Retorno do Fornecedor (HU07)
+      description: "Fecha o escalonamento e devolve o chamado de AGUARDANDO (motivo FORNECEDOR) para EM_ATENDIMENTO. Grava RETORNO_RECEBIDO com status_anterior, escalonamento_id e fornecedor."
+      tags:
+        - Escalonamentos
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: escalonamentoId
+          required: true
+          description: "Id do item em escalonamentos no detalhe do chamado."
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetornoFornecedorRequest'
+      responses:
+        '200':
+          description: Retorno registrado; devolve o detalhe atualizado, com o escalonamento fechado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '400':
+          description: Retorno ausente ou com mais de 2000 caracteres, retorno_em no futuro ou antes do envio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 400
+                message: "Erro de validação"
+                data: null
+                errors:
+                  - "O campo 'retorno_em' não pode ser anterior ao envio ao fornecedor."
+        '404':
+          description: Chamado não encontrado, ou escalonamento inexistente ou de outro chamado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '422':
+          description: Retorno já registrado ou chamado que não está aguardando fornecedor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Operação não permitida"
+                data: null
+                errors:
+                  - "O retorno deste escalonamento já foi registrado."
   /chamados/{id}/atualizacoes:
     post:
       summary: Adicionar Atualização ao Histórico (HU02)
@@ -991,32 +1609,21 @@ paths:
                         type: string
                         format: uuid
   /analistas:
-    post:
-      summary: Cadastrar Novo Analista (HU10)
+    get:
+      summary: Listar analistas de suporte (HU10)
+      description: Qualquer usuário autenticado (alimenta a atribuição de chamados). Ordem alfabética de nome.
       tags:
         - Analistas
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                nome:
-                  type: string
-                  example: Carlos Silva
-                email:
-                  type: string
-                  example: carlos.silva@lumendiagnosticos.com.br
-                senha:
-                  type: string
-                  example: senha-inicial-segura
-                perfil:
-                  type: string
-                  example: ANALISTA_SUPORTE
+      parameters:
+        - in: query
+          name: ativo
+          required: false
+          description: Filtra só os ativos (true) ou só os inativos (false); sem ele, vêm todos.
+          schema:
+            type: boolean
       responses:
-        '201':
-          description: Analista criado com sucesso
+        '200':
+          description: Lista de analistas
           content:
             application/json:
               schema:
@@ -1025,10 +1632,153 @@ paths:
                   - $ref: '#/components/schemas/ApiResponse'
                 properties:
                   data:
-                    $ref: '#/components/schemas/UsuarioResponse'
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AnalistaResponse'
+    post:
+      summary: Cadastrar analista com senha temporária (HU10)
+      description: >-
+        Só a Liderança de TI. O perfil é sempre ANALISTA_SUPORTE e a senha é gerada pelo servidor; ela vem só
+        nesta resposta (o banco guarda apenas o hash BCrypt). O e-mail precisa ser de um domínio corporativo
+        (propriedade nexo.usuarios.dominios-email).
+      tags:
+        - Analistas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalistaRequest'
+      responses:
+        '201':
+          description: Analista cadastrado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AnalistaCadastradoResponse'
         '400':
-          description: Erro de validação
+          description: Erro de validação ou e-mail fora do domínio corporativo
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponseError'
+        '403':
+          description: Perfil diferente de Liderança de TI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '409':
+          description: E-mail já usado por outro usuário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+  /analistas/{id}:
+    put:
+      summary: Editar nome e e-mail do analista (HU10)
+      description: Só a Liderança de TI. Mudar o e-mail muda o login do analista.
+      tags:
+        - Analistas
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalistaRequest'
+      responses:
+        '200':
+          description: Analista atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AnalistaResponse'
+        '400':
+          description: Erro de validação ou e-mail fora do domínio corporativo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '403':
+          description: Perfil diferente de Liderança de TI
+        '404':
+          description: Analista não encontrado
+        '409':
+          description: E-mail já usado por outro usuário
+  /analistas/{id}/desativar:
+    patch:
+      summary: Desativar analista logicamente (HU10)
+      description: >-
+        Só a Liderança de TI. O analista perde o acesso na próxima requisição (o filtro JWT confere a situação
+        no banco) e não recebe novos chamados; continua como autor no histórico.
+      tags:
+        - Analistas
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Analista desativado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AnalistaResponse'
+        '403':
+          description: Perfil diferente de Liderança de TI
+        '404':
+          description: Analista não encontrado
+  /analistas/{id}/reativar:
+    patch:
+      summary: Reativar analista (HU10)
+      description: Só a Liderança de TI. Devolve o acesso e a possibilidade de receber chamados.
+      tags:
+        - Analistas
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Analista reativado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AnalistaResponse'
+        '403':
+          description: Perfil diferente de Liderança de TI
+        '404':
+          description: Analista não encontrado

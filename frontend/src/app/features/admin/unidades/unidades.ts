@@ -1,48 +1,69 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { finalize } from 'rxjs';
+import { catchError, finalize, forkJoin, map, of } from 'rxjs';
+import { ChamadoService } from '../../../core/services/chamado.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { UnidadeService } from '../../../core/services/unidade.service';
+import {
+  CustomDropdown,
+  OpcaoDropdown,
+} from '../../../shared/components/custom-dropdown/custom-dropdown';
 import { Modal } from '../../../shared/components/modal/modal';
 import { Unidade, UnidadeRequest } from '../../../shared/models/unidade.model';
 import { extrairMensagensErro } from '../../../shared/utils/api-error';
+import { ESTILO_SELO_NEUTRO, ESTILO_SELO_POSITIVO, classeCampo } from '../../../shared/utils/estilos';
 
-type FiltroSituacao = 'TODAS' | 'ATIVAS' | 'INATIVAS';
+type FiltroSituacao = '' | 'ATIVAS' | 'INATIVAS';
+type CampoTexto = 'nome' | 'identificacao' | 'localizacao';
+
+/** Janela da coluna "Chamados (30 d)". */
+const DIAS_CONTAGEM = 30;
 
 @Component({
   selector: 'app-unidades',
-  imports: [ReactiveFormsModule, Modal],
+  imports: [ReactiveFormsModule, Modal, CustomDropdown],
   templateUrl: './unidades.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Unidades implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly unidadeService = inject(UnidadeService);
+  private readonly chamadoService = inject(ChamadoService);
   private readonly toast = inject(ToastService);
+
+  protected readonly diasContagem = DIAS_CONTAGEM;
+  protected readonly linhasEsqueleto = [1, 2, 3, 4, 5];
+  protected readonly opcoesSituacao: OpcaoDropdown[] = [
+    { valor: 'ATIVAS', rotulo: 'Ativas' },
+    { valor: 'INATIVAS', rotulo: 'Inativas' },
+  ];
+  protected readonly estiloSim = ESTILO_SELO_POSITIVO;
+  protected readonly estiloNao = ESTILO_SELO_NEUTRO;
 
   // Listagem
   protected readonly unidades = signal<Unidade[]>([]);
+  /** Chamados por unidade na janela; nulo quando a contagem não está disponível. */
+  protected readonly chamadosPorUnidade = signal<ReadonlyMap<string, number> | null>(null);
   protected readonly carregando = signal(true);
   protected readonly erroCarregamento = signal(false);
   protected readonly busca = signal('');
-  protected readonly filtroSituacao = signal<FiltroSituacao>('TODAS');
+  protected readonly filtroSituacao = signal<FiltroSituacao>('');
 
-  protected readonly totais = computed(() => {
-    const lista = this.unidades();
-    const ativas = lista.filter((u) => u.ativo).length;
-    return { total: lista.length, ativas, inativas: lista.length - ativas };
+  protected readonly subtitulo = computed(() => {
+    const total = this.unidades().length;
+    const ativas = this.unidades().filter((u) => u.ativo).length;
+    return `${total} ${total === 1 ? 'unidade cadastrada' : 'unidades cadastradas'}, ${ativas} ${ativas === 1 ? 'ativa' : 'ativas'}.`;
   });
 
+  /** Ativas primeiro, depois por nome. */
   protected readonly unidadesFiltradas = computed(() => {
-    const termo = this.normalizar(this.busca());
+    const termo = normalizar(this.busca());
     const situacao = this.filtroSituacao();
     return this.unidades()
-      .filter((u) => situacao === 'TODAS' || (situacao === 'ATIVAS') === u.ativo)
+      .filter((u) => !situacao || (situacao === 'ATIVAS') === u.ativo)
       .filter(
         (u) =>
-          !termo ||
-          this.normalizar(u.nome).includes(termo) ||
-          this.normalizar(u.identificacao || (u as any).codigo).includes(termo),
+          !termo || [u.nome, u.identificacao, u.localizacao].some((t) => normalizar(t).includes(termo)),
       )
       .sort((a, b) => Number(b.ativo) - Number(a.ativo) || a.nome.localeCompare(b.nome, 'pt-BR'));
   });
@@ -74,11 +95,20 @@ export class Unidades implements OnInit {
   protected carregar(): void {
     this.carregando.set(true);
     this.erroCarregamento.set(false);
-    this.unidadeService
-      .listar()
+    forkJoin({
+      unidades: this.unidadeService.listar(),
+      totais: this.chamadoService.totaisPorUnidade(DIAS_CONTAGEM).pipe(
+        map((totais) => new Map(totais.map((t) => [t.unidade_id, t.total]))),
+        // A contagem é complementar: se falhar, a coluna mostra "—" e a tela segue.
+        catchError(() => of(null)),
+      ),
+    })
       .pipe(finalize(() => this.carregando.set(false)))
       .subscribe({
-        next: (lista) => this.unidades.set(lista),
+        next: ({ unidades, totais }) => {
+          this.unidades.set(unidades);
+          this.chamadosPorUnidade.set(totais);
+        },
         error: () => this.erroCarregamento.set(true),
       });
   }
@@ -87,8 +117,13 @@ export class Unidades implements OnInit {
     this.busca.set((evento.target as HTMLInputElement).value);
   }
 
-  protected alterarFiltro(evento: Event): void {
-    this.filtroSituacao.set((evento.target as HTMLSelectElement).value as FiltroSituacao);
+  protected alterarSituacao(valor: string): void {
+    this.filtroSituacao.set(valor as FiltroSituacao);
+  }
+
+  protected chamadosNaJanela(unidade: Unidade): number | null {
+    const contagem = this.chamadosPorUnidade();
+    return contagem ? (contagem.get(unidade.id) ?? 0) : null;
   }
 
   // ---------- Cadastro / edição ----------
@@ -104,9 +139,9 @@ export class Unidades implements OnInit {
     this.unidadeEmEdicao.set(unidade);
     this.form.reset({
       nome: unidade.nome,
-      identificacao: unidade.identificacao || (unidade as any).codigo || '',
-      localizacao: unidade.localizacao || '',
-      atendimento_24h: !!unidade.atendimento_24h,
+      identificacao: unidade.identificacao,
+      localizacao: unidade.localizacao ?? '',
+      atendimento_24h: unidade.atendimento_24h,
     });
     this.errosForm.set([]);
     this.modalFormAberto.set(true);
@@ -116,9 +151,13 @@ export class Unidades implements OnInit {
     if (!this.salvando()) this.modalFormAberto.set(false);
   }
 
-  protected invalido(campo: 'nome' | 'identificacao' | 'localizacao'): boolean {
+  protected invalido(campo: CampoTexto): boolean {
     const control = this.form.controls[campo];
     return control.invalid && (control.touched || control.dirty);
+  }
+
+  protected classeCampo(campo: CampoTexto, extra = ''): string {
+    return classeCampo(this.invalido(campo), extra);
   }
 
   protected salvar(): void {
@@ -155,7 +194,11 @@ export class Unidades implements OnInit {
 
   // ---------- Desativação ----------
 
-  protected confirmarDesativacao(unidade: Unidade): void {
+  /** Sai do formulário de edição e pede confirmação, para não empilhar dois modais. */
+  protected solicitarDesativacao(): void {
+    const unidade = this.unidadeEmEdicao();
+    if (!unidade) return;
+    this.modalFormAberto.set(false);
     this.unidadeParaDesativar.set(unidade);
   }
 
@@ -189,12 +232,12 @@ export class Unidades implements OnInit {
       return existe ? lista.map((u) => (u.id === unidade.id ? unidade : u)) : [...lista, unidade];
     });
   }
+}
 
-  private normalizar(texto?: string | null): string {
-    return (texto ?? '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .trim();
-  }
+function normalizar(texto?: string | null): string {
+  return (texto ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim();
 }

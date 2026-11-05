@@ -10,14 +10,22 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
 import { ChamadoService } from '../../../core/services/chamado.service';
+import { SlaService } from '../../../core/services/sla.service';
 import { ToastService } from '../../../core/services/toast.service';
 import {
+  CANAIS_ORIGEM,
   CanalOrigem,
   ChamadoDetalhe,
   DirecaoContato,
+  ItemSlaDetalhe,
+  EscalonamentoRequest,
   MotivoEspera,
   PrioridadeChamado,
+  PrioridadeRequest,
+  ResolucaoRequest,
   StatusChamado,
+  RegistroContatoRequest,
+  RetornoFornecedorRequest,
   StatusRequest,
 } from '../../../shared/models/chamado.model';
 import { extrairMensagensErro } from '../../../shared/utils/api-error';
@@ -33,6 +41,7 @@ export class DetalheChamado implements OnInit {
   private readonly chamadoService = inject(ChamadoService);
   private readonly authService = inject(AuthService);
   private readonly toast = inject(ToastService);
+  protected readonly slaService = inject(SlaService);
 
   protected readonly carregando = signal(true);
   protected readonly salvando = signal(false);
@@ -44,6 +53,266 @@ export class DetalheChamado implements OnInit {
   protected readonly statusSelecionado = signal<StatusChamado | null>(null);
   protected readonly motivoEsperaSelecionado = signal<MotivoEspera>('SOLICITANTE');
   protected readonly motivoCancelamentoTexto = signal('');
+
+  // Estados da Matriz 3D (HU04) e Modal
+  protected readonly modalPrioridadeAberto = signal(false);
+  protected readonly severidade = signal<number>(2);
+  protected readonly urgencia = signal<number>(2);
+  protected readonly impacto = signal<number>(2);
+  protected readonly prioridadeManual = signal<PrioridadeChamado | null>(null);
+  protected readonly justificativaPrioridade = signal('');
+  protected readonly salvandoPrioridade = signal(false);
+
+  protected readonly somaNotas = computed<number>(() => {
+    return this.severidade() + this.urgencia() + this.impacto();
+  });
+
+  protected readonly prioridadeSugerida = computed<PrioridadeChamado>(() => {
+    const soma = this.somaNotas();
+    if (soma <= 4) return 'BAIXA';
+    if (soma <= 6) return 'MEDIA';
+    return 'ALTA';
+  });
+
+  protected readonly metaReferenciaTexto = computed<string>(() => {
+    const prio = this.prioridadeSugerida();
+    if (prio === 'ALTA') return '1ª resposta 15 min · resolução 2 h';
+    if (prio === 'MEDIA') return '1ª resposta 1 h · resolução 8 h';
+    return '1ª resposta 4 h · resolução 3 dias úteis';
+  });
+
+  protected readonly prioridadeFinalEfetiva = computed<PrioridadeChamado>(() => {
+    return this.prioridadeManual() ?? this.prioridadeSugerida();
+  });
+
+  protected readonly temDivergencia = computed<boolean>(() => {
+    return this.prioridadeFinalEfetiva() !== this.prioridadeSugerida();
+  });
+
+  protected readonly justificativaValida = computed<boolean>(() => {
+    if (!this.temDivergencia()) return true;
+    return this.justificativaPrioridade().trim().length >= 10;
+  });
+
+  protected readonly slaItensDinamicos = computed<ItemSlaDetalhe[]>(() => {
+    const item = this.chamado();
+    if (!item) return [];
+    const agora = this.slaService.agora();
+
+    const timestampAbertura = this.slaService.parseData(item.aberto_em_iso ?? item.aberto_em);
+    const dataAbertura = isNaN(timestampAbertura) ? agora : timestampAbertura;
+    const decorridoMinutos = Math.max(0, Math.floor((agora - dataAbertura) / 60000));
+
+    // 1. Triagem
+    const temTriagem = Boolean(item.prioridade || item.prioridade_final || item.prioridade_sugerida);
+    let triagemTexto = 'Em andamento na fila';
+    let triagemProgresso = Math.min(100, Math.max(10, Math.round((decorridoMinutos / 15) * 100)));
+    let triagemEstilo = 'bg-[#14b8a6]';
+
+    if (temTriagem) {
+      triagemTexto = 'Cumprida';
+      triagemProgresso = 100;
+      triagemEstilo = 'bg-[#22c55e]';
+    } else if (decorridoMinutos > 15) {
+      triagemTexto = `Estourada · +${decorridoMinutos - 15} min`;
+      triagemProgresso = 100;
+      triagemEstilo = 'bg-[#dc2626]';
+    } else if (triagemProgresso >= 80) {
+      triagemTexto = `Em risco · restam ${15 - decorridoMinutos} min`;
+      triagemEstilo = 'bg-[#f59e0b]';
+    } else {
+      triagemTexto = `Em andamento · restam ${15 - decorridoMinutos} min`;
+    }
+
+    // 2. Primeira resposta
+    const temPrimeiraResposta = Boolean(item.primeira_resposta_em);
+    let respTexto = 'Aguardando 1ª ação';
+    let respProgresso = Math.min(100, Math.max(10, Math.round((decorridoMinutos / 15) * 100)));
+    let respEstilo = 'bg-[#9aa2b1]';
+
+    if (temPrimeiraResposta) {
+      respTexto = 'Respondido pelo suporte';
+      respProgresso = 100;
+      respEstilo = 'bg-[#22c55e]';
+    } else if (decorridoMinutos > 15) {
+      respTexto = `Estourada · +${decorridoMinutos - 15} min`;
+      respProgresso = 100;
+      respEstilo = 'bg-[#dc2626]';
+    } else if (respProgresso >= 80) {
+      respTexto = `Em risco · restam ${15 - decorridoMinutos} min`;
+      respEstilo = 'bg-[#f59e0b]';
+    }
+
+    // 3. Resolução
+    const prio = item.prioridade ?? item.prioridade_final ?? item.prioridade_sugerida;
+    let metaMinutos = 120; // Padrão Alta = 2h
+    let metaTexto = '2 h';
+    if (prio === 'MEDIA') {
+      metaMinutos = 480;
+      metaTexto = '8 h úteis';
+    } else if (prio === 'BAIXA') {
+      metaMinutos = 1440;
+      metaTexto = '3 dias úteis';
+    }
+
+    const resolProgresso = Math.round((decorridoMinutos / metaMinutos) * 100);
+    const restantes = metaMinutos - decorridoMinutos;
+    let resolTexto = `Dentro da meta · restam ${this.slaService.formatarTempo(restantes)}`;
+    let resolEstilo = 'bg-[#22c55e]';
+    let resolBarra = Math.min(100, Math.max(5, resolProgresso));
+
+    if (item.status === 'RESOLVIDO' || item.status === 'FECHADO') {
+      resolTexto = 'Cumprida com sucesso';
+      resolBarra = 100;
+      resolEstilo = 'bg-[#22c55e]';
+    } else if (item.status === 'AGUARDANDO') {
+      resolTexto = 'Pausado (aguardando retorno)';
+      resolEstilo = 'bg-[#9aa2b1]';
+    } else if (decorridoMinutos > metaMinutos) {
+      resolTexto = `Estourado · +${this.slaService.formatarTempo(decorridoMinutos - metaMinutos)}`;
+      resolBarra = 100;
+      resolEstilo = 'bg-[#dc2626]';
+    } else if (resolProgresso >= 80) {
+      resolTexto = `Em risco · restam ${this.slaService.formatarTempo(restantes)}`;
+      resolBarra = Math.min(100, resolProgresso);
+      resolEstilo = 'bg-[#f59e0b]';
+    }
+
+    return [
+      {
+        etapa: 'Triagem',
+        meta: '15 min',
+        situacaoTexto: triagemTexto,
+        progresso: triagemProgresso,
+        estiloBarra: triagemEstilo,
+      },
+      {
+        etapa: 'Primeira resposta',
+        meta: '15 min',
+        situacaoTexto: respTexto,
+        progresso: respProgresso,
+        estiloBarra: respEstilo,
+      },
+      {
+        etapa: 'Resolução',
+        meta: metaTexto,
+        situacaoTexto: resolTexto,
+        progresso: resolBarra,
+        estiloBarra: resolEstilo,
+      },
+    ];
+  });
+
+  // Estados do Modal de Resolução (HU06)
+  protected readonly modalResolucaoAberto = signal(false);
+  protected readonly resolucaoTexto = signal('');
+  protected readonly causaRaizTexto = signal('');
+  protected readonly possivelRecorrenciaCheck = signal(false);
+  protected readonly resolucaoTocou = signal(false);
+
+  protected readonly sugestoesCausaRaiz = [
+    'Falha de hardware',
+    'Falha de software / bug',
+    'Configuração incorreta',
+    'Instabilidade de rede / conectividade',
+    'Erro operacional / usuário',
+    'Problema com fornecedor externo',
+  ];
+
+  /** Enquanto espera o fornecedor (HU07), só o retorno tira o chamado de AGUARDANDO. */
+  protected readonly aguardandoFornecedor = computed(() => {
+    const c = this.chamado();
+    return c?.status === 'AGUARDANDO' && c.motivo_espera === 'FORNECEDOR';
+  });
+
+  protected readonly podeResolver = computed(() => {
+    const s = this.chamado()?.status;
+    return (s === 'EM_ATENDIMENTO' || s === 'AGUARDANDO') && !this.aguardandoFornecedor();
+  });
+
+  protected readonly resolucaoValida = computed(() => {
+    const t = this.resolucaoTexto().trim();
+    return t.length >= 10 && t.length <= 2000;
+  });
+
+  protected readonly erroResolucao = computed(() => {
+    if (!this.resolucaoTocou()) return null;
+    const t = this.resolucaoTexto().trim();
+    if (!t) return 'A descrição da solução é obrigatória.';
+    if (t.length < 10) return 'A solução deve conter no mínimo 10 caracteres.';
+    if (t.length > 2000) return 'A solução deve conter no máximo 2000 caracteres.';
+    return null;
+  });
+  protected readonly modalEscalarAberto = signal(false);
+  protected readonly fornecedorTexto = signal('');
+  protected readonly protocoloExternoTexto = signal('');
+  protected readonly observacaoFornecedorTexto = signal('');
+  protected readonly escalarTocou = signal(false);
+
+  protected readonly escalonamentoAberto = computed(
+    () => this.chamado()?.escalonamentos?.find((e) => e.aberto) ?? null,
+  );
+
+  protected readonly podeEscalar = computed(() => {
+    const c = this.chamado();
+    return !!c && c.status === 'EM_ATENDIMENTO' && !!c.responsavel && !this.escalonamentoAberto();
+  });
+
+  protected readonly erroFornecedor = computed(() => {
+    if (!this.escalarTocou()) return null;
+    const t = this.fornecedorTexto().trim();
+    if (!t) return 'Informe o fornecedor externo.';
+    if (t.length > 120) return 'O fornecedor deve ter no máximo 120 caracteres.';
+    return null;
+  });
+
+  protected readonly erroObservacaoFornecedor = computed(() => {
+    if (!this.escalarTocou()) return null;
+    const t = this.observacaoFornecedorTexto().trim();
+    if (!t) return 'Descreva o problema para o fornecedor.';
+    if (t.length > 1000) return 'A descrição deve ter no máximo 1000 caracteres.';
+    return null;
+  });
+
+  protected readonly escalonamentoValido = computed(() => {
+    const fornecedor = this.fornecedorTexto().trim();
+    const observacao = this.observacaoFornecedorTexto().trim();
+    return (
+      fornecedor.length > 0 &&
+      fornecedor.length <= 120 &&
+      this.protocoloExternoTexto().trim().length <= 100 &&
+      observacao.length > 0 &&
+      observacao.length <= 1000
+    );
+  });
+
+  protected readonly modalRetornoAberto = signal(false);
+  protected readonly retornoTexto = signal('');
+  protected readonly retornoTocou = signal(false);
+
+  protected readonly retornoValido = computed(() => {
+    const t = this.retornoTexto().trim();
+    return t.length > 0 && t.length <= 2000;
+  });
+
+  protected readonly erroRetorno = computed(() => {
+    if (!this.retornoTocou()) return null;
+    const t = this.retornoTexto().trim();
+    if (!t) return 'Descreva o retorno do fornecedor.';
+    if (t.length > 2000) return 'O retorno deve ter no máximo 2000 caracteres.';
+    return null;
+  });
+
+  // Estados do Registro de Novo Contato / Mensagem (RN16 / HU13)
+  protected readonly canaisDisponiveis = CANAIS_ORIGEM;
+  protected readonly novoContatoCanal = signal<CanalOrigem>('WHATSAPP');
+  protected readonly novoContatoDirecao = signal<DirecaoContato>('RECEBIDO');
+  protected readonly novoContatoConteudo = signal('');
+  protected readonly novoContatoOutroSolicitante = signal(false);
+  protected readonly novoContatoNome = signal('');
+  protected readonly novoContatoIdentificador = signal('');
+  protected readonly salvandoContato = signal(false);
+  protected readonly erroContato = signal<string | null>(null);
 
   protected readonly idChamado = computed(() => this.route.snapshot.paramMap.get('id') ?? '');
   protected readonly usuarioLogado = computed(() => this.authService.usuario());
@@ -74,7 +343,7 @@ export class DetalheChamado implements OnInit {
         proximos = ['AGUARDANDO'];
         break;
       case 'AGUARDANDO':
-        proximos = ['EM_ATENDIMENTO'];
+        proximos = this.aguardandoFornecedor() ? [] : ['EM_ATENDIMENTO'];
         break;
       case 'REABERTO':
         proximos = ['EM_ATENDIMENTO'];
@@ -107,7 +376,10 @@ export class DetalheChamado implements OnInit {
       .buscarPorId(id)
       .pipe(finalize(() => this.carregando.set(false)))
       .subscribe({
-        next: (dados) => this.chamado.set(dados),
+        next: (dados) => {
+          this.chamado.set(dados);
+          this.inicializarMatriz(dados);
+        },
         error: (err) => {
           const msgApi = extrairMensagensErro(err)[0];
           const msgPadrao = 'Não foi possível carregar os detalhes do chamado.';
@@ -185,6 +457,105 @@ export class DetalheChamado implements OnInit {
     this.modalStatusAberto.set(true);
   }
 
+  // Métodos de Registro de Novo Contato / Mensagem (RN16 / HU13)
+  protected selecionarCanalContato(canal: CanalOrigem): void {
+    this.novoContatoCanal.set(canal);
+  }
+
+  protected selecionarDirecaoContato(direcao: DirecaoContato): void {
+    this.novoContatoDirecao.set(direcao);
+  }
+
+  protected alternarOutroSolicitante(): void {
+    this.novoContatoOutroSolicitante.update((v) => !v);
+  }
+
+  protected atualizarConteudoContato(texto: string): void {
+    this.novoContatoConteudo.set(texto);
+    if (this.erroContato()) {
+      this.erroContato.set(null);
+    }
+  }
+
+  protected atualizarNomeContato(texto: string): void {
+    this.novoContatoNome.set(texto);
+  }
+
+  protected atualizarIdentificadorContato(texto: string): void {
+    this.novoContatoIdentificador.set(texto);
+  }
+
+  protected limparFormularioContato(): void {
+    this.novoContatoCanal.set('WHATSAPP');
+    this.novoContatoDirecao.set('RECEBIDO');
+    this.novoContatoConteudo.set('');
+    this.novoContatoOutroSolicitante.set(false);
+    this.novoContatoNome.set('');
+    this.novoContatoIdentificador.set('');
+    this.erroContato.set(null);
+  }
+
+  protected registrarNovoContato(): void {
+    if (this.chamadoEncerrado()) {
+      this.toast.info('Não é possível registrar contatos em um chamado encerrado.');
+      return;
+    }
+
+    const id = this.idChamado();
+    if (!id) return;
+
+    const conteudoLimpo = this.novoContatoConteudo().trim();
+    if (!conteudoLimpo) {
+      this.erroContato.set('Informe o conteúdo da mensagem ou relato do contato.');
+      this.toast.erro('Informe o conteúdo da mensagem ou relato do contato.');
+      return;
+    }
+
+    if (conteudoLimpo.length > 2000) {
+      this.erroContato.set('O relato deve ter no máximo 2000 caracteres.');
+      this.toast.erro('O relato deve ter no máximo 2000 caracteres.');
+      return;
+    }
+
+    const payload: RegistroContatoRequest = {
+      canal: this.novoContatoCanal(),
+      direcao: this.novoContatoDirecao(),
+      conteudo: conteudoLimpo,
+    };
+
+    if (this.novoContatoOutroSolicitante()) {
+      const identificador = this.novoContatoIdentificador().trim();
+      if (!identificador) {
+        this.erroContato.set('Informe o telefone ou e-mail do interlocutor.');
+        this.toast.erro('Informe o telefone ou e-mail do interlocutor.');
+        return;
+      }
+      payload.solicitante = {
+        nome: this.novoContatoNome().trim() || undefined,
+        contato: identificador,
+      };
+    }
+
+    this.salvandoContato.set(true);
+    this.erroContato.set(null);
+
+    this.chamadoService
+      .registrarContato(id, payload)
+      .pipe(finalize(() => this.salvandoContato.set(false)))
+      .subscribe({
+        next: (dadosAtualizados) => {
+          this.chamado.set(dadosAtualizados);
+          this.toast.sucesso('Mensagem registrada com sucesso na timeline do chamado!');
+          this.limparFormularioContato();
+        },
+        error: (err) => {
+          const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao registrar contato.';
+          this.erroContato.set(msgApi);
+          this.toast.erro(msgApi);
+        },
+      });
+  }
+
   protected fecharModalStatus(): void {
     this.modalStatusAberto.set(false);
   }
@@ -244,6 +615,193 @@ export class DetalheChamado implements OnInit {
         },
         error: (err) => {
           const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao atualizar status.';
+          this.toast.erro(msgApi);
+        },
+      });
+  }
+
+  /**
+   * Abre o modal de resolução do chamado (HU06).
+   */
+  protected abrirModalResolucao(): void {
+    if (!this.podeResolver()) {
+      this.toast.info('Para resolver o chamado, ele deve estar Em Atendimento ou Aguardando.');
+      return;
+    }
+    this.resolucaoTexto.set('');
+    this.causaRaizTexto.set('');
+    this.possivelRecorrenciaCheck.set(false);
+    this.resolucaoTocou.set(false);
+    this.modalResolucaoAberto.set(true);
+  }
+
+  protected fecharModalResolucao(): void {
+    this.modalResolucaoAberto.set(false);
+  }
+
+  protected atualizarResolucaoTexto(valor: string): void {
+    this.resolucaoTexto.set(valor);
+    this.resolucaoTocou.set(true);
+  }
+
+  protected atualizarCausaRaizTexto(valor: string): void {
+    this.causaRaizTexto.set(valor);
+  }
+
+  protected selecionarSugestaoCausaRaiz(sugestao: string): void {
+    this.causaRaizTexto.set(sugestao);
+  }
+
+  protected alternarPossivelRecorrencia(checked: boolean): void {
+    this.possivelRecorrenciaCheck.set(checked);
+  }
+
+  /**
+   * Confirma a resolução do chamado via PATCH /chamados/{id}/resolucao (HU06).
+   */
+  protected confirmarResolucao(): void {
+    this.resolucaoTocou.set(true);
+    if (!this.resolucaoValida()) {
+      this.toast.erro('Preencha a descrição da solução detalhadamente (mínimo 10 caracteres).');
+      return;
+    }
+
+    const id = this.idChamado();
+    if (!id) return;
+
+    const payload: ResolucaoRequest = {
+      resolucao: this.resolucaoTexto().trim(),
+      causa_raiz: this.causaRaizTexto().trim() || null,
+      causaRaiz: this.causaRaizTexto().trim() || null,
+      possivel_recorrencia: this.possivelRecorrenciaCheck(),
+      possivelRecorrencia: this.possivelRecorrenciaCheck(),
+    };
+
+    this.salvando.set(true);
+    this.chamadoService
+      .resolver(id, payload)
+      .pipe(finalize(() => this.salvando.set(false)))
+      .subscribe({
+        next: (dadosAtualizados) => {
+          this.chamado.set(dadosAtualizados);
+          this.toast.sucesso('Chamado resolvido com sucesso!');
+          this.fecharModalResolucao();
+        },
+        error: (err) => {
+          const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao resolver chamado.';
+          this.toast.erro(msgApi);
+        },
+      });
+  }
+
+  protected abrirModalEscalar(): void {
+    if (!this.podeEscalar()) {
+      this.toast.info('Só é possível escalar um chamado Em Atendimento, com responsável e sem escalonamento em aberto.');
+      return;
+    }
+    this.fornecedorTexto.set('');
+    this.protocoloExternoTexto.set('');
+    this.observacaoFornecedorTexto.set('');
+    this.escalarTocou.set(false);
+    this.modalEscalarAberto.set(true);
+  }
+
+  protected fecharModalEscalar(): void {
+    this.modalEscalarAberto.set(false);
+  }
+
+  protected atualizarFornecedor(valor: string): void {
+    this.fornecedorTexto.set(valor);
+  }
+
+  protected atualizarProtocoloExterno(valor: string): void {
+    this.protocoloExternoTexto.set(valor);
+  }
+
+  protected atualizarObservacaoFornecedor(valor: string): void {
+    this.observacaoFornecedorTexto.set(valor);
+  }
+
+  protected confirmarEscalonamento(): void {
+    this.escalarTocou.set(true);
+    if (!this.escalonamentoValido()) {
+      this.toast.erro('Preencha o fornecedor e a descrição para o fornecedor.');
+      return;
+    }
+
+    const id = this.idChamado();
+    if (!id) return;
+
+    const payload: EscalonamentoRequest = {
+      fornecedor: this.fornecedorTexto().trim(),
+      observacao: this.observacaoFornecedorTexto().trim(),
+    };
+    const protocolo = this.protocoloExternoTexto().trim();
+    if (protocolo) {
+      payload.protocolo_externo = protocolo;
+    }
+
+    this.salvando.set(true);
+    this.chamadoService
+      .escalar(id, payload)
+      .pipe(finalize(() => this.salvando.set(false)))
+      .subscribe({
+        next: (dadosAtualizados) => {
+          this.chamado.set(dadosAtualizados);
+          this.toast.sucesso(`Chamado escalado para ${payload.fornecedor}.`);
+          this.fecharModalEscalar();
+        },
+        error: (err) => {
+          const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao escalar o chamado.';
+          this.toast.erro(msgApi);
+        },
+      });
+  }
+
+  protected abrirModalRetorno(): void {
+    if (!this.escalonamentoAberto()) {
+      this.toast.info('Este chamado não tem escalonamento aguardando retorno.');
+      return;
+    }
+    this.retornoTexto.set('');
+    this.retornoTocou.set(false);
+    this.modalRetornoAberto.set(true);
+  }
+
+  protected fecharModalRetorno(): void {
+    this.modalRetornoAberto.set(false);
+  }
+
+  protected atualizarRetornoTexto(valor: string): void {
+    this.retornoTexto.set(valor);
+    this.retornoTocou.set(true);
+  }
+
+  protected confirmarRetorno(): void {
+    this.retornoTocou.set(true);
+    if (!this.retornoValido()) {
+      this.toast.erro('Descreva o retorno do fornecedor.');
+      return;
+    }
+
+    const id = this.idChamado();
+    const escalonamento = this.escalonamentoAberto();
+    if (!id || !escalonamento) return;
+
+    const payload: RetornoFornecedorRequest = { retorno: this.retornoTexto().trim() };
+
+    this.salvando.set(true);
+    this.chamadoService
+      .registrarRetornoFornecedor(id, escalonamento.id, payload)
+      .pipe(finalize(() => this.salvando.set(false)))
+      .subscribe({
+        next: (dadosAtualizados) => {
+          this.chamado.set(dadosAtualizados);
+          this.toast.sucesso('Retorno do fornecedor registrado. O chamado voltou para Em Atendimento.');
+          this.fecharModalRetorno();
+        },
+        error: (err) => {
+          const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao registrar o retorno do fornecedor.';
           this.toast.erro(msgApi);
         },
       });
@@ -336,5 +894,75 @@ export class DetalheChamado implements OnInit {
       .slice(0, 2)
       .join('')
       .toUpperCase();
+  }
+
+  protected selecionarSeveridade(valor: number): void {
+    this.severidade.set(valor);
+  }
+
+  protected selecionarUrgencia(valor: number): void {
+    this.urgencia.set(valor);
+  }
+
+  protected selecionarImpacto(valor: number): void {
+    this.impacto.set(valor);
+  }
+
+  protected selecionarPrioridadeFinal(prio: PrioridadeChamado): void {
+    this.prioridadeManual.set(prio);
+  }
+
+  protected abrirModalPrioridade(): void {
+    if (this.chamadoEncerrado()) return;
+    const c = this.chamado();
+    if (c) this.inicializarMatriz(c);
+    this.modalPrioridadeAberto.set(true);
+  }
+
+  protected fecharModalPrioridade(): void {
+    this.modalPrioridadeAberto.set(false);
+  }
+
+  protected inicializarMatriz(dados: ChamadoDetalhe): void {
+    if (dados.severidade) this.severidade.set(dados.severidade);
+    if (dados.urgencia) this.urgencia.set(dados.urgencia);
+    if (dados.impacto_operacional) this.impacto.set(dados.impacto_operacional);
+    if (dados.prioridade_final) this.prioridadeManual.set(dados.prioridade_final);
+    if (dados.justificativa_prioridade) this.justificativaPrioridade.set(dados.justificativa_prioridade);
+  }
+
+  protected salvarTriagemPrioridade(): void {
+    const id = this.idChamado();
+    if (!id || this.chamadoEncerrado()) return;
+
+    if (this.temDivergencia() && !this.justificativaValida()) {
+      this.toast.erro('Informe uma justificativa de no mínimo 10 caracteres para a divergência de prioridade.');
+      return;
+    }
+
+    this.salvandoPrioridade.set(true);
+    const payload: PrioridadeRequest = {
+      severidade: this.severidade(),
+      urgencia: this.urgencia(),
+      impacto_operacional: this.impacto(),
+      prioridade_final: this.prioridadeFinalEfetiva(),
+      justificativa_prioridade: this.temDivergencia() ? this.justificativaPrioridade().trim() : null,
+    };
+
+    this.chamadoService
+      .definirPrioridade(id, payload)
+      .pipe(finalize(() => this.salvandoPrioridade.set(false)))
+      .subscribe({
+        next: (dados) => {
+          this.chamado.set(dados);
+          this.inicializarMatriz(dados);
+          this.fecharModalPrioridade();
+          this.toast.sucesso('Prioridade definida com sucesso!');
+        },
+        error: (err) => {
+          const msg = extrairMensagensErro(err)[0] ?? 'Erro ao salvar prioridade.';
+          this.toast.erro(msg);
+        },
+      });
   }
 }

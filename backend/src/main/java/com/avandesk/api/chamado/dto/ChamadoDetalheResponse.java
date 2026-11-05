@@ -16,7 +16,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/** Detalhe do chamado (HU02 + HU05): dados, status, responsável, contatos e linha do tempo. */
+/** Detalhe do chamado (HU02 + HU05 + HU04/HU06): dados, status, responsável, prioridade, contatos e linha do tempo. */
 public record ChamadoDetalheResponse(
 
     UUID id,
@@ -31,14 +31,25 @@ public record ChamadoDetalheResponse(
     SolicitanteResponse solicitante,
     ResponsavelResponse responsavel,
     Prioridade prioridade,
+    Short severidade,
+    Short urgencia,
+    Short impactoOperacional,
+    Prioridade prioridadeSugerida,
+    Prioridade prioridadeFinal,
+    String justificativaPrioridade,
     Instant abertoEm,
     Instant primeiraRespostaEm,
+    Instant resolvidoEm,
+    String resolucao,
+    String causaRaiz,
+    boolean possivelRecorrencia,
     OrigemDado origemDado,
     List<RegistroContatoResponse> registrosContato,
+    List<EscalonamentoResponse> escalonamentos,
     List<EventoHistoricoResponse> historico
 ) {
 
-    /** Os contatos e os eventos já chegam em ordem de ocorrido_em. */
+    /** Os contatos e os eventos já chegam em ordem de ocorrido_em; os escalonamentos vêm do chamado, em ordem de envio. */
     public static ChamadoDetalheResponse de(Chamado chamado, List<RegistroContato> contatos,
                                             List<EventoHistorico> eventos) {
         return new ChamadoDetalheResponse(
@@ -56,10 +67,21 @@ public record ChamadoDetalheResponse(
             SolicitanteResponse.de(chamado.getSolicitante()),
             ResponsavelResponse.de(chamado.getResponsavel()),
             chamado.getPrioridadeFinal(),
+            chamado.getSeveridade(),
+            chamado.getUrgencia(),
+            chamado.getImpactoOperacional(),
+            chamado.getPrioridadeSugerida(),
+            chamado.getPrioridadeFinal(),
+            chamado.getJustificativaPrioridade(),
             chamado.getAbertoEm(),
             chamado.getPrimeiraRespostaEm(),
+            chamado.getResolvidoEm(),
+            chamado.getResolucao(),
+            chamado.getCausaRaiz(),
+            chamado.isPossivelRecorrencia(),
             chamado.getOrigemDado(),
             contatos.stream().map(RegistroContatoResponse::de).toList(),
+            chamado.getEscalonamentos().stream().map(EscalonamentoResponse::de).toList(),
             eventos.stream().map(EventoHistoricoResponse::de).toList()
         );
     }

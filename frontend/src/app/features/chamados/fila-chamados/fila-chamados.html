@@ -231,7 +231,7 @@
                     </span>
                   </td>
                   <td class="whitespace-nowrap px-2 py-3">
-                    @if (chamado.prioridade; as prioridade) {
+                    @if (obterPrioridade(chamado); as prioridade) {
                       <span class="inline-flex rounded px-2 py-1 text-[10px] font-semibold" [class]="estiloPrioridade(prioridade)">
                         {{ rotuloPrioridade(prioridade) }}
                       </span>
@@ -240,7 +240,7 @@
                     }
                   </td>
                   <td class="whitespace-nowrap px-2 py-3">
-                    @if (chamado.sla; as sla) {
+                    @if (obterSla(chamado); as sla) {
                       <div class="flex flex-col gap-1">
                         <span class="font-medium" [class]="estiloSla(sla.situacao).texto">
                           {{ sla.rotulo }}
@@ -256,8 +256,7 @@
                         }
                       </div>
                     } @else {
-                      <!-- SLA ainda não vem da API: o cálculo de prazo é de outra HU -->
-                      <span class="text-[11px] text-[#9aa2b1]" title="Disponível quando o cálculo de SLA estiver pronto.">—</span>
+                      <span class="text-[11px] text-[#9aa2b1]">—</span>
                     }
                   </td>
                   <td class="whitespace-nowrap px-2 py-3 text-[#363b47]">

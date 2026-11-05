@@ -1,4 +1,4 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
@@ -9,10 +9,16 @@ import { ToastService } from '../../../core/services/toast.service';
 import {
   ChamadoDetalhe,
   ChamadoDetalheApiResponse,
+  EscalonamentoApiResponse,
+  EscalonamentoDetalhe,
   STATUS_CHAMADO,
   StatusChamado,
 } from '../../../shared/models/chamado.model';
-import { formatarDataHoraLocal, mapearChamadoDetalhe } from '../../../shared/utils/chamado-detalhe.mapper';
+import {
+  calcularMinutosEmTerceiros,
+  formatarDataHoraLocal,
+  mapearChamadoDetalhe,
+} from '../../../shared/utils/chamado-detalhe.mapper';
 import { DetalheChamado } from './detalhe-chamado';
 
 describe('DetalheChamado Component & Integração HU02 / HU05', () => {
@@ -62,7 +68,7 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
       },
     ],
     pausasMinutos: 0,
-    tempoTerceirosHoras: 0,
+    tempoTerceirosMinutos: 0,
     relatosVinculados: [],
   };
 
@@ -352,5 +358,635 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
     }));
     expect(toastSpy).toHaveBeenCalledWith('Status alterado para "Cancelado" com sucesso!');
     expect(component['modalStatusAberto']()).toBe(false);
+  });
+
+  it('deve exibir a seção "Registrar Nova Mensagem / Contato" na tela de detalhes (RN16 / US)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(mockDetalhe));
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    const elemento = fixture.nativeElement as HTMLElement;
+    const tituloSecao = elemento.querySelector('#secao-registrar-contato-titulo');
+    expect(tituloSecao?.textContent).toContain('Registrar Nova Mensagem / Contato');
+    expect(elemento.textContent).toContain('WhatsApp');
+    expect(elemento.textContent).toContain('Recebido do solicitante');
+    expect(elemento.textContent).toContain('Proibição de Dados Clínicos & LGPD');
+  });
+
+  it('deve validar e registrar nova mensagem/contato com sucesso atualizando a timeline imediatamente (RN16 / US)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(mockDetalhe));
+
+    const mockDetalheAtualizado: ChamadoDetalhe = {
+      ...mockDetalhe,
+      registrosContato: [
+        {
+          id: 'contato-novo-1',
+          canal: 'WHATSAPP',
+          direcao: 'RECEBIDO',
+          conteudo: 'Impressora voltou a apresentar mensagem de atolamento.',
+          dataHoraLocal: '07/10/2026 10:15',
+          solicitanteNome: 'Mariana Alves',
+          solicitanteContato: '+55 81 9****-1234',
+          registradoPor: 'Ana Souza',
+        },
+      ],
+      historico: [
+        ...mockDetalhe.historico,
+        {
+          id: 'h-2',
+          tipo: 'REGISTRO_DE_CONTATO_RECEBIDO',
+          titulo: 'Contato registrado via WhatsApp (Mariana Alves)',
+          descricao: '"Impressora voltou a apresentar mensagem de atolamento." · Registrado por Ana Souza',
+          hora: '10:15',
+          dataCompleta: '07/10/2026 10:15',
+          estiloDot: 'bg-[#2d5bff]',
+        },
+      ],
+    };
+
+    const registrarSpy = vi.spyOn(chamadoService, 'registrarContato').mockReturnValue(of(mockDetalheAtualizado));
+    const toastSpy = vi.spyOn(toastService, 'sucesso');
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['selecionarCanalContato']('WHATSAPP');
+    component['selecionarDirecaoContato']('RECEBIDO');
+    component['atualizarConteudoContato']('Impressora voltou a apresentar mensagem de atolamento.');
+    component['registrarNovoContato']();
+
+    expect(registrarSpy).toHaveBeenCalledWith('chm-127', {
+      canal: 'WHATSAPP',
+      direcao: 'RECEBIDO',
+      conteudo: 'Impressora voltou a apresentar mensagem de atolamento.',
+    });
+    expect(toastSpy).toHaveBeenCalledWith('Mensagem registrada com sucesso na timeline do chamado!');
+    expect(component['chamado']()?.registrosContato?.length).toBe(1);
+    expect(component['chamado']()?.historico.length).toBe(2);
+    expect(component['novoContatoConteudo']()).toBe('');
+
+    fixture.detectChanges();
+    const elemento = fixture.nativeElement as HTMLElement;
+    expect(elemento.textContent).toContain('Impressora voltou a apresentar mensagem de atolamento.');
+    expect(elemento.textContent).toContain('Contato registrado via WhatsApp');
+  });
+
+  it('não deve permitir registro com conteúdo vazio (RN16)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(mockDetalhe));
+    const registrarSpy = vi.spyOn(chamadoService, 'registrarContato');
+    const toastSpy = vi.spyOn(toastService, 'erro');
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['atualizarConteudoContato']('   ');
+    component['registrarNovoContato']();
+
+    expect(registrarSpy).not.toHaveBeenCalled();
+    expect(toastSpy).toHaveBeenCalledWith('Informe o conteúdo da mensagem ou relato do contato.');
+    expect(component['erroContato']()).toBe('Informe o conteúdo da mensagem ou relato do contato.');
+  });
+
+  it('não deve permitir registro se o chamado estiver encerrado', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'CANCELADO' }));
+    const registrarSpy = vi.spyOn(chamadoService, 'registrarContato');
+    const toastSpy = vi.spyOn(toastService, 'info');
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['atualizarConteudoContato']('Tentando adicionar relato');
+    component['registrarNovoContato']();
+
+    expect(registrarSpy).not.toHaveBeenCalled();
+    expect(toastSpy).toHaveBeenCalledWith('Não é possível registrar contatos em um chamado encerrado.');
+  });
+
+  it('deve registrar contato com interlocutor alternativo (RN16)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(mockDetalhe));
+    const registrarSpy = vi.spyOn(chamadoService, 'registrarContato').mockReturnValue(of(mockDetalhe));
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['alternarOutroSolicitante']();
+    expect(component['novoContatoOutroSolicitante']()).toBe(true);
+
+    component['atualizarNomeContato']('Dr. Carlos Plantonista');
+    component['atualizarIdentificadorContato']('+5581987654321');
+    component['atualizarConteudoContato']('Médico informou urgência no setor de triagem.');
+    component['registrarNovoContato']();
+
+    expect(registrarSpy).toHaveBeenCalledWith('chm-127', {
+      canal: 'WHATSAPP',
+      direcao: 'RECEBIDO',
+      conteudo: 'Médico informou urgência no setor de triagem.',
+      solicitante: {
+        nome: 'Dr. Carlos Plantonista',
+        contato: '+5581987654321',
+      },
+    });
+  });
+
+  it('deve exibir botão de Resolver para chamados EM_ATENDIMENTO ou AGUARDANDO (HU06)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'EM_ATENDIMENTO' }));
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    const btnResolver = fixture.nativeElement.querySelector('#btn-resolver-chamado');
+    expect(btnResolver).not.toBeNull();
+    expect(component['podeResolver']()).toBe(true);
+  });
+
+  it('não deve exibir botão de Resolver para chamados ABERTO ou ENCERRADOS (HU06)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'ABERTO' }));
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    const btnResolver = fixture.nativeElement.querySelector('#btn-resolver-chamado');
+    expect(btnResolver).toBeNull();
+    expect(component['podeResolver']()).toBe(false);
+  });
+
+  it('não deve permitir resolução em branco ou com menos de 10 caracteres (HU06 / QA)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'EM_ATENDIMENTO' }));
+    const resolverSpy = vi.spyOn(chamadoService, 'resolver');
+    const toastSpy = vi.spyOn(toastService, 'erro');
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['abrirModalResolucao']();
+    expect(component['modalResolucaoAberto']()).toBe(true);
+
+    // Tentativa com campo em branco
+    component['atualizarResolucaoTexto']('   ');
+    expect(component['resolucaoValida']()).toBe(false);
+    expect(component['erroResolucao']()).toBe('A descrição da solução é obrigatória.');
+
+    component['confirmarResolucao']();
+    expect(resolverSpy).not.toHaveBeenCalled();
+    expect(toastSpy).toHaveBeenCalledWith('Preencha a descrição da solução detalhadamente (mínimo 10 caracteres).');
+
+    // Tentativa com menos de 10 caracteres
+    component['atualizarResolucaoTexto']('Curto');
+    expect(component['resolucaoValida']()).toBe(false);
+    expect(component['erroResolucao']()).toBe('A solução deve conter no mínimo 10 caracteres.');
+
+    component['confirmarResolucao']();
+    expect(resolverSpy).not.toHaveBeenCalled();
+  });
+
+  it('deve selecionar sugestão de causa raiz e alternar possível recorrência (HU06)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'EM_ATENDIMENTO' }));
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['abrirModalResolucao']();
+    component['selecionarSugestaoCausaRaiz']('Falha de hardware');
+    expect(component['causaRaizTexto']()).toBe('Falha de hardware');
+
+    component['alternarPossivelRecorrencia'](true);
+    expect(component['possivelRecorrenciaCheck']()).toBe(true);
+  });
+
+  it('deve resolver o chamado com sucesso, atualizar estado e fechar o modal (HU06)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, status: 'EM_ATENDIMENTO' }));
+    const resolvidoMock: ChamadoDetalhe = {
+      ...mockDetalhe,
+      status: 'RESOLVIDO',
+      resolvido_em: '07/10/2026 · 10:45',
+      resolucao: 'Cabo de rede substituído e porta do switch reconfigurada.',
+      causa_raiz: 'Instabilidade de rede / conectividade',
+      possivel_recorrencia: true,
+    };
+    const resolverSpy = vi.spyOn(chamadoService, 'resolver').mockReturnValue(of(resolvidoMock));
+    const toastSpy = vi.spyOn(toastService, 'sucesso');
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['abrirModalResolucao']();
+    component['atualizarResolucaoTexto']('Cabo de rede substituído e porta do switch reconfigurada.');
+    component['selecionarSugestaoCausaRaiz']('Instabilidade de rede / conectividade');
+    component['alternarPossivelRecorrencia'](true);
+
+    component['confirmarResolucao']();
+
+    expect(resolverSpy).toHaveBeenCalledWith('chm-127', {
+      resolucao: 'Cabo de rede substituído e porta do switch reconfigurada.',
+      causa_raiz: 'Instabilidade de rede / conectividade',
+      causaRaiz: 'Instabilidade de rede / conectividade',
+      possivel_recorrencia: true,
+      possivelRecorrencia: true,
+    });
+    expect(toastSpy).toHaveBeenCalledWith('Chamado resolvido com sucesso!');
+    expect(component['modalResolucaoAberto']()).toBe(false);
+    expect(component['chamado']()?.status).toBe('RESOLVIDO');
+    expect(component['chamado']()?.resolucao).toContain('Cabo de rede');
+  });
+
+  it('deve exibir o card de solução no cabeçalho quando o status for RESOLVIDO (HU06)', () => {
+    const resolvidoMock: ChamadoDetalhe = {
+      ...mockDetalhe,
+      status: 'RESOLVIDO',
+      resolvido_em: '07/10/2026 · 10:45',
+      resolucao: 'Substituição do cartucho de etiquetas e teste de calibração.',
+      causa_raiz: 'Falha de hardware',
+      possivel_recorrencia: true,
+    };
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(resolvidoMock));
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector('#card-resolucao-chamado');
+    expect(card).not.toBeNull();
+    expect(card?.textContent).toContain('Substituição do cartucho de etiquetas');
+    expect(card?.textContent).toContain('Falha de hardware');
+
+    const badgeRecorrencia = fixture.nativeElement.querySelector('#badge-alerta-recorrencia');
+    expect(badgeRecorrencia).not.toBeNull();
+    expect(badgeRecorrencia?.textContent).toContain('Alerta de Reincidência');
+
+    const badgeResolvidoEm = fixture.nativeElement.querySelector('#badge-resolvido-em');
+    expect(badgeResolvidoEm).not.toBeNull();
+    expect(badgeResolvidoEm?.textContent).toContain('07/10/2026 · 10:45');
+  });
+
+  describe('Escalonamento para fornecedor (HU07)', () => {
+    const escalonamentoAberto: EscalonamentoDetalhe = {
+      id: 'esc-1',
+      fornecedor: 'TechPrint Suprimentos',
+      protocoloExterno: 'TP-48213',
+      observacao: 'Impressora parou após queda de energia.',
+      enviadoEm: '07/10/2026 10:20',
+      enviadoPor: 'Ana Souza',
+      retorno: null,
+      retornoEm: null,
+      retornoRegistradoPor: null,
+      aberto: true,
+    };
+
+    const aguardandoFornecedor: ChamadoDetalhe = {
+      ...mockDetalhe,
+      status: 'AGUARDANDO',
+      motivo_espera: 'FORNECEDOR',
+      escalonamentos: [escalonamentoAberto],
+    };
+
+    function criar(detalhe: ChamadoDetalhe): HTMLElement {
+      vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(detalhe));
+      fixture = TestBed.createComponent(DetalheChamado);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('mostra o botão de escalar só para chamado Em Atendimento, com responsável e sem escalonamento aberto', () => {
+      expect(criar(mockDetalhe).querySelector('#btn-escalar-fornecedor')).not.toBeNull();
+    });
+
+    it('esconde o botão de escalar sem responsável, fora de Em Atendimento ou com escalonamento aberto', () => {
+      expect(criar({ ...mockDetalhe, responsavel: null }).querySelector('#btn-escalar-fornecedor')).toBeNull();
+      expect(criar({ ...mockDetalhe, status: 'EM_TRIAGEM' }).querySelector('#btn-escalar-fornecedor')).toBeNull();
+      expect(criar(aguardandoFornecedor).querySelector('#btn-escalar-fornecedor')).toBeNull();
+    });
+
+    it('abre o modal com o aviso de que o analista continua responsável (RN07)', () => {
+      const elemento = criar(mockDetalhe);
+      (elemento.querySelector('#btn-escalar-fornecedor') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(component['modalEscalarAberto']()).toBe(true);
+      expect(elemento.querySelector('#modal-escalar-titulo')?.textContent).toContain('Escalar para fornecedor');
+      expect(elemento.querySelector('#aviso-rn07')?.textContent).toContain('Você continua responsável');
+    });
+
+    it('não escala sem fornecedor ou sem descrição', () => {
+      criar(mockDetalhe);
+      const escalarSpy = vi.spyOn(chamadoService, 'escalar');
+      const toastSpy = vi.spyOn(toastService, 'erro');
+
+      component['abrirModalEscalar']();
+      component['atualizarFornecedor']('   ');
+      component['atualizarObservacaoFornecedor']('Descrição do problema.');
+      component['confirmarEscalonamento']();
+
+      expect(escalarSpy).not.toHaveBeenCalled();
+      expect(component['erroFornecedor']()).toBe('Informe o fornecedor externo.');
+      expect(toastSpy).toHaveBeenCalledWith('Preencha o fornecedor e a descrição para o fornecedor.');
+
+      component['atualizarFornecedor']('TechPrint Suprimentos');
+      component['atualizarObservacaoFornecedor']('');
+      component['confirmarEscalonamento']();
+
+      expect(escalarSpy).not.toHaveBeenCalled();
+      expect(component['erroObservacaoFornecedor']()).toBe('Descreva o problema para o fornecedor.');
+    });
+
+    it('escala com sucesso, sem enviar protocolo vazio, e fecha o modal', () => {
+      criar(mockDetalhe);
+      const escalarSpy = vi.spyOn(chamadoService, 'escalar').mockReturnValue(of(aguardandoFornecedor));
+      const toastSpy = vi.spyOn(toastService, 'sucesso');
+
+      component['abrirModalEscalar']();
+      component['atualizarFornecedor']('  TechPrint Suprimentos ');
+      component['atualizarProtocoloExterno']('   ');
+      component['atualizarObservacaoFornecedor']('Impressora parou após queda de energia.');
+      component['confirmarEscalonamento']();
+
+      expect(escalarSpy).toHaveBeenCalledWith('chm-127', {
+        fornecedor: 'TechPrint Suprimentos',
+        observacao: 'Impressora parou após queda de energia.',
+      });
+      expect(toastSpy).toHaveBeenCalledWith('Chamado escalado para TechPrint Suprimentos.');
+      expect(component['modalEscalarAberto']()).toBe(false);
+      expect(component['chamado']()?.status).toBe('AGUARDANDO');
+    });
+
+    it('envia o protocolo do fornecedor quando informado', () => {
+      criar(mockDetalhe);
+      const escalarSpy = vi.spyOn(chamadoService, 'escalar').mockReturnValue(of(aguardandoFornecedor));
+
+      component['abrirModalEscalar']();
+      component['atualizarFornecedor']('TechPrint Suprimentos');
+      component['atualizarProtocoloExterno'](' TP-48213 ');
+      component['atualizarObservacaoFornecedor']('Impressora parou.');
+      component['confirmarEscalonamento']();
+
+      expect(escalarSpy).toHaveBeenCalledWith('chm-127', {
+        fornecedor: 'TechPrint Suprimentos',
+        observacao: 'Impressora parou.',
+        protocolo_externo: 'TP-48213',
+      });
+    });
+
+    it('mostra a mensagem da API e mantém o modal aberto quando o escalonamento falha', () => {
+      criar(mockDetalhe);
+      vi.spyOn(chamadoService, 'escalar').mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 422,
+              error: { message: 'Atribua um responsável antes de escalar o chamado.' },
+            }),
+        ),
+      );
+      const toastSpy = vi.spyOn(toastService, 'erro');
+
+      component['abrirModalEscalar']();
+      component['atualizarFornecedor']('TechPrint Suprimentos');
+      component['atualizarObservacaoFornecedor']('Impressora parou.');
+      component['confirmarEscalonamento']();
+
+      expect(toastSpy).toHaveBeenCalledWith('Atribua um responsável antes de escalar o chamado.');
+      expect(component['modalEscalarAberto']()).toBe(true);
+    });
+
+    it('mostra o card do escalonamento aberto com fornecedor e protocolo', () => {
+      const card = criar(aguardandoFornecedor).querySelector('#card-escalonamento');
+
+      expect(card).not.toBeNull();
+      expect(card?.textContent).toContain('Aguardando fornecedor');
+      expect(card?.textContent).toContain('TechPrint Suprimentos');
+      expect(card?.textContent).toContain('TP-48213');
+      expect(card?.querySelector('#btn-registrar-retorno')).not.toBeNull();
+    });
+
+    it('enquanto aguarda o fornecedor, não oferece Resolver nem Alterar status', () => {
+      const elemento = criar(aguardandoFornecedor);
+
+      expect(component['aguardandoFornecedor']()).toBe(true);
+      expect(elemento.querySelector('#btn-resolver-chamado')).toBeNull();
+      expect(elemento.querySelector('#btn-alterar-status')).toBeNull();
+    });
+
+    it('o modal de status não oferece mais o motivo Fornecedor', () => {
+      const elemento = criar(mockDetalhe);
+      component['abrirModalStatus']();
+      fixture.detectChanges();
+
+      expect(component['statusSelecionado']()).toBe('AGUARDANDO');
+      expect(elemento.querySelector('#motivo-fornecedor')).toBeNull();
+      expect(elemento.querySelector('#dica-escalar-fornecedor')).not.toBeNull();
+    });
+
+    it('não registra retorno vazio', () => {
+      criar(aguardandoFornecedor);
+      const retornoSpy = vi.spyOn(chamadoService, 'registrarRetornoFornecedor');
+
+      component['abrirModalRetorno']();
+      component['atualizarRetornoTexto']('  ');
+      component['confirmarRetorno']();
+
+      expect(retornoSpy).not.toHaveBeenCalled();
+      expect(component['erroRetorno']()).toBe('Descreva o retorno do fornecedor.');
+    });
+
+    it('registra o retorno do escalonamento aberto e o chamado volta para Em Atendimento', () => {
+      criar(aguardandoFornecedor);
+      const retornado: ChamadoDetalhe = {
+        ...mockDetalhe,
+        status: 'EM_ATENDIMENTO',
+        motivo_espera: null,
+        escalonamentos: [
+          {
+            ...escalonamentoAberto,
+            aberto: false,
+            retorno: 'Placa trocada.',
+            retornoEm: '07/10/2026 11:00',
+            retornoRegistradoPor: 'Ana Souza',
+          },
+        ],
+      };
+      const retornoSpy = vi
+        .spyOn(chamadoService, 'registrarRetornoFornecedor')
+        .mockReturnValue(of(retornado));
+      const toastSpy = vi.spyOn(toastService, 'sucesso');
+
+      component['abrirModalRetorno']();
+      component['atualizarRetornoTexto'](' Placa trocada. ');
+      component['confirmarRetorno']();
+      fixture.detectChanges();
+
+      expect(retornoSpy).toHaveBeenCalledWith('chm-127', 'esc-1', { retorno: 'Placa trocada.' });
+      expect(toastSpy).toHaveBeenCalledWith(
+        'Retorno do fornecedor registrado. O chamado voltou para Em Atendimento.',
+      );
+      expect(component['modalRetornoAberto']()).toBe(false);
+      const card = (fixture.nativeElement as HTMLElement).querySelector('#card-escalonamento');
+      expect(card?.textContent).toContain('Retorno recebido');
+      expect(card?.textContent).toContain('Placa trocada.');
+      expect(card?.querySelector('#btn-registrar-retorno')).toBeNull();
+    });
+
+    it('chama POST /escalonamentos e PATCH /escalonamentos/{id}/retorno no backend', () => {
+      chamadoService
+        .escalar('chm-127', { fornecedor: 'TechPrint Suprimentos', observacao: 'Impressora parou.' })
+        .subscribe();
+      const reqEscalar = httpMock.expectOne(
+        (r) => r.url.endsWith('/chamados/chm-127/escalonamentos') && r.method === 'POST',
+      );
+      expect(reqEscalar.request.body).toEqual({
+        fornecedor: 'TechPrint Suprimentos',
+        observacao: 'Impressora parou.',
+      });
+      reqEscalar.flush({ status_code: 201, message: 'ok', data: aguardandoFornecedor, errors: null });
+
+      chamadoService.registrarRetornoFornecedor('chm-127', 'esc-1', { retorno: 'Placa trocada.' }).subscribe();
+      const reqRetorno = httpMock.expectOne(
+        (r) => r.url.endsWith('/chamados/chm-127/escalonamentos/esc-1/retorno') && r.method === 'PATCH',
+      );
+      expect(reqRetorno.request.body).toEqual({ retorno: 'Placa trocada.' });
+      reqRetorno.flush({ status_code: 200, message: 'ok', data: mockDetalhe, errors: null });
+    });
+
+    it('converte os escalonamentos da API e soma o tempo em terceiros (M05)', () => {
+      const escalonamentosApi: EscalonamentoApiResponse[] = [
+        {
+          id: 'esc-1',
+          fornecedor: 'TechPrint Suprimentos',
+          protocolo_externo: 'TP-48213',
+          observacao: null,
+          enviado_em: '2026-10-07T13:00:00Z',
+          enviado_por: 'Ana Souza',
+          responsavel: { id: 'r-1', nome: 'Ana Souza' },
+          retorno: 'Placa trocada.',
+          retorno_em: '2026-10-07T14:30:00Z',
+          retorno_registrado_por: 'Ana Souza',
+          aberto: false,
+        },
+        {
+          id: 'esc-2',
+          fornecedor: 'MedSoft',
+          enviado_em: '2026-10-07T15:00:00Z',
+          enviado_por: 'Ana Souza',
+          responsavel: { id: 'r-1', nome: 'Ana Souza' },
+          aberto: true,
+        },
+      ];
+
+      expect(calcularMinutosEmTerceiros(escalonamentosApi, new Date('2026-10-07T15:20:00Z'))).toBe(110);
+
+      const detalhe = mapearChamadoDetalhe({
+        id: 'c-1',
+        codigo: 'LUM-2026-000001',
+        status: 'AGUARDANDO',
+        motivo_espera: 'FORNECEDOR',
+        descricao: 'Impressora parada.',
+        canal_origem: 'LIGACAO',
+        unidade: { id: 'u-1', nome: 'U.03 Boa Viagem' },
+        categoria: null,
+        solicitante: { contato: '+5581988771234' },
+        responsavel: { id: 'r-1', nome: 'Ana Souza' },
+        prioridade: null,
+        aberto_em: '2026-10-07T12:00:00Z',
+        registros_contato: [],
+        escalonamentos: escalonamentosApi,
+        historico: [],
+      });
+
+      expect(detalhe.escalonamentos).toHaveLength(2);
+      expect(detalhe.escalonamentos![0]).toMatchObject({
+        fornecedor: 'TechPrint Suprimentos',
+        protocoloExterno: 'TP-48213',
+        retorno: 'Placa trocada.',
+        retornoEm: formatarDataHoraLocal('2026-10-07T14:30:00Z'),
+        aberto: false,
+      });
+      expect(detalhe.escalonamentos![1]).toMatchObject({ protocoloExterno: null, retornoEm: null, aberto: true });
+    });
+  });
+
+  describe('Triagem e Priorização pela Matriz 3D (HU04)', () => {
+    beforeEach(() => {
+      vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(mockDetalhe));
+      fixture = TestBed.createComponent(DetalheChamado);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+    });
+
+    it('deve calcular a prioridade sugerida em tempo real', () => {
+      // 1 + 1 + 1 = 3 -> BAIXA
+      component['selecionarSeveridade'](1);
+      component['selecionarUrgencia'](1);
+      component['selecionarImpacto'](1);
+      expect(component['prioridadeSugerida']()).toBe('BAIXA');
+
+      // 2 + 2 + 2 = 6 -> MEDIA (faixa 6 a 7)
+      component['selecionarSeveridade'](2);
+      component['selecionarUrgencia'](2);
+      component['selecionarImpacto'](2);
+      expect(component['prioridadeSugerida']()).toBe('MEDIA');
+
+      // 3 + 3 + 2 = 8 -> ALTA (faixa 8 a 9)
+      component['selecionarSeveridade'](3);
+      component['selecionarUrgencia'](3);
+      component['selecionarImpacto'](2);
+      expect(component['prioridadeSugerida']()).toBe('ALTA');
+    });
+
+    it('deve identificar divergência e validar justificativa', () => {
+      component['selecionarSeveridade'](1);
+      component['selecionarUrgencia'](1);
+      component['selecionarImpacto'](1); // Sugerida: BAIXA
+
+      // Sem override manual -> sem divergência
+      expect(component['temDivergencia']()).toBe(false);
+      expect(component['justificativaValida']()).toBe(true);
+
+      // Override para ALTA -> divergência ativa
+      component['selecionarPrioridadeFinal']('ALTA');
+      expect(component['temDivergencia']()).toBe(true);
+      expect(component['justificativaValida']()).toBe(false);
+
+      // Justificativa curta (< 10) -> inválida
+      component['justificativaPrioridade'].set('Curta');
+      expect(component['justificativaValida']()).toBe(false);
+
+      // Justificativa válida (>= 10) -> válida
+      component['justificativaPrioridade'].set('Justificativa válida com mais de 10 caracteres');
+      expect(component['justificativaValida']()).toBe(true);
+    });
+
+    it('deve chamar chamadoService.definirPrioridade com o payload correto', () => {
+      const definirSpy = vi.spyOn(chamadoService, 'definirPrioridade').mockReturnValue(of({
+        ...mockDetalhe,
+        prioridade: 'MEDIA',
+      }));
+      const toastSpy = vi.spyOn(toastService, 'sucesso');
+
+      component['selecionarSeveridade'](2);
+      component['selecionarUrgencia'](2);
+      component['selecionarImpacto'](2);
+      component['selecionarPrioridadeFinal']('MEDIA');
+
+      component['salvarTriagemPrioridade']();
+
+      expect(definirSpy).toHaveBeenCalledWith('chm-127', {
+        severidade: 2,
+        urgencia: 2,
+        impacto_operacional: 2,
+        prioridade_final: 'MEDIA',
+        justificativa_prioridade: null,
+      });
+      expect(toastSpy).toHaveBeenCalledWith('Triagem e prioridade salvas com sucesso!');
+    });
   });
 });

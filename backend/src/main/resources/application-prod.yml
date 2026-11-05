@@ -29,3 +29,6 @@ nexo:
   jwt:
     secret: ${JWT_SECRET}
     expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+  usuarios:
+    # Lista separada por vírgula, ex.: lumen.local,lumendiagnosticos.com.br
+    dominios-email: ${NEXO_DOMINIOS_EMAIL:lumen.local}

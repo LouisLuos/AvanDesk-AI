@@ -8,10 +8,17 @@ import {
   ChamadoDetalheApiResponse,
   ChamadoRequest,
   ChamadoResponse,
+  EscalonamentoRequest,
   FilaChamados,
   FiltrosFila,
+  PrioridadeRequest,
+  ResolucaoRequest,
+  RegistroContatoRequest,
+  RetornoFornecedorRequest,
   StatusRequest,
   TAMANHO_PAGINA_FILA,
+  TotalChamadosPorResponsavel,
+  TotalChamadosPorUnidade,
 } from '../../shared/models/chamado.model';
 import { mapearChamadoDetalhe } from '../../shared/utils/chamado-detalhe.mapper';
 
@@ -49,6 +56,25 @@ export class ChamadoService {
     return this.http
       .get<ApiResponse<FilaChamados>>(this.baseUrl, { params })
       .pipe(map((res) => res.data as FilaChamados));
+  }
+
+  /**
+   * GET /chamados/totais-por-unidade — chamados abertos por unidade nos últimos `dias` (HU11).
+   * Ainda não existe no backend (virá do `contarPorUnidadeDesde`); até lá a requisição falha
+   * e quem chama deve tratar a contagem como indisponível.
+   */
+  totaisPorUnidade(dias = 30): Observable<TotalChamadosPorUnidade[]> {
+    const params = new HttpParams().set('dias', dias);
+    return this.http
+      .get<ApiResponse<TotalChamadosPorUnidade[]>>(`${this.baseUrl}/totais-por-unidade`, { params })
+      .pipe(map((res) => res.data ?? []));
+  }
+
+  /** GET /chamados/totais-por-responsavel — chamados em andamento de cada analista (HU10). */
+  totaisPorResponsavel(): Observable<TotalChamadosPorResponsavel[]> {
+    return this.http
+      .get<ApiResponse<TotalChamadosPorResponsavel[]>>(`${this.baseUrl}/totais-por-responsavel`)
+      .pipe(map((res) => res.data ?? []));
   }
 
   /** POST /chamados — registra um chamado (HU01). */
@@ -106,6 +132,81 @@ export class ChamadoService {
       .patch<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
         `${this.baseUrl}/${id}/status`,
         corpoRequisicao,
+      )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  /**
+   * PATCH /chamados/{id}/resolucao — conclui o chamado com a solucao e causa raiz (HU06).
+   */
+  resolver(id: string, payload: ResolucaoRequest): Observable<ChamadoDetalhe> {
+    const corpoRequisicao: Record<string, unknown> = {
+      resolucao: payload.resolucao,
+    };
+    const causa = payload.causa_raiz ?? payload.causaRaiz;
+    if (causa) {
+      corpoRequisicao['causa_raiz'] = causa;
+    }
+    const recorrencia = payload.possivel_recorrencia ?? payload.possivelRecorrencia;
+    if (recorrencia !== undefined && recorrencia !== null) {
+      corpoRequisicao['possivel_recorrencia'] = recorrencia;
+    }
+    return this.http
+      .patch<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/resolucao`,
+        corpoRequisicao,
+      )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  /**
+   * POST /chamados/{id}/contatos — registra nova mensagem ou interação de contato (RN16 / HU13).
+   */
+  registrarContato(id: string, payload: RegistroContatoRequest): Observable<ChamadoDetalhe> {
+    return this.http
+      .post<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/contatos`,
+        payload,
+      )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  /**
+   * POST /chamados/{id}/escalonamentos — envia o chamado a um fornecedor externo (HU07).
+   */
+  escalar(id: string, payload: EscalonamentoRequest): Observable<ChamadoDetalhe> {
+    return this.http
+      .post<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/escalonamentos`,
+        payload,
+      )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  /**
+   * PATCH /chamados/{id}/escalonamentos/{escalonamentoId}/retorno — registra o retorno do fornecedor (HU07).
+   */
+  registrarRetornoFornecedor(
+    id: string,
+    escalonamentoId: string,
+    payload: RetornoFornecedorRequest,
+  ): Observable<ChamadoDetalhe> {
+    return this.http
+      .patch<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/escalonamentos/${escalonamentoId}/retorno`,
+        payload,
+      )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  /**
+   * PATCH /chamados/{id}/prioridade — define prioridade via Matriz 3D (HU04).
+   */
+  definirPrioridade(id: string, payload: PrioridadeRequest): Observable<ChamadoDetalhe> {
+    return this.http
+      .patch<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/prioridade`,
+        payload,
       )
       .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
   }

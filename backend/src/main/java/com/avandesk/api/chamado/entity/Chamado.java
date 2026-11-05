@@ -10,6 +10,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import com.avandesk.api.catalogo.entity.Categoria;
 import com.avandesk.api.catalogo.entity.SistemaEquipamento;
@@ -20,6 +22,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -108,6 +112,28 @@ public class Chamado {
     @Column(name = "resolvido_em")
     private Instant resolvidoEm;
 
+    /**
+     * Aplica a triagem pela Matriz 3D (HU04 / RF-009 / RF-010).
+     * Garante a invariante de que divergências entre a prioridade sugerida e a final
+     * exigem justificativa obrigatória (constraint ck_chamados_justificativa).
+     */
+    public void aplicarTriagemPrioridade(Prioridade sugerida, Prioridade finalDefinida, String justificativa,
+                                         Short severidade, Short urgencia, Short impactoOperacional) {
+        if (finalDefinida != null && finalDefinida != sugerida) {
+            if (justificativa == null || justificativa.trim().isBlank()) {
+                throw new com.avandesk.api.core.exception.OperacaoNaoPermitidaException(
+                    "É obrigatório informar uma justificativa ao definir uma prioridade final diferente da sugerida pela Matriz 3D."
+                );
+            }
+        }
+        this.severidade = severidade;
+        this.urgencia = urgencia;
+        this.impactoOperacional = impactoOperacional;
+        this.prioridadeSugerida = sugerida;
+        this.prioridadeFinal = finalDefinida != null ? finalDefinida : sugerida;
+        this.justificativaPrioridade = justificativa;
+    }
+
     @Column(name = "fechado_em")
     private Instant fechadoEm;
 
@@ -129,4 +155,8 @@ public class Chamado {
     @Enumerated(EnumType.STRING)
     @Column(name = "origem_dado", nullable = false, updatable = false)
     private OrigemDado origemDado;
+
+    @OneToMany(mappedBy = "chamado")
+    @OrderBy("enviadoEm ASC")
+    private List<Escalonamento> escalonamentos = new ArrayList<>();
 }

@@ -1,275 +1,404 @@
-<section class="animate-fade-in-up" aria-labelledby="titulo-unidades">
- <!-- Cabeçalho -->
- <header class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
- <div>
- <h1 id="titulo-unidades" class="text-2xl font-bold">Unidades</h1>
- <p class="mt-1 text-sm">
- Cadastro das unidades da Rede Lúmen. Somente unidades ativas aparecem na abertura de chamados.
- </p>
- </div>
- <button type="button" class="btn btn-primary" id="btn-nova-unidade" (click)="abrirCadastro()">
- <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
- <path d="M12 5v14M5 12h14" />
- </svg>
- Nova Unidade
- </button>
- </header>
+<section class="flex flex-col gap-6 text-[#14161b]" aria-labelledby="titulo-unidades">
+  <!-- Cabeçalho -->
+  <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <h1 id="titulo-unidades" class="text-2xl font-bold tracking-tight text-[#14161b] sm:text-[28px]">Unidades</h1>
+      @if (carregando()) {
+        <span class="mt-2 block h-3 w-72 animate-pulse rounded bg-[#e2e5ec]" aria-hidden="true"></span>
+      } @else if (!erroCarregamento()) {
+        <p id="subtitulo-unidades" class="mt-1 text-xs text-[#6b7280]">{{ subtitulo() }}</p>
+      }
+    </div>
+    <button
+      type="button"
+      id="btn-nova-unidade"
+      (click)="abrirCadastro()"
+      class="inline-flex items-center justify-center gap-2 self-start rounded-md bg-[#2d5bff] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1e3fcc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] focus-visible:ring-offset-2"
+    >
+      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 12h14" />
+        <path d="M12 5v14" />
+      </svg>
+      Nova unidade
+    </button>
+  </header>
 
- <!-- Indicadores -->
- <div class="mb-6 grid grid-cols-3 gap-3 sm:gap-4">
- <div class="card px-4 py-3">
- <p class="text-xs">Total</p>
- <p class="mt-1 text-2xl font-bold" id="total-unidades">{{ totais().total }}</p>
- </div>
- <div class="card px-4 py-3">
- <p class="text-xs">Ativas</p>
- <p class="mt-1 text-2xl font-bold" id="total-ativas">{{ totais().ativas }}</p>
- </div>
- <div class="card px-4 py-3">
- <p class="text-xs">Inativas</p>
- <p class="mt-1 text-2xl font-bold" id="total-inativas">{{ totais().inativas }}</p>
- </div>
- </div>
+  <!-- Filtros -->
+  <div role="search" aria-label="Filtrar unidades" class="flex flex-col gap-3 sm:flex-row sm:items-center">
+    <div class="relative w-full sm:w-[340px]">
+      <label for="busca-unidade" class="sr-only">Buscar unidade por nome, identificação ou localização</label>
+      <svg class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.3-4.3" />
+      </svg>
+      <input
+        id="busca-unidade"
+        type="search"
+        placeholder="Buscar unidade"
+        autocomplete="off"
+        [value]="busca()"
+        (input)="alterarBusca($event)"
+        class="h-9 w-full rounded-md border border-[#e2e5ec] bg-white pr-3 pl-9 text-xs text-[#14161b] transition placeholder:text-[#9aa2b1] focus:border-[#2d5bff] focus:ring-1 focus:ring-[#2d5bff] focus:outline-none"
+      />
+    </div>
+    <app-custom-dropdown
+      id="filtro-situacao"
+      rotulo="Status"
+      [opcaoPadrao]="{ valor: '', rotulo: 'Todos' }"
+      [opcoes]="opcoesSituacao"
+      [valor]="filtroSituacao()"
+      (valorChange)="alterarSituacao($event)"
+    />
+  </div>
 
- <div class="card overflow-hidden">
- <!-- Filtros -->
- <div class="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center">
- <div class="relative flex-1">
- <svg class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
- <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
- </svg>
- <input
- type="search"
- id="busca-unidade"
- class="form-control pl-9"
- placeholder="Buscar por nome ou código..."
- aria-label="Buscar unidade por nome ou código"
- [value]="busca()"
- (input)="alterarBusca($event)"
- />
- </div>
- <label class="flex items-center gap-2 text-sm">
- Situação:
- <select id="filtro-situacao" class="form-control w-auto" [value]="filtroSituacao()" (change)="alterarFiltro($event)">
- <option value="TODAS">Todas</option>
- <option value="ATIVAS">Ativas</option>
- <option value="INATIVAS">Inativas</option>
- </select>
- </label>
- </div>
+  <!-- Tabela -->
+  <div class="overflow-hidden rounded-xl border border-[#e2e5ec] bg-white shadow-xs">
+    @if (erroCarregamento()) {
+      <div class="flex flex-col items-center gap-3 px-6 py-14 text-center" role="alert">
+        <span class="flex h-10 w-10 items-center justify-center rounded-full bg-[#dc2626]/10 text-[#dc2626]" aria-hidden="true">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+            <path d="M12 9v4" />
+            <path d="M12 17h.01" />
+          </svg>
+        </span>
+        <p class="text-sm font-semibold text-[#14161b]">Não foi possível carregar as unidades</p>
+        <button
+          type="button"
+          id="btn-recarregar"
+          (click)="carregar()"
+          class="rounded-md border border-[#e2e5ec] bg-white px-4 py-2 text-xs font-semibold text-[#363b47] transition hover:bg-[#f8f9fc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff]"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    } @else {
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[880px] border-collapse text-left text-sm" [attr.aria-busy]="carregando()">
+          <caption class="sr-only">Unidades da Rede Lúmen</caption>
+          <thead class="bg-[#f8f9fc]">
+            <tr class="border-b border-[#e2e5ec] text-[11px] font-semibold tracking-wider text-[#6b7280] uppercase">
+              <th scope="col" class="px-4 py-3.5 font-semibold">Nome</th>
+              <th scope="col" class="px-4 py-3.5 font-semibold">Identificação</th>
+              <th scope="col" class="px-4 py-3.5 font-semibold">Localização</th>
+              <th scope="col" class="px-4 py-3.5 font-semibold">Atendimento 24h</th>
+              <th scope="col" class="px-4 py-3.5 font-semibold">Chamados ({{ diasContagem }} d)</th>
+              <th scope="col" class="px-4 py-3.5 font-semibold">Status</th>
+              <th scope="col" class="px-4 py-3.5 font-semibold">Ação</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[#e2e5ec]">
+            @if (carregando()) {
+              @for (linha of linhasEsqueleto; track linha) {
+                <tr aria-hidden="true">
+                  <td class="px-4 py-5"><span class="block h-3 w-40 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-4 py-5"><span class="block h-3 w-16 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-4 py-5"><span class="block h-3 w-40 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-4 py-5"><span class="block h-4 w-10 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-4 py-5"><span class="block h-3 w-8 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-4 py-5"><span class="block h-4 w-12 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-4 py-5"><span class="block h-8 w-8 animate-pulse rounded-md bg-[#e2e5ec]"></span></td>
+                </tr>
+              }
+            } @else {
+              @for (unidade of unidadesFiltradas(); track unidade.id) {
+                @let total = chamadosNaJanela(unidade);
+                <tr class="transition-colors hover:bg-[#f8f9fc]">
+                  <td class="px-4 py-4 font-semibold whitespace-nowrap text-[#14161b]">{{ unidade.nome }}</td>
+                  <td class="px-4 py-4 font-mono text-xs whitespace-nowrap text-[#363b47]">{{ unidade.identificacao }}</td>
+                  <td class="max-w-[260px] px-4 py-4 text-[#363b47]">
+                    @if (unidade.localizacao) {
+                      <span class="block truncate" [title]="unidade.localizacao">{{ unidade.localizacao }}</span>
+                    } @else {
+                      <span class="text-[#9aa2b1]">—</span>
+                    }
+                  </td>
+                  <td class="px-4 py-4">
+                    <span class="inline-flex rounded px-2 py-0.5 text-[11px] font-medium" [class]="unidade.atendimento_24h ? estiloSim : estiloNao">
+                      {{ unidade.atendimento_24h ? 'Sim' : 'Não' }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-4">
+                    @if (total === null) {
+                      <span class="text-[#9aa2b1]" title="Contagem indisponível no momento">—</span>
+                    } @else {
+                      <span class="text-[#363b47] tabular-nums">{{ total }}</span>
+                    }
+                  </td>
+                  <td class="px-4 py-4">
+                    <span class="inline-flex rounded px-2 py-0.5 text-[11px] font-medium" [class]="unidade.ativo ? estiloSim : estiloNao">
+                      {{ unidade.ativo ? 'Ativa' : 'Inativa' }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3">
+                    <button
+                      type="button"
+                      [id]="'btn-editar-' + unidade.identificacao"
+                      [attr.aria-label]="'Editar ' + unidade.nome"
+                      title="Editar"
+                      (click)="abrirEdicao(unidade)"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#e2e5ec] bg-white text-[#363b47] transition hover:border-[#b0b8c6] hover:bg-[#f8f9fc] hover:text-[#14161b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff]"
+                    >
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+                        <path d="m15 5 4 4" />
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="7" class="px-4 py-12 text-center text-sm text-[#6b7280]">
+                    @if (unidades().length) {
+                      Nenhuma unidade encontrada para os filtros aplicados.
+                    } @else {
+                      Nenhuma unidade cadastrada ainda.
+                      <button type="button" class="ml-1 font-semibold text-[#2d5bff] hover:underline" (click)="abrirCadastro()">
+                        Cadastrar a primeira
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
 
- <!-- Tabela -->
- <div class="overflow-x-auto">
- <table class="w-full text-left text-sm">
- <thead class="text-xs tracking-wider uppercase">
- <tr>
- <th scope="col" class="px-4 py-3 font-medium">Identificação</th>
- <th scope="col" class="px-4 py-3 font-medium">Nome</th>
- <th scope="col" class="px-4 py-3 font-medium">Situação</th>
- <th scope="col" class="px-4 py-3 text-right font-medium">Ações</th>
- </tr>
- </thead>
- <tbody class="divide-y divide-slate-800/80">
- @if (carregando()) {
- @for (linha of [1, 2, 3, 4]; track linha) {
- <tr>
- <td class="px-4 py-4"><div class="h-4 w-20 animate-pulse"></div></td>
- <td class="px-4 py-4"><div class="h-4 w-48 animate-pulse"></div></td>
- <td class="px-4 py-4"><div class="h-5 w-16 animate-pulse"></div></td>
- <td class="px-4 py-4"><div class="ml-auto h-4 w-28 animate-pulse"></div></td>
- </tr>
- }
- } @else if (erroCarregamento()) {
- <tr>
- <td colspan="4" class="px-4 py-12 text-center">
- <p >Não foi possível carregar as unidades.</p>
- <button type="button" class="btn btn-secondary mt-4" id="btn-recarregar" (click)="carregar()">
- Tentar novamente
- </button>
- </td>
- </tr>
- } @else {
- @for (unidade of unidadesFiltradas(); track unidade.id) {
- <tr class="transition" [class.opacity-60]="!unidade.ativo">
- <td class="px-4 py-3.5 font-mono text-xs font-semibold">{{ unidade.identificacao || unidade.codigo }}</td>
- <td class="px-4 py-3.5 font-medium">{{ unidade.nome }}</td>
- <td class="px-4 py-3.5">
- @if (unidade.ativo) {
- <span class="badge">
- <span class="h-1.5 w-1.5"></span> Ativa
- </span>
- } @else {
- <span class="badge">
- <span class="h-1.5 w-1.5"></span> Inativa
- </span>
- }
- </td>
- <td class="px-4 py-3.5">
- <div class="flex justify-end gap-1">
- <button
- type="button"
- class="btn btn-ghost text-xs"
- [id]="'btn-editar-' + (unidade.identificacao || unidade.codigo)"
- (click)="abrirEdicao(unidade)"
->
- Editar
- </button>
- @if (unidade.ativo) {
- <button
- type="button"
- class="btn btn-ghost text-xs"
- [id]="'btn-desativar-' + (unidade.identificacao || unidade.codigo)"
- (click)="confirmarDesativacao(unidade)"
->
- Desativar
- </button>
- }
- </div>
- </td>
- </tr>
- } @empty {
- <tr>
- <td colspan="4" class="px-4 py-12 text-center">
- @if (unidades().length) {
- Nenhuma unidade encontrada para os filtros aplicados.
- } @else {
- Nenhuma unidade cadastrada ainda.
- <button type="button" class="ml-1 font-semibold underline" (click)="abrirCadastro()">
- Cadastrar a primeira
- </button>
- }
- </td>
- </tr>
- }
- }
- </tbody>
- </table>
- </div>
- </div>
+  @if (!carregando() && !erroCarregamento()) {
+    <p id="rodape-unidades" class="text-xs text-[#6b7280]" aria-live="polite">
+      Mostrando {{ unidadesFiltradas().length }} de {{ unidades().length }} {{ unidades().length === 1 ? 'registro' : 'registros' }}
+    </p>
+  }
 </section>
 
 <!-- Modal: cadastro / edição -->
 <app-modal
- [aberto]="modalFormAberto()"
- [titulo]="unidadeEmEdicao() ? 'Editar Unidade' : 'Nova Unidade'"
- subtitulo="Informe o nome e a identificação da unidade."
- (fechar)="fecharForm()"
+  [aberto]="modalFormAberto()"
+  [titulo]="unidadeEmEdicao() ? 'Editar unidade' : 'Nova unidade'"
+  [subtitulo]="unidadeEmEdicao() ? 'Os chamados já registrados mantêm o vínculo com a unidade.' : 'Unidades ativas aparecem na abertura de chamados.'"
+  (fechar)="fecharForm()"
 >
- <form [formGroup]="form" (ngSubmit)="salvar()" novalidate class="space-y-4">
- @if (errosForm().length) {
- <div class="border px-4 py-3 text-sm" role="alert" id="erros-form-unidade">
- <ul class="list-inside list-disc">
- @for (erro of errosForm(); track erro) {
- <li>{{ erro }}</li>
- }
- </ul>
- </div>
- }
+  <span icone class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#e8edff] text-[#2d5bff]" aria-hidden="true">
+    <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 6v4" />
+      <path d="M14 14h-4" />
+      <path d="M14 18h-4" />
+      <path d="M14 8h-4" />
+      <path d="M18 12h2a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h2" />
+      <path d="M18 22V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v18" />
+    </svg>
+  </span>
 
- <div>
- <label for="unidade-nome" class="form-label">Nome <span >*</span></label>
- <input
- id="unidade-nome"
- formControlName="nome"
- class="form-control"
- [class.is-invalid]="invalido('nome')"
- placeholder="Ex.: Unidade Boa Viagem"
- autocomplete="off"
- />
- @if (invalido('nome')) {
- <p class="form-error">
- {{ form.controls.nome.hasError('required') ? 'Informe o nome da unidade.' : 'Máximo de 120 caracteres.' }}
- </p>
- }
- </div>
+  <form id="form-unidade" [formGroup]="form" (ngSubmit)="salvar()" novalidate class="space-y-4">
+    @if (unidadeEmEdicao()?.ativo === false) {
+      <p id="aviso-unidade-inativa" class="rounded-lg border border-[#e2e5ec] bg-[#f8f9fc] px-3.5 py-2.5 text-xs text-[#6b7280]">
+        Esta unidade está inativa e não aparece na abertura de chamados.
+      </p>
+    }
 
- <div>
- <label for="unidade-codigo" class="form-label">Identificação <span >*</span></label>
- <input
- id="unidade-codigo"
- formControlName="identificacao"
- class="form-control font-mono uppercase"
- [class.is-invalid]="invalido('identificacao')"
- placeholder="Ex.: LUM-BVG"
- autocomplete="off"
- />
- @if (invalido('identificacao')) {
- <p class="form-error">
- @if (form.controls.identificacao.hasError('required')) {
- Informe a identificação da unidade.
- } @else if (form.controls.identificacao.hasError('pattern')) {
- Use apenas letras, números e hífen.
- } @else {
- Máximo de 20 caracteres.
- }
- </p>
- } @else {
- <p class="form-hint">Identificador único da unidade (letras, números e hífen).</p>
- }
- </div>
+    @if (errosForm().length) {
+      <div id="erros-form-unidade" role="alert" class="rounded-lg border border-[#e5484d]/30 bg-[#e5484d]/5 px-3.5 py-3 text-xs text-[#b42318]">
+        <ul class="list-inside list-disc space-y-0.5">
+          @for (erro of errosForm(); track erro) {
+            <li>{{ erro }}</li>
+          }
+        </ul>
+      </div>
+    }
 
- <div>
- <label for="unidade-localizacao" class="form-label">Localização</label>
- <input
- id="unidade-localizacao"
- formControlName="localizacao"
- class="form-control"
- [class.is-invalid]="invalido('localizacao')"
- placeholder="Ex.: Rua da Aurora, 123"
- autocomplete="off"
- />
- @if (invalido('localizacao')) {
- <p class="form-error">Máximo de 255 caracteres.</p>
- }
- </div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div class="sm:col-span-2">
+        <label for="unidade-nome" class="mb-1.5 block text-xs font-semibold text-[#363b47]">
+          Nome da unidade <span class="text-[#e5484d]" aria-hidden="true">*</span>
+        </label>
+        <input
+          id="unidade-nome"
+          formControlName="nome"
+          placeholder="U.03 Boa Viagem"
+          autocomplete="off"
+          aria-required="true"
+          [class]="classeCampo('nome')"
+          [attr.aria-invalid]="invalido('nome')"
+          [attr.aria-describedby]="invalido('nome') ? 'erro-unidade-nome' : null"
+        />
+        @if (invalido('nome')) {
+          <p id="erro-unidade-nome" class="mt-1.5 text-[11px] text-[#e5484d]">
+            {{ form.controls.nome.hasError('required') ? 'Informe o nome da unidade.' : 'Máximo de 120 caracteres.' }}
+          </p>
+        }
+      </div>
 
- <div>
- <label class="flex items-center gap-2 text-sm font-medium">
- <input type="checkbox" formControlName="atendimento_24h" class="h-4 w-4 border-black focus:ring-black">
- Atendimento 24h
- </label>
- </div>
+      <div>
+        <label for="unidade-identificacao" class="mb-1.5 block text-xs font-semibold text-[#363b47]">
+          Identificação <span class="text-[#e5484d]" aria-hidden="true">*</span>
+        </label>
+        <input
+          id="unidade-identificacao"
+          formControlName="identificacao"
+          placeholder="LUM-BVG"
+          autocomplete="off"
+          aria-required="true"
+          [class]="classeCampo('identificacao', 'font-mono uppercase')"
+          [attr.aria-invalid]="invalido('identificacao')"
+          aria-describedby="ajuda-unidade-identificacao"
+        />
+        <p id="ajuda-unidade-identificacao" class="mt-1.5 text-[11px]" [class]="invalido('identificacao') ? 'text-[#e5484d]' : 'text-[#9aa2b1]'">
+          @if (!invalido('identificacao')) {
+            Código único. Letras, números e hífen.
+          } @else if (form.controls.identificacao.hasError('required')) {
+            Informe a identificação da unidade.
+          } @else if (form.controls.identificacao.hasError('pattern')) {
+            Use apenas letras, números e hífen.
+          } @else {
+            Máximo de 20 caracteres.
+          }
+        </p>
+      </div>
 
- <div class="flex justify-end gap-3 pt-2">
- <button type="button" class="btn btn-secondary" id="btn-cancelar-unidade" (click)="fecharForm()" [disabled]="salvando()">
- Cancelar
- </button>
- <button type="submit" class="btn btn-primary" id="btn-salvar-unidade" [disabled]="salvando()">
- @if (salvando()) {
- <span class="spinner" aria-hidden="true"></span> Salvando...
- } @else {
- {{ unidadeEmEdicao() ? 'Salvar alterações' : 'Cadastrar' }}
- }
- </button>
- </div>
- </form>
+      <div>
+        <span id="rotulo-unidade-24h" class="mb-1.5 block text-xs font-semibold text-[#363b47]">Atendimento 24h</span>
+        <label
+          for="unidade-24h"
+          class="flex h-9 cursor-pointer items-center justify-between rounded-lg border border-[#e2e5ec] bg-white px-3 text-xs text-[#6b7280] transition hover:border-[#b0b8c6]"
+        >
+          Funciona 24 horas
+          <input
+            id="unidade-24h"
+            type="checkbox"
+            role="switch"
+            formControlName="atendimento_24h"
+            aria-labelledby="rotulo-unidade-24h"
+            class="peer sr-only"
+          />
+          <span
+            class="relative h-5 w-9 shrink-0 rounded-full bg-[#e2e5ec] transition after:absolute after:top-0.5 after:left-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-xs after:transition-transform peer-checked:bg-[#2d5bff] peer-checked:after:translate-x-4 peer-focus-visible:ring-2 peer-focus-visible:ring-[#2d5bff] peer-focus-visible:ring-offset-1"
+            aria-hidden="true"
+          ></span>
+        </label>
+      </div>
+
+      <div class="sm:col-span-2">
+        <label for="unidade-localizacao" class="mb-1.5 block text-xs font-semibold text-[#363b47]">
+          Localização <span class="font-normal text-[#9aa2b1]">(opcional)</span>
+        </label>
+        <input
+          id="unidade-localizacao"
+          formControlName="localizacao"
+          placeholder="Rua Boa Viagem, 123"
+          autocomplete="off"
+          [class]="classeCampo('localizacao')"
+          [attr.aria-invalid]="invalido('localizacao')"
+        />
+        @if (invalido('localizacao')) {
+          <p class="mt-1.5 text-[11px] text-[#e5484d]">Máximo de 255 caracteres.</p>
+        }
+      </div>
+    </div>
+  </form>
+
+  <ng-container rodape>
+    @if (unidadeEmEdicao()?.ativo) {
+      <button
+        type="button"
+        id="btn-solicitar-desativacao"
+        (click)="solicitarDesativacao()"
+        [disabled]="salvando()"
+        class="mr-auto inline-flex items-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-[#e5484d] transition hover:bg-[#e5484d]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e5484d] disabled:opacity-50"
+      >
+        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" />
+          <path d="m4.9 4.9 14.2 14.2" />
+        </svg>
+        Desativar unidade
+      </button>
+    }
+    <button
+      type="button"
+      id="btn-cancelar-unidade"
+      (click)="fecharForm()"
+      [disabled]="salvando()"
+      class="rounded-lg border border-[#e2e5ec] bg-white px-3.5 py-2 text-xs font-semibold text-[#4b5563] shadow-2xs transition hover:bg-[#f8f9fc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] disabled:opacity-50"
+    >
+      Cancelar
+    </button>
+    <button
+      type="submit"
+      form="form-unidade"
+      id="btn-salvar-unidade"
+      [disabled]="salvando()"
+      class="inline-flex items-center gap-1.5 rounded-lg bg-[#2d5bff] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#1e3fcc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] focus-visible:ring-offset-2 disabled:opacity-50"
+    >
+      @if (salvando()) {
+        <span class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden="true"></span>
+        Salvando...
+      } @else if (unidadeEmEdicao()) {
+        Salvar alterações
+      } @else {
+        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12h14" />
+          <path d="M12 5v14" />
+        </svg>
+        Cadastrar unidade
+      }
+    </button>
+  </ng-container>
 </app-modal>
 
 <!-- Modal: confirmação de desativação -->
 <app-modal
- [aberto]="!!unidadeParaDesativar()"
- titulo="Desativar unidade?"
- (fechar)="cancelarDesativacao()"
+  [aberto]="!!unidadeParaDesativar()"
+  tamanho="md"
+  [titulo]="'Desativar ' + unidadeParaDesativar()?.nome + '?'"
+  (fechar)="cancelarDesativacao()"
 >
- <p class="text-sm">
- A unidade
- <strong >{{ unidadeParaDesativar()?.nome }}</strong>
- (<span class="font-mono">{{ unidadeParaDesativar()?.identificacao || unidadeParaDesativar()?.codigo }}</span>)
- deixará de aparecer na abertura de novos chamados.
- </p>
- <p class="mt-3 border px-4 py-3 text-xs">
- Os chamados já registrados continuam vinculados a esta unidade e o histórico é preservado.
- </p>
- <div class="mt-6 flex justify-end gap-3">
- <button type="button" class="btn btn-secondary" id="btn-cancelar-desativacao" (click)="cancelarDesativacao()" [disabled]="desativando()">
- Cancelar
- </button>
- <button type="button" class="btn btn-danger" id="btn-confirmar-desativacao" (click)="desativar()" [disabled]="desativando()">
- @if (desativando()) {
- <span class="spinner" aria-hidden="true"></span> Desativando...
- } @else {
- Desativar
- }
- </button>
- </div>
+  <span icone class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e5484d]/10 text-[#e5484d]" aria-hidden="true">
+    <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </svg>
+  </span>
+
+  @if (unidadeParaDesativar(); as unidade) {
+    @let total = chamadosNaJanela(unidade);
+    <p class="text-sm text-[#363b47]">Ela deixa de aparecer na abertura de novos chamados.</p>
+    <p id="aviso-vinculo-chamados" class="mt-3 rounded-lg border border-[#e2e5ec] bg-[#f8f9fc] px-3.5 py-3 text-xs text-[#6b7280]">
+      @if (total === 1) {
+        O chamado dos últimos {{ diasContagem }} dias continua vinculado a esta unidade e o histórico é preservado.
+      } @else if (total) {
+        Os {{ total }} chamados dos últimos {{ diasContagem }} dias continuam vinculados a esta unidade e o histórico é preservado.
+      } @else {
+        Os chamados já registrados continuam vinculados a esta unidade e o histórico é preservado.
+      }
+    </p>
+  }
+
+  <ng-container rodape>
+    <button
+      type="button"
+      id="btn-cancelar-desativacao"
+      (click)="cancelarDesativacao()"
+      [disabled]="desativando()"
+      class="rounded-lg border border-[#e2e5ec] bg-white px-3.5 py-2 text-xs font-semibold text-[#4b5563] shadow-2xs transition hover:bg-[#f8f9fc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] disabled:opacity-50"
+    >
+      Cancelar
+    </button>
+    <button
+      type="button"
+      id="btn-confirmar-desativacao"
+      (click)="desativar()"
+      [disabled]="desativando()"
+      class="inline-flex items-center gap-1.5 rounded-lg bg-[#e5484d] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#d13438] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e5484d] focus-visible:ring-offset-2 disabled:opacity-50"
+    >
+      @if (desativando()) {
+        <span class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden="true"></span>
+        Desativando...
+      } @else {
+        Desativar
+      }
+    </button>
+  </ng-container>
 </app-modal>
