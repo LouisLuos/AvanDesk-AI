@@ -898,18 +898,31 @@ export class DetalheChamado implements OnInit {
 
   protected selecionarSeveridade(valor: number): void {
     this.severidade.set(valor);
+    if (this.prioridadeManual() === this.prioridadeSugerida()) {
+      this.prioridadeManual.set(null);
+    }
   }
 
   protected selecionarUrgencia(valor: number): void {
     this.urgencia.set(valor);
+    if (this.prioridadeManual() === this.prioridadeSugerida()) {
+      this.prioridadeManual.set(null);
+    }
   }
 
   protected selecionarImpacto(valor: number): void {
     this.impacto.set(valor);
+    if (this.prioridadeManual() === this.prioridadeSugerida()) {
+      this.prioridadeManual.set(null);
+    }
   }
 
   protected selecionarPrioridadeFinal(prio: PrioridadeChamado): void {
-    this.prioridadeManual.set(prio);
+    if (prio === this.prioridadeSugerida()) {
+      this.prioridadeManual.set(null);
+    } else {
+      this.prioridadeManual.set(prio);
+    }
   }
 
   protected abrirModalPrioridade(): void {
@@ -927,8 +940,18 @@ export class DetalheChamado implements OnInit {
     if (dados.severidade) this.severidade.set(dados.severidade);
     if (dados.urgencia) this.urgencia.set(dados.urgencia);
     if (dados.impacto_operacional) this.impacto.set(dados.impacto_operacional);
-    if (dados.prioridade_final) this.prioridadeManual.set(dados.prioridade_final);
-    if (dados.justificativa_prioridade) this.justificativaPrioridade.set(dados.justificativa_prioridade);
+
+    if (
+      dados.prioridade_final &&
+      dados.prioridade_sugerida &&
+      dados.prioridade_final !== dados.prioridade_sugerida
+    ) {
+      this.prioridadeManual.set(dados.prioridade_final);
+      this.justificativaPrioridade.set(dados.justificativa_prioridade ?? '');
+    } else {
+      this.prioridadeManual.set(null);
+      this.justificativaPrioridade.set(dados.justificativa_prioridade ?? '');
+    }
   }
 
   protected salvarTriagemPrioridade(): void {
@@ -957,7 +980,7 @@ export class DetalheChamado implements OnInit {
           this.chamado.set(dados);
           this.inicializarMatriz(dados);
           this.fecharModalPrioridade();
-          this.toast.sucesso('Prioridade definida com sucesso!');
+          this.toast.sucesso('Triagem e prioridade salvas com sucesso!');
         },
         error: (err) => {
           const msg = extrairMensagensErro(err)[0] ?? 'Erro ao salvar prioridade.';
