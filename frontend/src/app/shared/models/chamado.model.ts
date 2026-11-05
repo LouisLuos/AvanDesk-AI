@@ -104,6 +104,30 @@ export interface ResolucaoRequest {
   possivelRecorrencia?: boolean | null;
 }
 
+export interface EscalonamentoRequest {
+  fornecedor: string;
+  protocolo_externo?: string;
+  observacao?: string;
+}
+
+export interface RetornoFornecedorRequest {
+  retorno: string;
+}
+
+export interface EscalonamentoApiResponse {
+  id: string;
+  fornecedor: string;
+  protocolo_externo?: string | null;
+  observacao?: string | null;
+  enviado_em: string;
+  enviado_por: string;
+  responsavel: ResponsavelChamado | null;
+  retorno?: string | null;
+  retorno_em?: string | null;
+  retorno_registrado_por?: string | null;
+  aberto: boolean;
+}
+
 export interface EventoHistoricoApiResponse {
   id_evento: string;
   tipo: TipoEventoHistorico | string;
@@ -148,6 +172,7 @@ export interface ChamadoDetalheApiResponse {
   possivelRecorrencia?: boolean | null;
   origem_dado?: OrigemDado;
   registros_contato: RegistroContatoApiResponse[];
+  escalonamentos?: EscalonamentoApiResponse[];
   historico: EventoHistoricoApiResponse[];
 }
 
@@ -178,6 +203,19 @@ export interface RegistroContatoDetalhe {
   solicitanteNome: string;
   solicitanteContato: string;
   registradoPor?: string | null;
+}
+
+export interface EscalonamentoDetalhe {
+  id: string;
+  fornecedor: string;
+  protocoloExterno: string | null;
+  observacao: string | null;
+  enviadoEm: string;
+  enviadoPor: string;
+  retorno: string | null;
+  retornoEm: string | null;
+  retornoRegistradoPor: string | null;
+  aberto: boolean;
 }
 
 export interface EvidenciaAnexo {
@@ -238,7 +276,8 @@ export interface ChamadoDetalhe {
   historico: EventoTimeline[];
   slaItens: ItemSlaDetalhe[];
   pausasMinutos?: number;
-  tempoTerceirosHoras?: number;
+  tempoTerceirosMinutos?: number;
+  escalonamentos?: EscalonamentoDetalhe[];
   relatosVinculados: RelatoVinculadoItem[];
   resolvido_em?: string | null;
   resolvido_em_iso?: string | null;

@@ -2,6 +2,8 @@ import {
   CanalOrigem,
   ChamadoDetalhe,
   ChamadoDetalheApiResponse,
+  EscalonamentoApiResponse,
+  EscalonamentoDetalhe,
   EventoHistoricoApiResponse,
   EventoTimeline,
   ItemSlaDetalhe,
@@ -150,6 +152,7 @@ export function mapearChamadoDetalhe(
           mascararTelefoneSolicitante(entrada.solicitante.contato),
       },
       registrosContato: entrada.registrosContato ?? [],
+      escalonamentos: entrada.escalonamentos ?? [],
       evidencias: entrada.evidencias ?? [],
       historico: entrada.historico ?? [],
       slaItens: entrada.slaItens ?? construirSlaPadrao(entrada.aberto_em, entrada.primeira_resposta_em),
@@ -186,6 +189,8 @@ export function mapearChamadoDetalhe(
     registradoPor: c.registrado_por ?? null,
   }));
 
+  const escalonamentosApi = entrada.escalonamentos ?? [];
+
   const primeiraLinhaDescricao =
     entrada.descricao?.trim().split('\n')[0]?.slice(0, 80) || entrada.codigo;
 
@@ -220,11 +225,12 @@ export function mapearChamadoDetalhe(
       : null,
     primeira_resposta_em_iso: entrada.primeira_resposta_em ?? null,
     registrosContato,
+    escalonamentos: escalonamentosApi.map(mapearEscalonamento),
     evidencias: [],
     historico: historicoMapeado,
     slaItens: construirSlaPadrao(entrada.aberto_em, entrada.primeira_resposta_em),
     pausasMinutos: 0,
-    tempoTerceirosHoras: 0,
+    tempoTerceirosMinutos: calcularMinutosEmTerceiros(escalonamentosApi),
     relatosVinculados: [],
     resolvido_em: entrada.resolvido_em ? formatarDataHoraLocal(entrada.resolvido_em) : null,
     resolvido_em_iso: entrada.resolvido_em ?? null,
@@ -233,6 +239,35 @@ export function mapearChamadoDetalhe(
     possivel_recorrencia: (entrada as any).possivel_recorrencia ?? (entrada as any).possivelRecorrencia ?? null,
     origem_dado: entrada.origem_dado,
   };
+}
+
+function mapearEscalonamento(e: EscalonamentoApiResponse): EscalonamentoDetalhe {
+  return {
+    id: e.id,
+    fornecedor: e.fornecedor,
+    protocoloExterno: e.protocolo_externo ?? null,
+    observacao: e.observacao ?? null,
+    enviadoEm: formatarDataHoraLocal(e.enviado_em),
+    enviadoPor: e.enviado_por,
+    retorno: e.retorno ?? null,
+    retornoEm: e.retorno_em ? formatarDataHoraLocal(e.retorno_em) : null,
+    retornoRegistradoPor: e.retorno_registrado_por ?? null,
+    aberto: e.aberto,
+  };
+}
+
+/** Tempo em terceiros (M05): soma de envio até retorno; o escalonamento aberto conta até agora. */
+export function calcularMinutosEmTerceiros(
+  escalonamentos: EscalonamentoApiResponse[],
+  agora: Date = new Date(),
+): number {
+  const totalMs = escalonamentos.reduce((soma, e) => {
+    const inicio = new Date(e.enviado_em).getTime();
+    const fim = e.retorno_em ? new Date(e.retorno_em).getTime() : agora.getTime();
+    if (Number.isNaN(inicio) || Number.isNaN(fim) || fim < inicio) return soma;
+    return soma + (fim - inicio);
+  }, 0);
+  return Math.floor(totalMs / 60000);
 }
 
 function ehChamadoDetalheViewModel(
