@@ -174,17 +174,22 @@
           Mesclar
         </button>
 
-        <button
-          type="button"
-          (click)="acaoNaoDisponivel('Escalar para fornecedor', 'Leva 3 (HU07)')"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-[#e2e5ec] bg-white px-3 py-2 text-xs font-semibold text-[#4b5563] shadow-xs transition hover:bg-[#f8f9fc]"
-        >
-          <svg class="h-3.5 w-3.5 text-[#6b7280]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M5 12h14" />
-            <path d="m12 5 7 7-7 7" />
-          </svg>
-          Escalar para fornecedor
-        </button>
+        <!-- Ação HU07: Escalar para Fornecedor -->
+        @if (podeEscalar()) {
+          <button
+            type="button"
+            id="btn-escalar-fornecedor"
+            [disabled]="salvando()"
+            (click)="abrirModalEscalar()"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-[#2d5bff] bg-white px-3.5 py-2 text-xs font-semibold text-[#2d5bff] shadow-xs transition hover:bg-[#e8edff]/50 disabled:opacity-50 cursor-pointer"
+          >
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+            Escalar para fornecedor
+          </button>
+        }
 
         @if (podeResolver()) {
           <button
@@ -251,6 +256,90 @@
                 }
               </div>
             }
+          </section>
+        }
+
+        <!-- Card Escalonamento para Fornecedor (HU07) -->
+        @if (item.escalonamentos?.length) {
+          <section
+            id="card-escalonamento"
+            class="rounded-xl border p-5 shadow-xs"
+            [class]="escalonamentoAberto() ? 'border-[#f59e0b]/40 bg-[#fffbeb]' : 'border-[#e2e5ec] bg-white'"
+            aria-labelledby="secao-escalonamento-titulo"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#f1f3f8] pb-3">
+              <div class="flex items-center gap-2">
+                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-[#f59e0b]/15 text-[#b45309]">
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M5 12h14" />
+                    <path d="m12 5 7 7-7 7" />
+                  </svg>
+                </span>
+                <h2 id="secao-escalonamento-titulo" class="text-sm font-bold text-[#14161b]">
+                  @if (escalonamentoAberto()) {
+                    Aguardando fornecedor
+                  } @else {
+                    Escalonamentos para fornecedor
+                  }
+                </h2>
+              </div>
+              @if (escalonamentoAberto()) {
+                <button
+                  type="button"
+                  id="btn-registrar-retorno"
+                  [disabled]="salvando()"
+                  (click)="abrirModalRetorno()"
+                  class="inline-flex items-center gap-1.5 rounded-lg bg-[#2d5bff] px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-[#1e3fcc] disabled:opacity-50 cursor-pointer"
+                >
+                  Registrar retorno do fornecedor
+                </button>
+              }
+            </div>
+
+            <ul class="mt-3 space-y-3">
+              @for (esc of item.escalonamentos; track esc.id) {
+                <li class="rounded-lg border border-[#e2e5ec] bg-white p-3.5 text-xs" [attr.data-escalonamento]="esc.id">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <span class="font-bold text-[#14161b]">{{ esc.fornecedor }}</span>
+                    @if (esc.aberto) {
+                      <span class="rounded-md border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-2 py-0.5 text-[11px] font-semibold text-[#b45309]">
+                        Aguardando retorno
+                      </span>
+                    } @else {
+                      <span class="rounded-md border border-[#22c55e]/30 bg-[#22c55e]/10 px-2 py-0.5 text-[11px] font-semibold text-[#15803d]">
+                        Retorno recebido
+                      </span>
+                    }
+                  </div>
+                  <dl class="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-[#4b5563] sm:grid-cols-2">
+                    <div>
+                      <dt class="inline text-[#6b7280]">Protocolo:</dt>
+                      <dd class="inline font-medium text-[#14161b]">{{ esc.protocoloExterno || '—' }}</dd>
+                    </div>
+                    <div>
+                      <dt class="inline text-[#6b7280]">Enviado:</dt>
+                      <dd class="inline font-medium text-[#14161b]">{{ esc.enviadoEm }} por {{ esc.enviadoPor }}</dd>
+                    </div>
+                    @if (esc.retornoEm) {
+                      <div class="sm:col-span-2">
+                        <dt class="inline text-[#6b7280]">Retorno:</dt>
+                        <dd class="inline font-medium text-[#14161b]">
+                          {{ esc.retornoEm }}@if (esc.retornoRegistradoPor) { por {{ esc.retornoRegistradoPor }}}
+                        </dd>
+                      </div>
+                    }
+                  </dl>
+                  @if (esc.observacao) {
+                    <p class="mt-2 whitespace-pre-line text-[#363b47]">{{ esc.observacao }}</p>
+                  }
+                  @if (esc.retorno) {
+                    <p class="mt-2 whitespace-pre-line rounded-md bg-[#f0fdf4] p-2 text-[#14532d]">
+                      <span class="font-bold">Resposta do fornecedor:</span> {{ esc.retorno }}
+                    </p>
+                  }
+                </li>
+              }
+            </ul>
           </section>
         }
 
@@ -669,7 +758,7 @@
               </div>
               <div class="flex justify-between">
                 <span>Tempo em terceiros</span>
-                <span class="font-medium text-[#14161b]">{{ item.tempoTerceirosHoras ?? 0 }}</span>
+                <span class="font-medium text-[#14161b]">{{ item.tempoTerceirosMinutos ?? 0 }} min</span>
               </div>
             </div>
           </div>
@@ -862,6 +951,9 @@
                 <p class="text-[11px] leading-tight text-[#6b7280]">
                   Selecione quem está impedindo a evolução do chamado:
                 </p>
+                <p id="dica-escalar-fornecedor" class="text-[11px] leading-tight text-[#6b7280]">
+                  Depende de fornecedor externo? Use <strong>Escalar para fornecedor</strong>.
+                </p>
                 <div class="mt-2 space-y-2 text-xs">
                   <div
                     (click)="selecionarMotivoEspera('SOLICITANTE')"
@@ -881,28 +973,6 @@
                       <span class="block font-medium text-[#14161b]">
                         Aguardando solicitante
                         <span class="ml-1 text-[10px] text-[#16a34a] font-semibold">(pausa relógio de SLA)</span>
-                      </span>
-                    </label>
-                  </div>
-
-                  <div
-                    (click)="selecionarMotivoEspera('FORNECEDOR')"
-                    class="flex items-start gap-2.5 rounded-lg border p-2.5 transition cursor-pointer"
-                    [class]="motivoEsperaSelecionado() === 'FORNECEDOR' ? 'border-[#2d5bff] bg-white ring-1 ring-[#2d5bff]' : 'border-[#e2e5ec] bg-white/70 hover:bg-white'"
-                  >
-                    <input
-                      type="radio"
-                      id="motivo-fornecedor"
-                      name="motivoEspera"
-                      value="FORNECEDOR"
-                      [checked]="motivoEsperaSelecionado() === 'FORNECEDOR'"
-                      (change)="selecionarMotivoEspera('FORNECEDOR')"
-                      class="mt-0.5 text-[#2d5bff] focus:ring-[#2d5bff]"
-                    />
-                    <label for="motivo-fornecedor" class="cursor-pointer">
-                      <span class="block font-medium text-[#14161b]">
-                        Fornecedor externo
-                        <span class="ml-1 text-[10px] text-[#b45309] font-semibold">(tempo em terceiros, sem pausa)</span>
                       </span>
                     </label>
                   </div>
@@ -985,6 +1055,217 @@
         </div>
       </div>
     }
+    <!-- Modal de Escalonamento para Fornecedor (HU07) -->
+    @if (modalEscalarAberto()) {
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-escalar-titulo"
+      >
+        <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl border border-[#e2e5ec]">
+          <div class="flex items-start justify-between border-b border-[#f1f3f8] pb-4">
+            <div>
+              <h2 id="modal-escalar-titulo" class="text-base font-bold text-[#14161b]">
+                Escalar para fornecedor
+              </h2>
+              <p class="mt-0.5 text-[11px] text-[#6b7280]">
+                {{ item.codigo }} · o time interno continua responsável
+              </p>
+            </div>
+            <button
+              type="button"
+              (click)="fecharModalEscalar()"
+              class="rounded-lg p-1.5 text-[#9aa2b1] hover:bg-[#f1f3f8] hover:text-[#14161b] transition cursor-pointer"
+              aria-label="Fechar modal"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="mt-4 space-y-4">
+            <div class="space-y-1.5">
+              <label for="campo-fornecedor" class="block text-xs font-bold text-[#14161b]">
+                Fornecedor externo <span class="text-[#e5484d]">*</span>
+              </label>
+              <input
+                id="campo-fornecedor"
+                type="text"
+                maxlength="120"
+                placeholder="Ex.: TechPrint Suprimentos"
+                [value]="fornecedorTexto()"
+                (input)="atualizarFornecedor($any($event.target).value)"
+                class="w-full rounded-lg border bg-white px-3 py-2 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:outline-none focus:ring-2 transition"
+                [class]="erroFornecedor() ? 'border-[#e5484d] focus:border-[#e5484d] focus:ring-[#e5484d]/20' : 'border-[#e2e5ec] focus:border-[#2d5bff] focus:ring-[#2d5bff]/20'"
+              />
+              @if (erroFornecedor(); as msgErro) {
+                <p id="erro-fornecedor" class="text-[11px] font-medium text-[#e5484d]">{{ msgErro }}</p>
+              }
+            </div>
+
+            <div class="space-y-1.5">
+              <label for="campo-protocolo-externo" class="block text-xs font-bold text-[#14161b]">
+                Protocolo do fornecedor <span class="text-[11px] font-normal text-[#6b7280]">(opcional)</span>
+              </label>
+              <input
+                id="campo-protocolo-externo"
+                type="text"
+                maxlength="100"
+                placeholder="Ex.: TP-48213 (se já existir)"
+                [value]="protocoloExternoTexto()"
+                (input)="atualizarProtocoloExterno($any($event.target).value)"
+                class="w-full rounded-lg border border-[#e2e5ec] bg-white px-3 py-2 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:border-[#2d5bff] focus:outline-none focus:ring-2 focus:ring-[#2d5bff]/20 transition"
+              />
+            </div>
+
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between">
+                <label for="campo-observacao-fornecedor" class="block text-xs font-bold text-[#14161b]">
+                  Descrição para o fornecedor <span class="text-[#e5484d]">*</span>
+                </label>
+                <span class="text-[11px] text-[#6b7280]">
+                  {{ observacaoFornecedorTexto().trim().length }}/1000
+                </span>
+              </div>
+              <textarea
+                id="campo-observacao-fornecedor"
+                rows="4"
+                maxlength="1000"
+                placeholder="O que aconteceu e o que já foi tentado. Sem dados de pacientes."
+                [value]="observacaoFornecedorTexto()"
+                (input)="atualizarObservacaoFornecedor($any($event.target).value)"
+                class="w-full rounded-lg border bg-white p-3 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:outline-none focus:ring-2 transition"
+                [class]="erroObservacaoFornecedor() ? 'border-[#e5484d] focus:border-[#e5484d] focus:ring-[#e5484d]/20' : 'border-[#e2e5ec] focus:border-[#2d5bff] focus:ring-[#2d5bff]/20'"
+              ></textarea>
+              @if (erroObservacaoFornecedor(); as msgErro) {
+                <p id="erro-observacao-fornecedor" class="text-[11px] font-medium text-[#e5484d]">{{ msgErro }}</p>
+              }
+            </div>
+
+            <div id="aviso-rn07" class="flex items-start gap-2 rounded-lg bg-[#fdebe4] p-3 text-[11px] text-[#b42318]">
+              <svg class="mt-0.5 h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span>
+                Você continua responsável pelo chamado (RN07). O tempo no fornecedor é registrado à parte e não pausa o prazo.
+              </span>
+            </div>
+          </div>
+
+          <div class="mt-6 flex items-center justify-end gap-2.5 border-t border-[#f1f3f8] pt-4">
+            <button
+              type="button"
+              [disabled]="salvando()"
+              (click)="fecharModalEscalar()"
+              class="rounded-lg border border-[#2d5bff] bg-white px-3.5 py-2 text-xs font-semibold text-[#2d5bff] shadow-2xs hover:bg-[#e8edff]/50 disabled:opacity-50 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              id="btn-confirmar-escalonamento"
+              [disabled]="salvando() || !escalonamentoValido()"
+              (click)="confirmarEscalonamento()"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-[#2d5bff] px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#1e3fcc] disabled:opacity-50 cursor-pointer"
+            >
+              @if (salvando()) {
+                <span class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                Escalando...
+              } @else {
+                Confirmar escalonamento
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Modal de Retorno do Fornecedor (HU07) -->
+    @if (modalRetornoAberto() && escalonamentoAberto(); as esc) {
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-retorno-titulo"
+      >
+        <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl border border-[#e2e5ec]">
+          <div class="flex items-start justify-between border-b border-[#f1f3f8] pb-4">
+            <div>
+              <h2 id="modal-retorno-titulo" class="text-base font-bold text-[#14161b]">
+                Retorno do fornecedor
+              </h2>
+              <p class="mt-0.5 text-[11px] text-[#6b7280]">
+                {{ esc.fornecedor }}@if (esc.protocoloExterno) { · protocolo {{ esc.protocoloExterno }}} · o chamado volta para Em Atendimento
+              </p>
+            </div>
+            <button
+              type="button"
+              (click)="fecharModalRetorno()"
+              class="rounded-lg p-1.5 text-[#9aa2b1] hover:bg-[#f1f3f8] hover:text-[#14161b] transition cursor-pointer"
+              aria-label="Fechar modal"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="mt-4 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label for="campo-retorno-fornecedor" class="block text-xs font-bold text-[#14161b]">
+                O que o fornecedor respondeu <span class="text-[#e5484d]">*</span>
+              </label>
+              <span class="text-[11px] text-[#6b7280]">{{ retornoTexto().trim().length }}/2000</span>
+            </div>
+            <textarea
+              id="campo-retorno-fornecedor"
+              rows="4"
+              maxlength="2000"
+              placeholder="Ex.: Técnico trocou a placa de alimentação; impressora testada e funcionando."
+              [value]="retornoTexto()"
+              (input)="atualizarRetornoTexto($any($event.target).value)"
+              class="w-full rounded-lg border bg-white p-3 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:outline-none focus:ring-2 transition"
+              [class]="erroRetorno() ? 'border-[#e5484d] focus:border-[#e5484d] focus:ring-[#e5484d]/20' : 'border-[#e2e5ec] focus:border-[#2d5bff] focus:ring-[#2d5bff]/20'"
+            ></textarea>
+            @if (erroRetorno(); as msgErro) {
+              <p id="erro-retorno-fornecedor" class="text-[11px] font-medium text-[#e5484d]">{{ msgErro }}</p>
+            }
+          </div>
+
+          <div class="mt-6 flex items-center justify-end gap-2.5 border-t border-[#f1f3f8] pt-4">
+            <button
+              type="button"
+              [disabled]="salvando()"
+              (click)="fecharModalRetorno()"
+              class="rounded-lg border border-[#2d5bff] bg-white px-3.5 py-2 text-xs font-semibold text-[#2d5bff] shadow-2xs hover:bg-[#e8edff]/50 disabled:opacity-50 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              id="btn-confirmar-retorno"
+              [disabled]="salvando() || !retornoValido()"
+              (click)="confirmarRetorno()"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-[#2d5bff] px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#1e3fcc] disabled:opacity-50 cursor-pointer"
+            >
+              @if (salvando()) {
+                <span class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                Registrando...
+              } @else {
+                Registrar retorno
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- Modal de Resolução do Chamado (HU06) -->
     @if (modalResolucaoAberto()) {
       <div
