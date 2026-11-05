@@ -5,6 +5,7 @@ import com.avandesk.api.catalogo.repository.CategoriaRepository;
 import com.avandesk.api.chamado.dto.ChamadoResumoResponse;
 import com.avandesk.api.chamado.dto.FilaChamadosResponse;
 import com.avandesk.api.chamado.dto.FiltroChamados;
+import com.avandesk.api.chamado.dto.TotalPorResponsavelResponse;
 import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.OrigemDado;
@@ -16,6 +17,7 @@ import com.avandesk.api.chamado.repository.ChamadoRepository;
 import com.avandesk.api.chamado.repository.SolicitanteRepository;
 import com.avandesk.api.unidade.entity.Unidade;
 import com.avandesk.api.unidade.repository.UnidadeRepository;
+import com.avandesk.api.usuario.entity.PerfilUsuario;
 import com.avandesk.api.usuario.entity.Usuario;
 import com.avandesk.api.usuario.repository.UsuarioRepository;
 import jakarta.persistence.EntityManager;
@@ -35,6 +37,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -252,6 +255,27 @@ class FilaChamadosIntegracaoTest {
         });
     }
 
+    @Test
+    void deveContarSoOsChamadosEmAndamentoDeCadaResponsavel() {
+        emTransacaoDesfeita(dados -> {
+            Unidade unidade = dados.unidade();
+            Usuario comChamados = dados.novoAnalista();
+            Usuario soComResolvidos = dados.novoAnalista();
+            dados.chamado(unidade, StatusChamado.EM_TRIAGEM, AGORA, null, CanalOrigem.LIGACAO, comChamados);
+            dados.chamado(unidade, StatusChamado.EM_ATENDIMENTO, AGORA, null, CanalOrigem.LIGACAO, comChamados);
+            dados.chamado(unidade, StatusChamado.REABERTO, AGORA, null, CanalOrigem.LIGACAO, comChamados);
+            dados.resolvido(unidade, comChamados);
+            dados.resolvido(unidade, soComResolvidos);
+            entityManager.flush();
+
+            Map<UUID, Long> totais = filaChamadosService.totaisPorResponsavel().stream()
+                .collect(Collectors.toMap(TotalPorResponsavelResponse::responsavelId, TotalPorResponsavelResponse::total));
+
+            assertEquals(3L, totais.get(comChamados.getId()));
+            assertNull(totais.get(soComResolvidos.getId()));
+        });
+    }
+
     // ---------- apoio ----------
 
     private FilaChamadosResponse listar(FiltroChamados filtro, boolean meus, int pagina, int tamanho) {
@@ -293,6 +317,15 @@ class FilaChamadosIntegracaoTest {
             return analista2;
         }
 
+        Usuario novoAnalista() {
+            Usuario analista = new Usuario();
+            analista.setNome("Analista de Teste da Fila");
+            analista.setEmail("it-" + UUID.randomUUID().toString().substring(0, 8) + "@lumen.local");
+            analista.setSenhaHash("hash-de-teste");
+            analista.setPerfil(PerfilUsuario.ANALISTA_SUPORTE);
+            return usuarioRepository.save(analista);
+        }
+
         Unidade unidade() {
             Unidade unidade = new Unidade();
             unidade.setNome("Unidade de Teste da Fila");
@@ -306,6 +339,18 @@ class FilaChamadosIntegracaoTest {
 
         Chamado chamado(Unidade unidade, StatusChamado status, Instant abertoEm, Prioridade prioridade,
                         CanalOrigem canal, Usuario responsavel) {
+            return chamadoRepository.save(montar(unidade, status, abertoEm, prioridade, canal, responsavel));
+        }
+
+        /** Resolvido já nasce com a resolução, exigida pela constraint ck_chamados_resolucao. */
+        Chamado resolvido(Unidade unidade, Usuario responsavel) {
+            Chamado chamado = montar(unidade, StatusChamado.RESOLVIDO, AGORA, null, CanalOrigem.LIGACAO, responsavel);
+            chamado.setResolucao("Cabo de rede reconectado.");
+            return chamadoRepository.save(chamado);
+        }
+
+        private Chamado montar(Unidade unidade, StatusChamado status, Instant abertoEm, Prioridade prioridade,
+                               CanalOrigem canal, Usuario responsavel) {
             Chamado chamado = new Chamado();
             chamado.setCodigo("LUM-2099-%03d%03d".formatted(prefixo, ++sequencia));
             chamado.setUnidade(unidade);
@@ -320,7 +365,7 @@ class FilaChamadosIntegracaoTest {
             chamado.setPrioridadeFinal(prioridade);
             chamado.setAbertoEm(abertoEm);
             chamado.setOrigemDado(OrigemDado.TESTE);
-            return chamadoRepository.save(chamado);
+            return chamado;
         }
 
         private Solicitante criarSolicitante() {

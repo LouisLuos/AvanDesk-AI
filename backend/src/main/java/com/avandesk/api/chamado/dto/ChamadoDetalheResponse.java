@@ -45,10 +45,11 @@ public record ChamadoDetalheResponse(
     boolean possivelRecorrencia,
     OrigemDado origemDado,
     List<RegistroContatoResponse> registrosContato,
+    List<EscalonamentoResponse> escalonamentos,
     List<EventoHistoricoResponse> historico
 ) {
 
-    /** Os contatos e os eventos já chegam em ordem de ocorrido_em. */
+    /** Os contatos e os eventos já chegam em ordem de ocorrido_em; os escalonamentos vêm do chamado, em ordem de envio. */
     public static ChamadoDetalheResponse de(Chamado chamado, List<RegistroContato> contatos,
                                             List<EventoHistorico> eventos) {
         return new ChamadoDetalheResponse(
@@ -80,6 +81,7 @@ public record ChamadoDetalheResponse(
             chamado.isPossivelRecorrencia(),
             chamado.getOrigemDado(),
             contatos.stream().map(RegistroContatoResponse::de).toList(),
+            chamado.getEscalonamentos().stream().map(EscalonamentoResponse::de).toList(),
             eventos.stream().map(EventoHistoricoResponse::de).toList()
         );
     }

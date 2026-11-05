@@ -1,5 +1,7 @@
 import { Routes } from '@angular/router';
+import { PERFIS_ADMINISTRACAO } from './core/config/perfis';
 import { authGuard } from './core/guards/auth.guard';
+import { perfilGuard } from './core/guards/perfil.guard';
 
 export const routes: Routes = [
   {
@@ -36,6 +38,7 @@ export const routes: Routes = [
       },
       {
         path: 'admin',
+        canActivate: [perfilGuard(PERFIS_ADMINISTRACAO)],
         children: [
           {
             // Abas da administração, no outlet de largura total do MainLayout.
@@ -45,11 +48,16 @@ export const routes: Routes = [
           },
           { path: '', pathMatch: 'full', redirectTo: 'unidades' },
           {
-            // HU11 — restrito à Liderança de TI quando a HU09 (perfis) estiver pronta.
             path: 'unidades',
             title: 'Unidades | Nexo',
             loadComponent: () =>
               import('./features/admin/unidades/unidades').then((m) => m.Unidades),
+          },
+          {
+            path: 'analistas',
+            title: 'Analistas | Nexo',
+            loadComponent: () =>
+              import('./features/admin/analistas/analistas').then((m) => m.Analistas),
           },
         ],
       },

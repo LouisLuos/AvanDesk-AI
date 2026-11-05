@@ -17,14 +17,16 @@ describe('AdminNav', () => {
     return fixture;
   }
 
-  it('liga só a aba de Unidades e marca as demais como "Em breve"', () => {
+  it('liga as abas de Unidades e Analistas e marca as demais como "Em breve"', () => {
     const elemento = renderizar().nativeElement as HTMLElement;
 
-    const unidades = elemento.querySelector('#aba-unidades')!;
-    expect(unidades.tagName).toBe('A');
-    expect(unidades.getAttribute('href')).toBe('/admin/unidades');
+    for (const [id, rota] of [['aba-unidades', '/admin/unidades'], ['aba-analistas', '/admin/analistas']]) {
+      const aba = elemento.querySelector(`#${id}`)!;
+      expect(aba.tagName).toBe('A');
+      expect(aba.getAttribute('href')).toBe(rota);
+    }
 
-    for (const id of ['aba-painel', 'aba-analistas', 'aba-fornecedores', 'aba-categorias']) {
+    for (const id of ['aba-painel', 'aba-fornecedores', 'aba-categorias']) {
       const aba = elemento.querySelector(`#${id}`)!;
       expect(aba.tagName).toBe('SPAN');
       expect(aba.getAttribute('aria-disabled')).toBe('true');

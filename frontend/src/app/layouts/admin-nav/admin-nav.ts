@@ -51,7 +51,7 @@ export class AdminNav {
   protected readonly abas: ReadonlyArray<AbaAdmin> = [
     { rotulo: 'Painel da Administração', id: 'aba-painel' },
     { rotulo: 'Unidades', id: 'aba-unidades', rota: '/admin/unidades' },
-    { rotulo: 'Analistas', id: 'aba-analistas' },
+    { rotulo: 'Analistas', id: 'aba-analistas', rota: '/admin/analistas' },
     { rotulo: 'Fornecedores Externos', id: 'aba-fornecedores' },
     { rotulo: 'Categorias e Sistemas', id: 'aba-categorias' },
   ];

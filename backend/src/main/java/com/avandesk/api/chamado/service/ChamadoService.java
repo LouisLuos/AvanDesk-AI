@@ -223,6 +223,9 @@ public class ChamadoService {
         Chamado chamado = buscarParaDetalhe(id);
         StatusChamado anterior = chamado.getStatus();
         validarTransicao(anterior, StatusChamado.RESOLVIDO);
+        if (chamado.getMotivoEspera() == MotivoEspera.FORNECEDOR) {
+            throw new OperacaoNaoPermitidaException("Registre o retorno do fornecedor antes de resolver o chamado.");
+        }
         Usuario autor = usuarioLogadoService.obterUsuarioLogado();
 
         String resolucao = request.resolucao().trim();
@@ -311,6 +314,9 @@ public class ChamadoService {
                 yield TipoEvento.CHAMADO_TRIADO;
             }
             case AGUARDANDO -> {
+                if (chamado.getMotivoEspera() == MotivoEspera.FORNECEDOR) {
+                    throw new OperacaoNaoPermitidaException("Para voltar ao atendimento, registre o retorno do fornecedor.");
+                }
                 chamado.setMotivoEspera(null);
                 chamado.setEsperaIniciadaEm(null);
                 yield TipoEvento.RETORNO_RECEBIDO;
@@ -329,6 +335,9 @@ public class ChamadoService {
     private static TipoEvento colocarEmEspera(Chamado chamado, MotivoEspera motivo, Map<String, Object> dados) {
         if (motivo == null) {
             throw new OperacaoNaoPermitidaException("Informe o motivo_espera para colocar o chamado em AGUARDANDO.");
+        }
+        if (motivo == MotivoEspera.FORNECEDOR) {
+            throw new OperacaoNaoPermitidaException("Para aguardar fornecedor, escale o chamado para o fornecedor.");
         }
         chamado.setMotivoEspera(motivo);
         chamado.setEsperaIniciadaEm(agora());
