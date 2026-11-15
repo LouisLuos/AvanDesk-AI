@@ -159,4 +159,8 @@ public class Chamado {
     @OneToMany(mappedBy = "chamado")
     @OrderBy("enviadoEm ASC")
     private List<Escalonamento> escalonamentos = new ArrayList<>();
+
+    @OneToMany(mappedBy = "chamadoPrincipal")
+    @OrderBy("abertoEm ASC")
+    private List<Chamado> chamadosMesclados = new ArrayList<>();
 }
