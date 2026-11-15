@@ -140,6 +140,8 @@ class ChamadoControllerTest {
             null,
             null, null, null, false,
             OrigemDado.TESTE,
+            null,
+            List.of(),
             List.of(new RegistroContatoResponse(
                 contatoId,
                 CanalOrigem.LIGACAO,
@@ -147,7 +149,8 @@ class ChamadoControllerTest {
                 "Impressora de etiquetas da coleta não imprime.",
                 abertoEm,
                 new SolicitanteResponse("Recepção Boa Viagem", "+5581999999999"),
-                "Analista Dev Um"
+                "Analista Dev Um",
+                null
             )),
             List.of(),
             List.of(new EventoHistoricoResponse(
