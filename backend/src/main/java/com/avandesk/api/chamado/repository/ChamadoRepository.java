@@ -1,5 +1,6 @@
 package com.avandesk.api.chamado.repository;
 
+import com.avandesk.api.chamado.dto.ChamadoReferenciaResponse;
 import com.avandesk.api.chamado.entity.Chamado;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
@@ -23,8 +24,18 @@ public interface ChamadoRepository extends JpaRepository<Chamado, UUID>, JpaSpec
     @Query(value = "SELECT nextval('chamados_codigo_seq')", nativeQuery = true)
     Long proximoNumeroCodigo();
 
-    @EntityGraph(attributePaths = {"unidade", "solicitante", "categoria", "sistemaEquipamento", "responsavel"})
+    @EntityGraph(attributePaths = {
+        "unidade", "solicitante", "categoria", "sistemaEquipamento", "responsavel", "chamadoPrincipal"
+    })
     Optional<Chamado> findDetalheById(UUID id);
+
+    @Query("""
+        SELECT new com.avandesk.api.chamado.dto.ChamadoReferenciaResponse(c.id, c.codigo)
+        FROM Chamado c
+        WHERE c.chamadoPrincipal.id = :principalId
+        ORDER BY c.abertoEm ASC
+        """)
+    List<ChamadoReferenciaResponse> listarMesclados(@Param("principalId") UUID principalId);
 
     /**
      * Mesclagem (HU03): trava as linhas dos chamados até o fim da transação, sempre na ordem do id, para duas
