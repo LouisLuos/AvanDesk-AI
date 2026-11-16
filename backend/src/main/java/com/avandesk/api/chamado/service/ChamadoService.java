@@ -5,6 +5,7 @@ import com.avandesk.api.catalogo.entity.SistemaEquipamento;
 import com.avandesk.api.catalogo.service.CategoriaService;
 import com.avandesk.api.catalogo.service.SistemaEquipamentoService;
 import com.avandesk.api.chamado.dto.ChamadoDetalheResponse;
+import com.avandesk.api.chamado.dto.ChamadoReferenciaResponse;
 import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
 import com.avandesk.api.chamado.dto.PrioridadeRequest;
@@ -13,6 +14,7 @@ import com.avandesk.api.chamado.dto.ResolucaoRequest;
 import com.avandesk.api.chamado.dto.StatusRequest;
 import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.DirecaoContato;
+import com.avandesk.api.chamado.entity.Escalonamento;
 import com.avandesk.api.chamado.entity.EventoHistorico;
 import com.avandesk.api.chamado.entity.MotivoEspera;
 import com.avandesk.api.chamado.entity.Prioridade;
@@ -21,6 +23,7 @@ import com.avandesk.api.chamado.entity.Solicitante;
 import com.avandesk.api.chamado.entity.StatusChamado;
 import com.avandesk.api.chamado.entity.TipoEvento;
 import com.avandesk.api.chamado.repository.ChamadoRepository;
+import com.avandesk.api.chamado.repository.EscalonamentoRepository;
 import com.avandesk.api.chamado.repository.RegistroContatoRepository;
 import com.avandesk.api.core.config.NexoProperties;
 import com.avandesk.api.core.exception.OperacaoNaoPermitidaException;
@@ -59,6 +62,7 @@ public class ChamadoService {
 
     private final ChamadoRepository chamadoRepository;
     private final RegistroContatoRepository registroContatoRepository;
+    private final EscalonamentoRepository escalonamentoRepository;
     private final EventoHistoricoService eventoHistoricoService;
     private final UnidadeService unidadeService;
     private final CategoriaService categoriaService;
@@ -436,15 +440,16 @@ public class ChamadoService {
     }
 
     private ChamadoDetalheResponse montarDetalhe(Chamado chamado) {
-        List<RegistroContato> contatos = registroContatoRepository.findByChamadoIdOrderByOcorridoEmAsc(chamado.getId());
-        List<EventoHistorico> eventos = eventoHistoricoService.listarDoChamado(chamado.getId());
-        return ChamadoDetalheResponse.de(chamado, contatos, eventos);
+        UUID chamadoId = chamado.getId();
+        List<ChamadoReferenciaResponse> mesclados = chamadoRepository.listarMesclados(chamadoId);
+        List<RegistroContato> contatos = registroContatoRepository.findByChamadoIdOrderByOcorridoEmAsc(chamadoId);
+        List<Escalonamento> escalonamentos = escalonamentoRepository.findByChamadoIdOrderByEnviadoEmAsc(chamadoId);
+        List<EventoHistorico> eventos = eventoHistoricoService.listarDoChamado(chamadoId);
+        return ChamadoDetalheResponse.de(chamado, mesclados, contatos, escalonamentos, eventos);
     }
 
     private static void registrarPrimeiraResposta(Chamado chamado) {
-        if (chamado.getPrimeiraRespostaEm() == null) {
-            chamado.setPrimeiraRespostaEm(agora());
-        }
+        chamado.registrarPrimeiraRespostaSePendente(agora());
     }
 
     private static Instant agora() {

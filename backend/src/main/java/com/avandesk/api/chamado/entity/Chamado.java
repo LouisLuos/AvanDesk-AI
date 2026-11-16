@@ -109,6 +109,12 @@ public class Chamado {
     @Column(name = "primeira_resposta_em")
     private Instant primeiraRespostaEm;
 
+    public void registrarPrimeiraRespostaSePendente(Instant instante) {
+        if (this.primeiraRespostaEm == null) {
+            this.primeiraRespostaEm = instante;
+        }
+    }
+
     @Column(name = "resolvido_em")
     private Instant resolvidoEm;
 
@@ -159,4 +165,8 @@ public class Chamado {
     @OneToMany(mappedBy = "chamado")
     @OrderBy("enviadoEm ASC")
     private List<Escalonamento> escalonamentos = new ArrayList<>();
+
+    @OneToMany(mappedBy = "chamadoPrincipal")
+    @OrderBy("abertoEm ASC")
+    private List<Chamado> chamadosMesclados = new ArrayList<>();
 }

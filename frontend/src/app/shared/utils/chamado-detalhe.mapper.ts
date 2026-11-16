@@ -157,6 +157,8 @@ export function mapearChamadoDetalhe(
       historico: entrada.historico ?? [],
       slaItens: entrada.slaItens ?? construirSlaPadrao(entrada.aberto_em, entrada.primeira_resposta_em),
       relatosVinculados: entrada.relatosVinculados ?? [],
+      chamado_principal: entrada.chamado_principal ?? null,
+      chamados_mesclados: entrada.chamados_mesclados ?? [],
       resolvido_em_iso: entrada.resolvido_em_iso ?? entrada.resolvido_em ?? null,
     };
   }
@@ -187,6 +189,7 @@ export function mapearChamadoDetalhe(
     solicitanteContato:
       mascararTelefoneSolicitante(c.solicitante?.contato) ?? c.solicitante?.contato ?? '',
     registradoPor: c.registrado_por ?? null,
+    chamadoOriginal: c.chamado_original ?? null,
   }));
 
   const escalonamentosApi = entrada.escalonamentos ?? [];
@@ -238,6 +241,8 @@ export function mapearChamadoDetalhe(
     causa_raiz: (entrada as any).causa_raiz ?? (entrada as any).causaRaiz ?? null,
     possivel_recorrencia: (entrada as any).possivel_recorrencia ?? (entrada as any).possivelRecorrencia ?? null,
     origem_dado: entrada.origem_dado,
+    chamado_principal: entrada.chamado_principal ?? null,
+    chamados_mesclados: entrada.chamados_mesclados ?? [],
   };
 }
 
@@ -446,11 +451,29 @@ function construirTextoEvento(
         descricao: sufixoAutor,
       };
 
-    case 'RELATO_VINCULADO':
+    case 'RELATO_VINCULADO': {
+      const mescladoCodigo = detalhes['chamado_mesclado_codigo'] as string | undefined;
+      const contatoId = detalhes['registro_contato_id'] as string | undefined;
+      const contato = contatoId ? contatosPorId.get(contatoId) : undefined;
+      const titulo = mescladoCodigo
+        ? `Relato vinculado do chamado ${mescladoCodigo}`
+        : 'Relato duplicado vinculado ao chamado';
+      if (contato) {
+        const rotuloCanal = ROTULO_CANAL[contato.canal] ?? contato.canal;
+        const resumoConteudo =
+          contato.conteudo.length > 140 ? `${contato.conteudo.slice(0, 140)}...` : contato.conteudo;
+        return {
+          titulo: `${titulo} (${rotuloCanal})`,
+          descricao: autor
+            ? `"${resumoConteudo}" · Vinculado por ${autor}`
+            : `"${resumoConteudo}"`,
+        };
+      }
       return {
-        titulo: 'Relato duplicado vinculado ao chamado',
+        titulo,
         descricao: sufixoAutor,
       };
+    }
 
     case 'RELATO_DESVINCULADO':
       return {
@@ -458,11 +481,15 @@ function construirTextoEvento(
         descricao: sufixoAutor,
       };
 
-    case 'CHAMADO_MESCLADO':
+    case 'CHAMADO_MESCLADO': {
+      const principalCodigo = detalhes['chamado_principal_codigo'] as string | undefined;
       return {
-        titulo: 'Chamado mesclado ao atendimento principal',
+        titulo: principalCodigo
+          ? `Chamado mesclado ao principal ${principalCodigo}`
+          : 'Chamado mesclado ao atendimento principal',
         descricao: sufixoAutor,
       };
+    }
 
     case 'NOTIFICACAO_ENVIADA':
       return {

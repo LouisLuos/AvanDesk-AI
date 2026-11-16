@@ -161,18 +161,22 @@
           Avaliar prioridade
         </button>
 
-        <button
-          type="button"
-          (click)="acaoNaoDisponivel('Mesclar chamado', 'Leva 3 (HU03)')"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-[#e2e5ec] bg-white px-3 py-2 text-xs font-semibold text-[#4b5563] shadow-xs transition hover:bg-[#f8f9fc]"
-        >
-          <svg class="h-3.5 w-3.5 text-[#6b7280]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="m8 6 4-4 4 4" />
-            <path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22" />
-            <path d="m20 22-5-5" />
-          </svg>
-          Mesclar
-        </button>
+        @if (podeMesclar()) {
+          <button
+            type="button"
+            id="btn-mesclar-chamado"
+            [disabled]="salvando()"
+            (click)="abrirModalMesclagem()"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-[#8b5cf6] bg-white px-3 py-2 text-xs font-semibold text-[#6d28d9] shadow-xs transition hover:bg-[#8b5cf6]/10 disabled:opacity-50 cursor-pointer"
+          >
+            <svg class="h-3.5 w-3.5 text-[#7c3aed]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m8 6 4-4 4 4" />
+              <path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22" />
+              <path d="m20 22-5-5" />
+            </svg>
+            Mesclar
+          </button>
+        }
 
         <!-- Ação HU07: Escalar para Fornecedor -->
         @if (podeEscalar()) {
@@ -207,6 +211,35 @@
         }
       </div>
     </header>
+
+    <!-- Banner de Chamado Mesclado (HU03) -->
+    @if (item.chamado_principal; as principal) {
+      <div
+        id="banner-chamado-mesclado"
+        class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#8b5cf6]/40 bg-[#8b5cf6]/10 px-5 py-3.5 text-xs text-[#4c1d95]"
+        role="status"
+      >
+        <div class="flex items-center gap-2.5">
+          <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#7c3aed] text-white">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m8 6 4-4 4 4" />
+              <path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22" />
+              <path d="m20 22-5-5" />
+            </svg>
+          </span>
+          <p>
+            Este chamado duplicado foi incorporado ao chamado principal
+            <strong class="font-bold">{{ principal.codigo }}</strong>. O atendimento e os relatos seguem por lá.
+          </p>
+        </div>
+        <a
+          [routerLink]="['/chamados', principal.id]"
+          class="inline-flex items-center gap-1 rounded-lg bg-[#7c3aed] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#6d28d9]"
+        >
+          Ir para {{ principal.codigo }} →
+        </a>
+      </div>
+    }
 
     <!-- Layout em 2 Colunas -->
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -619,6 +652,14 @@
                           ({{ contato.solicitanteContato }})
                         </span>
                       }
+                      @if (contato.chamadoOriginal; as origem) {
+                        <a
+                          [routerLink]="['/chamados', origem.id]"
+                          class="rounded border border-[#8b5cf6]/30 bg-[#8b5cf6]/10 px-2 py-0.5 text-[10px] font-semibold text-[#6d28d9] hover:underline"
+                        >
+                          Origem: {{ origem.codigo }}
+                        </a>
+                      }
                     </div>
                     <time class="text-[11px] text-[#6b7280] tabular-nums">
                       {{ contato.dataHoraLocal }}
@@ -856,6 +897,38 @@
             </div>
           </dl>
         </section>
+
+        <!-- Card Chamados Mesclados Neste Principal (HU03) -->
+        @if (item.chamados_mesclados?.length) {
+          <section id="card-chamados-mesclados" class="rounded-xl border border-[#8b5cf6]/30 bg-white p-6 shadow-xs" aria-labelledby="secao-mesclados-titulo">
+            <div class="flex items-center justify-between">
+              <h2 id="secao-mesclados-titulo" class="text-sm font-bold text-[#14161b]">
+                Chamados mesclados ({{ item.chamados_mesclados!.length }})
+              </h2>
+              <span class="rounded bg-[#8b5cf6]/10 px-2 py-0.5 text-[10px] font-semibold text-[#6d28d9]">
+                Duplicados
+              </span>
+            </div>
+            <p class="mt-1 text-[11px] text-[#6b7280]">
+              Chamados incorporados a este atendimento principal:
+            </p>
+            <ul class="mt-3 space-y-2">
+              @for (mesclado of item.chamados_mesclados; track mesclado.id) {
+                <li>
+                  <a
+                    [routerLink]="['/chamados', mesclado.id]"
+                    class="flex items-center justify-between rounded-lg border border-[#e2e5ec] bg-[#f8f9fc] px-3 py-2 text-xs font-semibold text-[#2d5bff] transition hover:border-[#8b5cf6]/40 hover:bg-[#8b5cf6]/5"
+                  >
+                    <span>{{ mesclado.codigo }}</span>
+                    <span class="rounded bg-[#8b5cf6]/10 px-2 py-0.5 text-[10px] font-medium text-[#6d28d9]">
+                      Ver mesclado →
+                    </span>
+                  </a>
+                </li>
+              }
+            </ul>
+          </section>
+        }
 
         <!-- Card Relatos Vinculados (Condicional) -->
         @if (item.relatosVinculados.length) {
@@ -1678,6 +1751,136 @@
                 Confirmando...
               } @else {
                 Confirmar prioridade
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Modal de Mesclagem de Chamados (HU03 / RN17) -->
+    @if (modalMesclagemAberto()) {
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-mesclagem-titulo"
+      >
+        <div class="fixed inset-0" (click)="fecharModalMesclagem()" aria-hidden="true"></div>
+
+        <div class="relative z-10 w-full max-w-lg rounded-2xl border border-[#e2e5ec] bg-white p-6 shadow-2xl">
+          <div class="flex items-start justify-between border-b border-[#f1f3f8] pb-4">
+            <div>
+              <h2 id="modal-mesclagem-titulo" class="text-base font-bold text-[#14161b]">
+                Mesclar chamado duplicado
+              </h2>
+              <p class="mt-0.5 text-xs text-[#6b7280]">
+                O chamado <strong>{{ item.codigo }}</strong> será incorporado ao chamado principal escolhido.
+              </p>
+            </div>
+            <button
+              type="button"
+              (click)="fecharModalMesclagem()"
+              class="rounded-lg p-1 text-[#9aa2b1] hover:bg-[#f1f3f8] hover:text-[#14161b] cursor-pointer"
+              aria-label="Fechar modal"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="mt-4 space-y-4">
+            <div>
+              <label for="input-busca-principal" class="block text-xs font-semibold text-[#14161b] mb-1.5">
+                Buscar chamado principal por código (protocolo)
+              </label>
+              <div class="flex gap-2">
+                <input
+                  id="input-busca-principal"
+                  type="text"
+                  [value]="buscaPrincipalCodigo()"
+                  (input)="atualizarBuscaPrincipal($any($event.target).value)"
+                  (keyup.enter)="buscarCandidatosMesclagem()"
+                  placeholder="Ex: LUM-2026-000100"
+                  class="flex-1 rounded-lg border border-[#e2e5ec] bg-white px-3 py-2 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff]"
+                />
+                <button
+                  type="button"
+                  id="btn-buscar-principal"
+                  [disabled]="carregandoCandidatosMesclagem()"
+                  (click)="buscarCandidatosMesclagem()"
+                  class="rounded-lg border border-[#e2e5ec] bg-[#f8f9fc] px-3 py-2 text-xs font-semibold text-[#14161b] hover:bg-[#e8edff]/60 disabled:opacity-50 cursor-pointer"
+                >
+                  Buscar
+                </button>
+              </div>
+            </div>
+
+            @if (erroBuscaMesclagem(); as msgBusca) {
+              <p class="text-xs text-[#dc2626]">{{ msgBusca }}</p>
+            } @else if (carregandoCandidatosMesclagem()) {
+              <p class="py-4 text-center text-xs text-[#6b7280]">Carregando chamados elegíveis...</p>
+            } @else if (candidatosMesclagem().length === 0) {
+              <p class="rounded-lg border border-[#e2e5ec] bg-[#f8f9fc] p-3 text-center text-xs text-[#6b7280]">
+                Nenhum chamado elegível encontrado. Tente outro protocolo.
+              </p>
+            } @else {
+              <div class="max-h-52 space-y-2 overflow-y-auto pr-1">
+                @for (cand of candidatosMesclagem(); track cand.id) {
+                  <button
+                    type="button"
+                    (click)="selecionarPrincipalParaMesclagem(cand)"
+                    class="w-full rounded-lg border p-3 text-left text-xs transition cursor-pointer"
+                    [class]="chamadoPrincipalSelecionado()?.id === cand.id
+                      ? 'border-[#7c3aed] bg-[#8b5cf6]/10 ring-1 ring-[#7c3aed]'
+                      : 'border-[#e2e5ec] bg-white hover:bg-[#f8f9fc]'"
+                  >
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="font-bold text-[#14161b]">{{ cand.codigo }}</span>
+                      <span class="rounded bg-[#f1f3f8] px-2 py-0.5 text-[10px] font-medium text-[#4b5563]">
+                        {{ rotuloStatus(cand.status) }}
+                      </span>
+                    </div>
+                    <p class="mt-1 truncate text-[#4b5563]">{{ cand.titulo }}</p>
+                    <p class="mt-0.5 text-[11px] text-[#6b7280]">
+                      {{ cand.unidade.nome }} · {{ cand.responsavel?.nome || 'Não atribuído' }}
+                    </p>
+                  </button>
+                }
+              </div>
+            }
+
+            @if (chamadoPrincipalSelecionado(); as sel) {
+              <div class="rounded-lg border border-[#8b5cf6]/30 bg-[#8b5cf6]/5 p-3 text-[11px] text-[#4c1d95] space-y-1">
+                <p class="font-semibold">Resumo da mesclagem (RN17):</p>
+                <p>• <strong>{{ item.codigo }}</strong> mudará para <strong>Mesclado</strong> e apontará para <strong>{{ sel.codigo }}</strong>.</p>
+                <p>• Os relatos de contato de {{ item.codigo }} serão movidos para {{ sel.codigo }} preservando a origem.</p>
+              </div>
+            }
+          </div>
+
+          <div class="mt-6 flex items-center justify-end gap-2 border-t border-[#f1f3f8] pt-4">
+            <button
+              type="button"
+              [disabled]="salvando()"
+              (click)="fecharModalMesclagem()"
+              class="rounded-lg border border-[#e2e5ec] bg-white px-4 py-2 text-xs font-semibold text-[#4b5563] hover:bg-[#f8f9fc] disabled:opacity-50 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              id="btn-confirmar-mesclagem"
+              [disabled]="salvando() || !chamadoPrincipalSelecionado()"
+              (click)="confirmarMesclagem()"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-[#7c3aed] px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#6d28d9] disabled:opacity-50 cursor-pointer"
+            >
+              @if (salvando()) {
+                <span class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                Mesclando...
+              } @else {
+                Confirmar mesclagem
               }
             </button>
           </div>

@@ -7,7 +7,10 @@ import com.avandesk.api.chamado.entity.RegistroContato;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Uma ligação, mensagem, e-mail ou visita registrada no chamado. */
+/**
+ * Uma ligação, mensagem, e-mail ou visita registrada no chamado. {@code chamadoOriginal} aponta o chamado
+ * em que o contato foi registrado quando ele chegou por uma mesclagem (HU03); nos outros, é null.
+ */
 public record RegistroContatoResponse(
 
     UUID id,
@@ -16,7 +19,8 @@ public record RegistroContatoResponse(
     String conteudo,
     Instant ocorridoEm,
     SolicitanteResponse solicitante,
-    String registradoPor
+    String registradoPor,
+    ChamadoReferenciaResponse chamadoOriginal
 ) {
 
     public static RegistroContatoResponse de(RegistroContato contato) {
@@ -27,7 +31,8 @@ public record RegistroContatoResponse(
             contato.getConteudo(),
             contato.getOcorridoEm(),
             SolicitanteResponse.de(contato.getSolicitante()),
-            contato.getRegistradoPor() == null ? null : contato.getRegistradoPor().getNome()
+            contato.getRegistradoPor() == null ? null : contato.getRegistradoPor().getNome(),
+            ChamadoReferenciaResponse.de(contato.getChamadoOriginal())
         );
     }
 }

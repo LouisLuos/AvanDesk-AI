@@ -301,10 +301,11 @@ Cria um novo chamado estruturado a partir de uma solicitação recebida por um d
 
 ## 5. Consultar Detalhe, Status, Responsável e Histórico do Chamado (HU02 & HU05)
 
-Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 estados do domínio), motivo de espera (quando em `AGUARDANDO`), responsável atual (`null` quando não atribuído), a última resolução registrada (HU06), registros de contato, escalonamentos para fornecedor (HU07) e linha do tempo cronológica imutável (`eventos_historico`) em UTC.
+Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 estados do domínio), motivo de espera (quando em `AGUARDANDO`), responsável atual (`null` quando não atribuído), a última resolução registrada (HU06), registros de contato, escalonamentos para fornecedor (HU07), mesclagens (HU03) e linha do tempo cronológica imutável (`eventos_historico`) em UTC.
 
 * **Resolução (HU06):** `resolucao`, `causa_raiz` e `possivel_recorrencia` trazem a última resolução registrada e continuam preenchidos se o chamado for reaberto; `resolvido_em` volta a `null` na reabertura. Cada resolução fica também no evento `CHAMADO_RESOLVIDO` do histórico.
 * **Escalonamentos (HU07):** lista em ordem de envio, vazia quando o chamado nunca foi escalado. Cada item traz `id`, `fornecedor`, `protocolo_externo`, `observacao`, `enviado_em`, `enviado_por` (nome), `responsavel` (`{id, nome}`: o responsável interno no momento do envio), `retorno`, `retorno_em`, `retorno_registrado_por` (nome) e `aberto` (`true` enquanto o fornecedor não respondeu). Exemplo na seção 12.
+* **Mesclagem (HU03):** `chamado_principal` (`{id, codigo}`) só vem preenchido no chamado `MESCLADO` e aponta o chamado em que ele foi mesclado; `chamados_mesclados` lista (`{id, codigo}`, em ordem de abertura) os duplicados mesclados neste chamado; em cada item de `registros_contato`, `chamado_original` (`{id, codigo}`) mostra de qual chamado o contato veio por mesclagem e fica `null` nos contatos registrados no próprio chamado. Detalhes na seção 13.
 
 * **Endpoint:** `GET /chamados/{id}`
 * **Autenticação:** Bearer Token (Analista de Suporte ou Liderança de TI)
@@ -347,6 +348,8 @@ Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 e
     "causa_raiz": null,
     "possivel_recorrencia": false,
     "origem_dado": "TESTE",
+    "chamado_principal": null,
+    "chamados_mesclados": [],
     "registros_contato": [
       {
         "id": "8f14e45f-ceea-467a-9a38-1b2c3d4e5f60",
@@ -358,7 +361,8 @@ Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 e
           "nome": "Mariana Alves",
           "contato": "+5581988771234"
         },
-        "registrado_por": "Analista Dev Um"
+        "registrado_por": "Analista Dev Um",
+        "chamado_original": null
       }
     ],
     "escalonamentos": [],
@@ -544,7 +548,7 @@ Move o chamado pelo ciclo de vida (diagrama v3 da seção 6 da análise de domí
 * Ao sair de `AGUARDANDO`, `motivo_espera` volta a `null`.
 * **Espera por fornecedor (HU07):** não passa por aqui. O chamado entra em `AGUARDANDO` com motivo `FORNECEDOR` só pelo escalonamento e sai só pelo registro do retorno (seção 12). Assim todo chamado que aguarda fornecedor tem um escalonamento aberto, com fornecedor e data de envio, e o tempo em terceiros (M05) não perde nenhum período. **Mudou na HU07:** antes este endpoint aceitava `FORNECEDOR`.
 * **Reabertura (RN20):** no MVP quem reabre é o analista, quando o solicitante avisa que o problema voltou. Depois de 7 dias da resolução, um novo relato vira um novo chamado. Ao reabrir, `resolvido_em` volta a `null`; a resolução anterior continua no chamado e no histórico. O responsável não muda.
-* `RESOLVIDO`, `FECHADO` e `MESCLADO` têm operação própria (seção 9, HU15 e HU03) e não são definidos por aqui.
+* `RESOLVIDO`, `FECHADO` e `MESCLADO` têm operação própria (seção 9, HU15 e seção 13) e não são definidos por aqui.
 * Campos que não servem para a transição pedida são ignorados.
 
 ### Response: `200 OK`
@@ -882,7 +886,82 @@ Mesmo formato do `GET /chamados/{id}` (seção 5), com `"message": "Retorno do f
 
 ---
 
-## 13. Evolução do Ciclo de Atendimento (HU03, HU04 — Planejados)
+## 13. Mesclar Chamado Duplicado no Principal (HU03)
 
-* **`POST /chamados/{id}/vinculos`** (`HU03`): associa um registro de contato duplicado a um chamado principal em andamento.
+Incorpora um chamado duplicado (secundário) a outro chamado que trata o mesmo incidente (principal), para que um só analista conduza o atendimento (RF-011, RN17). Ex.: vários relatos da queda do link de internet da mesma filial.
+
+* **Endpoint:** `POST /chamados/{id}/mesclar`
+* **Autenticação:** Bearer Token (Analista de Suporte ou Liderança de TI)
+* `{id}` é o chamado **duplicado** (secundário). Para achar o principal pelo protocolo, use a fila: `GET /chamados?codigo=LUM-2026-000100` (seção 6).
+
+### Request Body (`application/json`)
+
+```json
+{ "chamado_principal_id": "8d334236-f426-4a05-a66f-87e3b7b782a2" }
+```
+
+| Campo | Obrigatório | Regra |
+| :--- | :---: | :--- |
+| `chamado_principal_id` | sim | UUID do chamado principal; diferente do `{id}` |
+
+**Regras:**
+
+* **Secundário:** só `ABERTO`, `EM_TRIAGEM`, `EM_ATENDIMENTO`, `AGUARDANDO` ou `REABERTO`. Vai para `MESCLADO` e passa a apontar o principal (`chamado_principal`). Se estava em espera, `motivo_espera` volta a `null`. Se aguarda fornecedor, primeiro é preciso registrar o retorno (seção 12.2).
+* **Principal:** qualquer status, menos `FECHADO`, `CANCELADO` e `MESCLADO` (RN17). Mantém o próprio status, responsável e prioridade.
+* **Contatos:** todos os registros de contato do secundário passam para o principal, com a origem em `chamado_original`. Nada é apagado. Um contato que já tinha vindo de outra mesclagem mantém a origem antiga.
+* **Responsável:** o secundário passa a ter o responsável do principal; se o principal não tiver responsável, o secundário fica com o que tinha.
+* **Eventos:** `CHAMADO_MESCLADO` no secundário, com os `detalhes` `status_anterior`, `chamado_principal_id`, `chamado_principal_codigo`, `registros_contato_movidos`, `prioridade` (quando havia) e, quando o responsável muda, `responsavel_id`, `responsavel_nome`, `responsavel_anterior_id` e `responsavel_anterior_nome`. No principal, um `RELATO_VINCULADO` por contato recebido, com `registro_contato_id`, `canal`, `chamado_mesclado_id` e `chamado_mesclado_codigo`. Os dois alimentam a M07 (duplicidade tratada).
+* Depois da mesclagem, o secundário não recebe contatos (seção 10) nem muda de status, responsável ou prioridade.
+
+### Response: `200 OK`
+
+Mesmo formato do `GET /chamados/{id}` (seção 5), com o detalhe do **secundário**, `"message": "Chamado mesclado com sucesso"`, `status` `MESCLADO`, `registros_contato` vazio e o `CHAMADO_MESCLADO` no fim do `historico`:
+
+```json
+{
+  "status": "MESCLADO",
+  "chamado_principal": { "id": "8d334236-f426-4a05-a66f-87e3b7b782a2", "codigo": "LUM-2026-000100" },
+  "chamados_mesclados": [],
+  "registros_contato": []
+}
+```
+
+No detalhe do principal, os contatos recebidos aparecem em `registros_contato` com a origem:
+
+```json
+{
+  "chamados_mesclados": [ { "id": "a7889d44-3920-44ad-bd9f-d1ca5756f3e2", "codigo": "LUM-2026-000101" } ],
+  "registros_contato": [
+    {
+      "id": "a545bd0c-c6c4-453b-9817-b16349dfad30",
+      "canal": "WHATSAPP",
+      "direcao": "RECEBIDO",
+      "conteudo": "O link de internet da filial caiu.",
+      "ocorrido_em": "2026-11-15T13:05:12Z",
+      "solicitante": { "nome": "Recepção Derby", "contato": "+5581999990000" },
+      "registrado_por": "Analista Dev Um",
+      "chamado_original": { "id": "a7889d44-3920-44ad-bd9f-d1ca5756f3e2", "codigo": "LUM-2026-000101" }
+    }
+  ]
+}
+```
+
+### Erros
+
+| Caso | Status | `errors` / `message` |
+| :--- | :---: | :--- |
+| Sem `chamado_principal_id` | `400` | "Campo 'chamado_principal_id' é obrigatório." |
+| `chamado_principal_id` que não é UUID | `400` | — |
+| Chamado inexistente | `404` | "Chamado não encontrado." |
+| Principal inexistente | `404` | "Chamado principal não encontrado." |
+| Mesmo chamado | `422` | "Não é possível mesclar um chamado nele mesmo." |
+| Secundário resolvido ou encerrado | `422` | "Não é possível mesclar um chamado RESOLVIDO." |
+| Principal fechado, cancelado ou mesclado | `422` | "O chamado principal LUM-2026-000100 está MESCLADO e não pode receber uma mesclagem." |
+| Secundário aguardando fornecedor | `422` | "Registre o retorno do fornecedor antes de mesclar o chamado." |
+| Sem token | `401` | — |
+
+---
+
+## 14. Evolução do Ciclo de Atendimento (HU04 — Planejado)
+
 * **`PATCH /chamados/{id}/prioridade`** (`HU04`): registra a triagem estruturada pela Matriz 3D (`severidade`, `urgencia`, `impacto_operacional`).

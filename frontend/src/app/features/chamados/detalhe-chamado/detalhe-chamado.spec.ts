@@ -9,8 +9,10 @@ import { ToastService } from '../../../core/services/toast.service';
 import {
   ChamadoDetalhe,
   ChamadoDetalheApiResponse,
+  ChamadoResumo,
   EscalonamentoApiResponse,
   EscalonamentoDetalhe,
+  FilaChamados,
   STATUS_CHAMADO,
   StatusChamado,
 } from '../../../shared/models/chamado.model';
@@ -986,7 +988,207 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
         prioridade_final: 'MEDIA',
         justificativa_prioridade: null,
       });
-      expect(toastSpy).toHaveBeenCalledWith('Triagem e prioridade salvas com sucesso!');
+      expect(toastSpy).toHaveBeenCalledWith('Prioridade definida com sucesso!');
+    });
+  });
+
+  describe('Mesclagem de Chamados Duplicados (HU03)', () => {
+    const filaElegiveis: FilaChamados = {
+      itens: [
+        {
+          id: 'chm-127',
+          codigo: 'LUM-2026-000127',
+          titulo: 'Chamado atual (deve ser filtrado)',
+          unidade: { id: 'u-1', nome: 'U.03 Boa Viagem' },
+          categoria: null,
+          canal_origem: 'LIGACAO',
+          status: 'EM_ATENDIMENTO',
+          prioridade: 'ALTA',
+          responsavel: { id: 'r-1', nome: 'Ana Souza' },
+          aberto_em: '2026-10-07T10:00:00Z',
+          atualizado_em: '2026-10-07T10:05:00Z',
+        },
+        {
+          id: 'chm-100',
+          codigo: 'LUM-2026-000100',
+          titulo: 'Link de internet indisponível na unidade',
+          unidade: { id: 'u-1', nome: 'U.03 Boa Viagem' },
+          categoria: null,
+          canal_origem: 'WHATSAPP',
+          status: 'EM_ATENDIMENTO',
+          prioridade: 'ALTA',
+          responsavel: { id: 'r-2', nome: 'Carlos Lima' },
+          aberto_em: '2026-10-07T09:50:00Z',
+          atualizado_em: '2026-10-07T10:00:00Z',
+        },
+        {
+          id: 'chm-999',
+          codigo: 'LUM-2026-000999',
+          titulo: 'Chamado já fechado (deve ser filtrado)',
+          unidade: { id: 'u-1', nome: 'U.03 Boa Viagem' },
+          categoria: null,
+          canal_origem: 'EMAIL',
+          status: 'FECHADO',
+          prioridade: 'BAIXA',
+          responsavel: null,
+          aberto_em: '2026-10-06T09:00:00Z',
+          atualizado_em: '2026-10-06T12:00:00Z',
+        },
+      ] as ChamadoResumo[],
+      pagina: 0,
+      tamanho: 15,
+      total_itens: 3,
+      total_paginas: 1,
+      totais_por_status: {
+        ABERTO: 0,
+        EM_TRIAGEM: 0,
+        EM_ATENDIMENTO: 2,
+        AGUARDANDO: 0,
+        RESOLVIDO: 0,
+        REABERTO: 0,
+        FECHADO: 1,
+        CANCELADO: 0,
+        MESCLADO: 0,
+      },
+    };
+
+    it('deve mapear chamado_principal, chamados_mesclados, chamado_original e eventos da HU03', () => {
+      const apiPrincipal: ChamadoDetalheApiResponse = {
+        id: 'chm-100',
+        codigo: 'LUM-2026-000100',
+        status: 'EM_ATENDIMENTO',
+        motivo_espera: null,
+        descricao: 'Queda de link na unidade Boa Viagem.',
+        canal_origem: 'LIGACAO',
+        unidade: { id: 'u-1', nome: 'U.03 Boa Viagem' },
+        categoria: null,
+        solicitante: { nome: 'Recepção', contato: '+5581999990000' },
+        responsavel: { id: 'r-1', nome: 'Ana Souza' },
+        prioridade: 'ALTA',
+        aberto_em: '2026-11-15T12:00:00Z',
+        chamado_principal: null,
+        chamados_mesclados: [{ id: 'chm-101', codigo: 'LUM-2026-000101' }],
+        registros_contato: [
+          {
+            id: 'cnt-101',
+            canal: 'WHATSAPP',
+            direcao: 'RECEBIDO',
+            conteudo: 'Relato importado do duplicado.',
+            ocorrido_em: '2026-11-15T12:05:00Z',
+            solicitante: { nome: 'Coleta', contato: '+5581988881111' },
+            registrado_por: 'Ana Souza',
+            chamado_original: { id: 'chm-101', codigo: 'LUM-2026-000101' },
+          },
+        ],
+        historico: [
+          {
+            id_evento: 'ev-vinc',
+            tipo: 'RELATO_VINCULADO',
+            data: '2026-11-15T12:10:00Z',
+            autor: 'Ana Souza',
+            detalhes: {
+              registro_contato_id: 'cnt-101',
+              chamado_mesclado_codigo: 'LUM-2026-000101',
+            },
+          },
+        ],
+      };
+
+      const detalhe = mapearChamadoDetalhe(apiPrincipal);
+      expect(detalhe.chamado_principal).toBeNull();
+      expect(detalhe.chamados_mesclados).toEqual([{ id: 'chm-101', codigo: 'LUM-2026-000101' }]);
+      expect(detalhe.registrosContato![0].chamadoOriginal).toEqual({
+        id: 'chm-101',
+        codigo: 'LUM-2026-000101',
+      });
+      expect(detalhe.historico[0].titulo).toBe(
+        'Relato vinculado do chamado LUM-2026-000101 (WhatsApp)',
+      );
+      expect(detalhe.historico[0].descricao).toContain('Relato importado do duplicado.');
+    });
+
+    it('deve enviar POST /chamados/{id}/mesclar ao chamar chamadoService.mesclar', () => {
+      chamadoService.mesclar('chm-127', 'chm-100').subscribe();
+
+      const req = httpMock.expectOne(
+        (r) => r.url.endsWith('/chamados/chm-127/mesclar') && r.method === 'POST',
+      );
+      expect(req.request.body).toEqual({ chamado_principal_id: 'chm-100' });
+      req.flush({
+        status_code: 200,
+        message: 'Chamado mesclado com sucesso',
+        data: {
+          ...mockDetalhe,
+          status: 'MESCLADO',
+          chamado_principal: { id: 'chm-100', codigo: 'LUM-2026-000100' },
+        },
+        errors: null,
+      });
+    });
+
+    it('deve filtrar chamados elegiveis no modal e confirmar a mesclagem com sucesso', () => {
+      vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(mockDetalhe));
+      vi.spyOn(chamadoService, 'listar').mockReturnValue(of(filaElegiveis));
+      const mesclarSpy = vi.spyOn(chamadoService, 'mesclar').mockReturnValue(
+        of({
+          ...mockDetalhe,
+          status: 'MESCLADO',
+          chamado_principal: { id: 'chm-100', codigo: 'LUM-2026-000100' },
+          registrosContato: [],
+        }),
+      );
+      const toastSpy = vi.spyOn(toastService, 'sucesso');
+
+      fixture = TestBed.createComponent(DetalheChamado);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+
+      component['abrirModalMesclagem']();
+      fixture.detectChanges();
+
+      expect(component['modalMesclagemAberto']()).toBe(true);
+      expect(component['candidatosMesclagem']().map((c) => c.id)).toEqual(['chm-100']);
+
+      component['selecionarPrincipalParaMesclagem'](filaElegiveis.itens[1]);
+      component['confirmarMesclagem']();
+      fixture.detectChanges();
+
+      expect(mesclarSpy).toHaveBeenCalledWith('chm-127', 'chm-100');
+      expect(component['modalMesclagemAberto']()).toBe(false);
+      expect(toastSpy).toHaveBeenCalledWith(
+        'Chamado mesclado ao principal LUM-2026-000100 com sucesso!',
+      );
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('#banner-chamado-mesclado')?.textContent).toContain('LUM-2026-000100');
+      expect(el.querySelector('#btn-mesclar-chamado')).toBeNull();
+    });
+
+    it('deve exibir card de chamados mesclados e origem do contato no chamado principal', () => {
+      const principalDetalhe: ChamadoDetalhe = {
+        ...mockDetalhe,
+        chamados_mesclados: [{ id: 'chm-101', codigo: 'LUM-2026-000101' }],
+        registrosContato: [
+          {
+            id: 'cnt-1',
+            canal: 'WHATSAPP',
+            direcao: 'RECEBIDO',
+            conteudo: 'Relato importado.',
+            dataHoraLocal: '15/11/2026 12:05',
+            solicitanteNome: 'Coleta',
+            solicitanteContato: '+55 81 9****-1111',
+            chamadoOriginal: { id: 'chm-101', codigo: 'LUM-2026-000101' },
+          },
+        ],
+      };
+      vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(principalDetalhe));
+
+      fixture = TestBed.createComponent(DetalheChamado);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('#card-chamados-mesclados')?.textContent).toContain('LUM-2026-000101');
+      expect(el.textContent).toContain('Origem: LUM-2026-000101');
     });
   });
 });

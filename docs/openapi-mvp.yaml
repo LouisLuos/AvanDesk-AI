@@ -121,7 +121,7 @@ components:
           example: TESTE
     ChamadoDetalheResponse:
       type: object
-      description: "Detalhe completo do chamado (HU02 + HU05): status, responsável, contatos, escalonamentos para fornecedor (HU07) e linha do tempo cronológica em UTC."
+      description: "Detalhe completo do chamado (HU02 + HU05): status, responsável, contatos, escalonamentos para fornecedor (HU07), mesclagens (HU03) e linha do tempo cronológica em UTC."
       properties:
         id:
           type: string
@@ -201,6 +201,16 @@ components:
         origem_dado:
           type: string
           enum: [REAL, TESTE, SIMULADO]
+        chamado_principal:
+          allOf:
+            - $ref: '#/components/schemas/ChamadoReferenciaResponse'
+          nullable: true
+          description: "Só no chamado MESCLADO: o chamado principal em que ele foi mesclado (HU03)."
+        chamados_mesclados:
+          type: array
+          description: "Chamados duplicados mesclados neste chamado (HU03), em ordem de abertura. Vazia quando não houve mesclagem."
+          items:
+            $ref: '#/components/schemas/ChamadoReferenciaResponse'
         registros_contato:
           type: array
           items:
@@ -231,6 +241,11 @@ components:
               registrado_por:
                 type: string
                 nullable: true
+              chamado_original:
+                allOf:
+                  - $ref: '#/components/schemas/ChamadoReferenciaResponse'
+                nullable: true
+                description: "Chamado em que o contato foi registrado, quando ele chegou por uma mesclagem (HU03). null nos contatos do próprio chamado."
         escalonamentos:
           type: array
           description: "Escalonamentos para fornecedor (HU07), em ordem de envio. Vazia quando o chamado nunca foi escalado."
@@ -588,6 +603,24 @@ components:
           type: boolean
           description: "true enquanto o fornecedor não respondeu."
           example: true
+    ChamadoReferenciaResponse:
+      type: object
+      description: "Referência curta a outro chamado (HU03)."
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+          example: "LUM-2026-000100"
+    MesclagemRequest:
+      type: object
+      required: [chamado_principal_id]
+      properties:
+        chamado_principal_id:
+          type: string
+          format: uuid
+          description: "Chamado principal, que recebe os contatos do duplicado. Diferente do {id} do caminho. Para achar pelo protocolo, use GET /chamados?codigo=."
 security:
   - bearerAuth: []
 paths:
@@ -1517,15 +1550,17 @@ paths:
                       data:
                         type: string
                         format: date-time
-  /chamados/{id}/vinculos:
+  /chamados/{id}/mesclar:
     post:
-      summary: Vincular Relato Duplicado (HU03)
+      summary: Mesclar Chamado Duplicado no Principal (HU03)
+      description: "O {id} é o chamado duplicado (secundário): só ABERTO, EM_TRIAGEM, EM_ATENDIMENTO, AGUARDANDO ou REABERTO, e não pode estar aguardando fornecedor. Vai para MESCLADO e aponta o principal, que pode estar em qualquer status menos FECHADO, CANCELADO e MESCLADO (RN17). Os registros de contato do secundário passam para o principal com a origem em chamado_original; o secundário fica com o responsável do principal; o principal mantém responsável e prioridade. Grava CHAMADO_MESCLADO no secundário (status_anterior, chamado_principal_id, chamado_principal_codigo, registros_contato_movidos, prioridade e a troca de responsável, quando houver) e um RELATO_VINCULADO por contato no principal (registro_contato_id, canal, chamado_mesclado_id, chamado_mesclado_codigo)."
       tags:
-        - Chamados
+        - Mesclagem
       parameters:
         - in: path
           name: id
           required: true
+          description: "Chamado duplicado (secundário)."
           schema:
             type: string
             format: uuid
@@ -1534,16 +1569,10 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                registro_contato_id:
-                  type: string
-                  format: uuid
-                motivo:
-                  type: string
+              $ref: '#/components/schemas/MesclagemRequest'
       responses:
         '200':
-          description: Relato vinculado
+          description: Chamado mesclado; devolve o detalhe do secundário, já MESCLADO, com chamado_principal e sem contatos
           content:
             application/json:
               schema:
@@ -1552,11 +1581,37 @@ paths:
                   - $ref: '#/components/schemas/ApiResponse'
                 properties:
                   data:
-                    type: object
-                    properties:
-                      id_evento:
-                        type: string
-                        format: uuid
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '400':
+          description: chamado_principal_id ausente ou que não é UUID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 400
+                message: "Erro de validação"
+                data: null
+                errors:
+                  - "Campo 'chamado_principal_id' é obrigatório."
+        '404':
+          description: Chamado ou chamado principal não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '422':
+          description: Mesmo chamado, secundário resolvido ou encerrado, principal fechado, cancelado ou mesclado, ou secundário aguardando fornecedor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Operação não permitida"
+                data: null
+                errors:
+                  - "Não é possível mesclar um chamado nele mesmo."
   /chamados/{id}/prioridade:
     patch:
       summary: Definir a Prioridade do Chamado (HU04)
