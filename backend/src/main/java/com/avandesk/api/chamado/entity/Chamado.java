@@ -109,6 +109,12 @@ public class Chamado {
     @Column(name = "primeira_resposta_em")
     private Instant primeiraRespostaEm;
 
+    public void registrarPrimeiraRespostaSePendente(Instant instante) {
+        if (this.primeiraRespostaEm == null) {
+            this.primeiraRespostaEm = instante;
+        }
+    }
+
     @Column(name = "resolvido_em")
     private Instant resolvidoEm;
 

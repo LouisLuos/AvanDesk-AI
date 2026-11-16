@@ -16,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,6 +88,9 @@ public class MesclagemService {
         secundario.setChamadoPrincipal(principal);
         secundario.setMotivoEspera(null);
         secundario.setEsperaIniciadaEm(null);
+        Instant agora = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        secundario.registrarPrimeiraRespostaSePendente(agora);
+        principal.registrarPrimeiraRespostaSePendente(agora);
         principal.getChamadosMesclados().add(secundario);
 
         Map<String, Object> dadosMesclagem = new LinkedHashMap<>();
