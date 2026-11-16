@@ -6,6 +6,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
@@ -16,6 +17,7 @@ import {
   CANAIS_ORIGEM,
   CanalOrigem,
   ChamadoDetalhe,
+  ChamadoResumo,
   DirecaoContato,
   ItemSlaDetalhe,
   EscalonamentoRequest,
@@ -314,8 +316,39 @@ export class DetalheChamado implements OnInit {
   protected readonly salvandoContato = signal(false);
   protected readonly erroContato = signal<string | null>(null);
 
-  protected readonly idChamado = computed(() => this.route.snapshot.paramMap.get('id') ?? '');
+  // Estados do Modal de Mesclagem (HU03)
+  protected readonly modalMesclagemAberto = signal(false);
+  protected readonly buscaPrincipalCodigo = signal('');
+  protected readonly carregandoCandidatosMesclagem = signal(false);
+  protected readonly erroBuscaMesclagem = signal<string | null>(null);
+  protected readonly candidatosMesclagem = signal<ChamadoResumo[]>([]);
+  protected readonly chamadoPrincipalSelecionado = signal<ChamadoResumo | null>(null);
+
+  protected readonly idChamado = signal(this.route.snapshot.paramMap.get('id') ?? '');
   protected readonly usuarioLogado = computed(() => this.authService.usuario());
+
+  constructor() {
+    this.route.paramMap?.pipe(takeUntilDestroyed()).subscribe((params) => {
+      const novoId = params.get('id') ?? '';
+      if (novoId && novoId !== this.idChamado()) {
+        this.idChamado.set(novoId);
+        this.carregarDetalhes();
+      }
+    });
+  }
+
+  protected readonly podeMesclar = computed(() => {
+    const c = this.chamado();
+    if (!c) return false;
+    const statusPermitidos: StatusChamado[] = [
+      'ABERTO',
+      'EM_TRIAGEM',
+      'EM_ATENDIMENTO',
+      'AGUARDANDO',
+      'REABERTO',
+    ];
+    return statusPermitidos.includes(c.status) && !this.aguardandoFornecedor();
+  });
 
   protected readonly ehResponsavelAtual = computed(() => {
     const resp = this.chamado()?.responsavel;
@@ -809,6 +842,88 @@ export class DetalheChamado implements OnInit {
 
   protected acaoNaoDisponivel(acao: string, leva: string): void {
     this.toast.info(`Ação "${acao}" planejada para a ${leva}.`);
+  }
+
+  // Métodos de Mesclagem de Chamado Duplicado (HU03 / RN17)
+  protected abrirModalMesclagem(): void {
+    if (!this.podeMesclar()) {
+      this.toast.info('Este chamado não pode ser mesclado no estado atual.');
+      return;
+    }
+    this.buscaPrincipalCodigo.set('');
+    this.chamadoPrincipalSelecionado.set(null);
+    this.erroBuscaMesclagem.set(null);
+    this.modalMesclagemAberto.set(true);
+    this.buscarCandidatosMesclagem();
+  }
+
+  protected fecharModalMesclagem(): void {
+    this.modalMesclagemAberto.set(false);
+  }
+
+  protected atualizarBuscaPrincipal(codigo: string): void {
+    this.buscaPrincipalCodigo.set(codigo);
+  }
+
+  protected buscarCandidatosMesclagem(): void {
+    const idAtual = this.idChamado();
+    const codigo = this.buscaPrincipalCodigo().trim();
+    const filtros = codigo ? { codigo } : {};
+
+    this.carregandoCandidatosMesclagem.set(true);
+    this.erroBuscaMesclagem.set(null);
+
+    this.chamadoService
+      .listar(filtros, 0, 15)
+      .pipe(finalize(() => this.carregandoCandidatosMesclagem.set(false)))
+      .subscribe({
+        next: (pagina) => {
+          const elegiveis = pagina.itens.filter(
+            (c) =>
+              c.id !== idAtual &&
+              c.status !== 'FECHADO' &&
+              c.status !== 'CANCELADO' &&
+              c.status !== 'MESCLADO',
+          );
+          this.candidatosMesclagem.set(elegiveis);
+          if (elegiveis.length === 1 && codigo) {
+            this.chamadoPrincipalSelecionado.set(elegiveis[0]);
+          }
+        },
+        error: (err) => {
+          const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao buscar chamados elegíveis.';
+          this.erroBuscaMesclagem.set(msgApi);
+        },
+      });
+  }
+
+  protected selecionarPrincipalParaMesclagem(candidato: ChamadoResumo): void {
+    this.chamadoPrincipalSelecionado.set(candidato);
+  }
+
+  protected confirmarMesclagem(): void {
+    const id = this.idChamado();
+    const principal = this.chamadoPrincipalSelecionado();
+    if (!id || !principal) {
+      this.toast.erro('Selecione o chamado principal para concluir a mesclagem.');
+      return;
+    }
+
+    this.salvando.set(true);
+    this.chamadoService
+      .mesclar(id, principal.id)
+      .pipe(finalize(() => this.salvando.set(false)))
+      .subscribe({
+        next: (dadosAtualizados) => {
+          this.chamado.set(dadosAtualizados);
+          this.fecharModalMesclagem();
+          this.toast.sucesso(`Chamado mesclado ao principal ${principal.codigo} com sucesso!`);
+        },
+        error: (err) => {
+          const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao mesclar o chamado.';
+          this.toast.erro(msgApi);
+        },
+      });
   }
 
   protected rotuloStatus(status: StatusChamado): string {

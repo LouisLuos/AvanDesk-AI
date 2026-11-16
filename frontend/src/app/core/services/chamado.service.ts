@@ -11,6 +11,7 @@ import {
   EscalonamentoRequest,
   FilaChamados,
   FiltrosFila,
+  MesclagemRequest,
   PrioridadeRequest,
   ResolucaoRequest,
   RegistroContatoRequest,
@@ -206,6 +207,21 @@ export class ChamadoService {
     return this.http
       .patch<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
         `${this.baseUrl}/${id}/prioridade`,
+        payload,
+      )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  /**
+   * POST /chamados/{id}/mesclar — incorpora o chamado duplicado ({id}) no chamado principal (HU03).
+   */
+  mesclar(id: string, chamadoPrincipalId: string): Observable<ChamadoDetalhe> {
+    const payload: MesclagemRequest = {
+      chamado_principal_id: chamadoPrincipalId,
+    };
+    return this.http
+      .post<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/mesclar`,
         payload,
       )
       .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));

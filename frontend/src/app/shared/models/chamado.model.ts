@@ -80,6 +80,15 @@ export type TipoEventoHistorico =
   | 'ANOTACAO_ADICIONADA'
   | 'STATUS_ALTERADO';
 
+export interface ChamadoReferencia {
+  id: string;
+  codigo: string;
+}
+
+export interface MesclagemRequest {
+  chamado_principal_id: string;
+}
+
 /**
  * Contrato HTTP bruto retornado por GET /api/v1/chamados/{id} (ChamadoDetalheResponse no backend).
  */
@@ -94,6 +103,7 @@ export interface RegistroContatoApiResponse {
     contato: string;
   };
   registrado_por?: string | null;
+  chamado_original?: ChamadoReferencia | null;
 }
 
 export interface ResolucaoRequest {
@@ -171,6 +181,8 @@ export interface ChamadoDetalheApiResponse {
   possivel_recorrencia?: boolean | null;
   possivelRecorrencia?: boolean | null;
   origem_dado?: OrigemDado;
+  chamado_principal?: ChamadoReferencia | null;
+  chamados_mesclados?: ChamadoReferencia[];
   registros_contato: RegistroContatoApiResponse[];
   escalonamentos?: EscalonamentoApiResponse[];
   historico: EventoHistoricoApiResponse[];
@@ -203,6 +215,7 @@ export interface RegistroContatoDetalhe {
   solicitanteNome: string;
   solicitanteContato: string;
   registradoPor?: string | null;
+  chamadoOriginal?: ChamadoReferencia | null;
 }
 
 export interface EscalonamentoDetalhe {
@@ -285,6 +298,8 @@ export interface ChamadoDetalhe {
   causa_raiz?: string | null;
   possivel_recorrencia?: boolean | null;
   origem_dado?: OrigemDado;
+  chamado_principal?: ChamadoReferencia | null;
+  chamados_mesclados?: ChamadoReferencia[];
 }
 
 /**
