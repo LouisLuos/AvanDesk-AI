@@ -3,6 +3,7 @@ package com.avandesk.api.chamado.dto;
 import com.avandesk.api.catalogo.dto.CategoriaResponse;
 import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.Chamado;
+import com.avandesk.api.chamado.entity.MotivoEspera;
 import com.avandesk.api.chamado.entity.Prioridade;
 import com.avandesk.api.chamado.entity.StatusChamado;
 import com.avandesk.api.unidade.dto.UnidadeResumoResponse;
@@ -11,7 +12,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Uma linha da fila de chamados (HU14). Sem SLA por enquanto: o cálculo do prazo é de outra HU.
+ * Uma linha da fila de chamados (HU14).
  *
  * @param titulo       primeira linha da descrição, com até {@value #TAMANHO_TITULO} caracteres
  * @param prioridade   prioridade final definida pelo analista; nula enquanto não houver triagem
@@ -26,9 +27,11 @@ public record ChamadoResumoResponse(
     CategoriaResponse categoria,
     CanalOrigem canalOrigem,
     StatusChamado status,
+    MotivoEspera motivoEspera,
     Prioridade prioridade,
     ResponsavelResponse responsavel,
     Instant abertoEm,
+    Instant resolvidoEm,
     Instant atualizadoEm
 ) {
 
@@ -46,9 +49,11 @@ public record ChamadoResumoResponse(
             chamado.getCategoria() == null ? null : CategoriaResponse.de(chamado.getCategoria()),
             chamado.getCanalOrigem(),
             chamado.getStatus(),
+            chamado.getMotivoEspera(),
             prioridade,
             ResponsavelResponse.de(chamado.getResponsavel()),
             chamado.getAbertoEm(),
+            chamado.getResolvidoEm(),
             ultimaAtualizacao != null ? ultimaAtualizacao : chamado.getAbertoEm()
         );
     }
