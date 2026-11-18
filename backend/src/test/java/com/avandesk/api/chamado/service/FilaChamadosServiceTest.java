@@ -152,12 +152,14 @@ class FilaChamadosServiceTest {
     void deveDevolverOsNoveStatusNosTotaisMesmoComZero() {
         prepararPagina(List.of());
         when(chamadoRepository.contarPorStatus(any())).thenReturn(Map.of(StatusChamado.ABERTO, 3L));
+        when(chamadoRepository.contarEstourados(any())).thenReturn(2L);
 
         FilaChamadosResponse fila = filaChamadosService.listar(SEM_FILTROS, false, 0, 20);
 
         assertEquals(StatusChamado.values().length, fila.totaisPorStatus().size());
         assertEquals(3L, fila.totaisPorStatus().get(StatusChamado.ABERTO));
         assertEquals(0L, fila.totaisPorStatus().get(StatusChamado.MESCLADO));
+        assertEquals(2L, fila.totalEstourados());
     }
 
     @Test
