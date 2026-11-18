@@ -9,7 +9,32 @@ import { TokenStorageService } from '../../core/services/token-storage.service';
 import { MainLayout } from './main-layout';
 
 describe('MainLayout', () => {
+  function criarStorageEmMemoria(): Storage {
+    const dados = new Map<string, string>();
+    return {
+      get length() {
+        return dados.size;
+      },
+      clear: () => dados.clear(),
+      getItem: (chave: string) => dados.get(chave) ?? null,
+      key: (indice: number) => Array.from(dados.keys())[indice] ?? null,
+      removeItem: (chave: string) => {
+        dados.delete(chave);
+      },
+      setItem: (chave: string, valor: string) => {
+        dados.set(chave, valor);
+      },
+    };
+  }
+
+  beforeEach(() => {
+    if (!globalThis.localStorage) {
+      vi.stubGlobal('localStorage', criarStorageEmMemoria());
+    }
+  });
+
   function renderizar(modoSimulado: boolean): HTMLElement {
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [MainLayout],
       providers: [
@@ -25,8 +50,9 @@ describe('MainLayout', () => {
   }
 
   afterEach(() => {
-    sessionStorage.clear();
-    localStorage.clear();
+    globalThis.sessionStorage?.clear();
+    globalThis.localStorage?.clear();
+    vi.unstubAllGlobals();
   });
 
   it('deve mostrar o selo de modo simulado quando o mock está ligado', () => {

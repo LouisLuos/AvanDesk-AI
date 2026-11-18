@@ -8,6 +8,7 @@ class Vazio {}
 
 describe('AdminNav', () => {
   function renderizar() {
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [AdminNav],
       providers: [provideRouter([{ path: 'admin/unidades', component: Vazio }])],
