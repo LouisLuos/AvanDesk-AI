@@ -51,7 +51,6 @@ describe('Login Component', () => {
     const navegarSpy = vi.spyOn(router, 'navigate');
     vi.spyOn(authService, 'login').mockReturnValue(
       of({
-        access_token: 'fake-token',
         usuario: { id: 'u-1', nome: 'Ana Souza', email: 'ana@lumen.com', perfil: 'Analista' },
       }),
     );
