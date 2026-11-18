@@ -95,3 +95,6 @@ docker-compose.override.yml
 
 # Custom Agents (Local only)
 .agents/
+
+# Referencias locais
+ref/
