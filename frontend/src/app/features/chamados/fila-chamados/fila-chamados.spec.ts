@@ -346,7 +346,7 @@ describe('FilaChamados integrada ao GET /chamados (HU14)', () => {
 
   // ---------- conteúdo da tela ----------
 
-  it('deve montar os cartões a partir dos totais do servidor, com Estourados sem dado', () => {
+  it('deve montar os cartões a partir dos totais do servidor, incluindo Estourados', () => {
     configurar();
     const totais = {
       ...pagina().totais_por_status,
@@ -356,7 +356,7 @@ describe('FilaChamados integrada ao GET /chamados (HU14)', () => {
       EM_ATENDIMENTO: 9,
       AGUARDANDO: 4,
     };
-    responder(pagina({ totais_por_status: totais }));
+    responder(pagina({ totais_por_status: totais, total_estourados: 3 }));
 
     const valores = Object.fromEntries(component['indicadores']().map((i) => [i.id, i.valor]));
     expect(valores).toEqual({
@@ -364,9 +364,9 @@ describe('FilaChamados integrada ao GET /chamados (HU14)', () => {
       triagem: 5,
       atendimento: 9,
       aguardando: 4,
-      estourados: null,
+      estourados: 3,
     });
-    expect(fixture.nativeElement.querySelector('#indicador-estourados').textContent).toContain('—');
+    expect(fixture.nativeElement.querySelector('#indicador-estourados').textContent).toContain('3');
   });
 
   it('deve destacar chamado sem responsável e mostrar "—" no prazo quando não há SLA', () => {

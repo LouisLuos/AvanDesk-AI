@@ -135,7 +135,8 @@ export class FilaChamados implements OnInit {
 
   /** Cartões do topo: contagem do servidor com os filtros atuais, menos o de status. */
   protected readonly indicadores = computed<Indicador[]>(() => {
-    const totais = this.fila()?.totais_por_status;
+    const fila = this.fila();
+    const totais = fila?.totais_por_status;
     const contar = (...status: StatusChamado[]) =>
       status.reduce((soma, s) => soma + (totais?.[s] ?? 0), 0);
     return [
@@ -147,8 +148,8 @@ export class FilaChamados implements OnInit {
         id: 'estourados',
         rotulo: 'Estourados',
         corPonto: 'bg-[#dc2626]',
-        valor: null,
-        dica: 'Disponível quando o cálculo de SLA estiver pronto.',
+        valor: fila?.total_estourados ?? null,
+        dica: 'Chamados em andamento com prazo de SLA ultrapassado.',
       },
     ];
   });
@@ -306,6 +307,8 @@ export class FilaChamados implements OnInit {
       aberto_em: chamado.aberto_em,
       status: chamado.status,
       prioridade: this.obterPrioridade(chamado),
+      motivo_espera: chamado.motivo_espera,
+      resolvido_em: chamado.resolvido_em,
     });
   }
 
