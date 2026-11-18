@@ -965,3 +965,38 @@ No detalhe do principal, os contatos recebidos aparecem em `registros_contato` c
 ## 14. Evolução do Ciclo de Atendimento (HU04 — Planejado)
 
 * **`PATCH /chamados/{id}/prioridade`** (`HU04`): registra a triagem estruturada pela Matriz 3D (`severidade`, `urgencia`, `impacto_operacional`).
+
+---
+
+## 15. Painel da Administração e Métricas de SLA (HU08)
+
+Fornece os indicadores executivos agregados da operação (sem exposição de dados clínicos ou anexos, respeitando a RN06) e dispara os alertas da Seção 9.7.
+
+* **Endpoint:** `GET /dashboard/metricas`
+* **Autenticação:** Bearer Token (apenas **Liderança de TI** — `@PreAuthorize("hasRole('LIDERANCA_TI')")`)
+
+### Query Parameters
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+| :--- | :--- | :---: | :--- |
+| `inicio` | `date-time` (UTC) | Não | Início da janela analisada. Padrão: 30 dias antes de `fim`. |
+| `fim` | `date-time` (UTC) | Não | Fim da janela analisada. Padrão: instante atual (`now`). |
+| `unidade_id` | `uuid` | Não | Filtra KPIs, SLA por prioridade, recorrências, terceiros, categorias e equipamentos por unidade. O comparativo `chamados_por_unidade` mantém todas as unidades ativas. |
+
+### Regras de Cálculo (Seção 9.7 e SLA)
+
+* Segregação de dados: considera estritamente registros cujo `origem_dado` coincide com `nexo.origem-dado` (`REAL` em produção, `TESTE` em desenvolvimento).
+* **TR (Tempo de Resolução líquido):** desconta o tempo em que o chamado permaneceu em `AGUARDANDO` com `motivo_espera = SOLICITANTE`; esperas por `FORNECEDOR` (RN07) ou `PECA_EQUIPAMENTO` continuam contando no SLA.
+* **Metas de referência por prioridade:** `ALTA` (P1) ≤ 2h (`7200s`), `MEDIA` (P2) ≤ 8h (`28800s`), `BAIXA` (P3) ≤ 24h (`86400s`).
+* **Alertas automáticos:**
+  * `alerta_divergencia_prioridade_m08`: `true` quando M08 > `30%`.
+  * `alerta_tempo_registro_m11`: `true` quando M11 > `60s`.
+  * `alerta_critico_privacidade_m12`: `true` quando M12 > `0` (`ANEXO_VISUALIZADO` por perfil `LIDERANCA_TI` ou marcado como violação).
+
+### Erros
+
+| Caso | Status | Descrição |
+| :--- | :---: | :--- |
+| `inicio` posterior a `fim` | `400` | `"A data inicial do filtro não pode ser posterior à data final."` |
+| Perfil diferente de Liderança de TI | `403` | `"Acesso negado para o perfil do usuário."` |
+| Sem token | `401` | — |
