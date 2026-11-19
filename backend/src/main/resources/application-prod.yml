@@ -33,7 +33,7 @@ nexo:
     cookie-same-site: Lax
     cookie-path: /api
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://avandesk-ai.vercel.app}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://nexodesk-ai-sandy.vercel.app,https://avandesk-ai.vercel.app}
   usuarios:
     # Lista separada por vírgula, ex.: lumen.local,lumendiagnosticos.com.br
     dominios-email: ${NEXO_DOMINIOS_EMAIL:lumen.local}
