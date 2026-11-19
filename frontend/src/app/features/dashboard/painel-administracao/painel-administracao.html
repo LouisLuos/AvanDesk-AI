@@ -28,6 +28,36 @@
         (valorChange)="alterarPeriodo($event)"
       />
 
+      @if (periodoSelecionado() === 'custom') {
+        <div class="flex flex-wrap items-center gap-2 rounded-md border border-[#e2e5ec] bg-white px-2.5 py-1 shadow-2xs">
+          <label class="sr-only" for="input-data-inicio">Data inicial</label>
+          <input
+            id="input-data-inicio"
+            type="date"
+            [value]="dataInicioCustom()"
+            (input)="alterarDataInicio($any($event.target).value)"
+            class="h-7 rounded border border-[#e2e5ec] px-2 text-xs text-[#14161b] focus:border-[#2d5bff] focus:outline-none"
+          />
+          <span class="text-xs text-[#6b7280]">até</span>
+          <label class="sr-only" for="input-data-fim">Data final</label>
+          <input
+            id="input-data-fim"
+            type="date"
+            [value]="dataFimCustom()"
+            (input)="alterarDataFim($any($event.target).value)"
+            class="h-7 rounded border border-[#e2e5ec] px-2 text-xs text-[#14161b] focus:border-[#2d5bff] focus:outline-none"
+          />
+          <button
+            type="button"
+            id="btn-aplicar-periodo"
+            (click)="aplicarPeriodoPersonalizado()"
+            class="h-7 rounded bg-[#2d5bff] px-2.5 text-xs font-semibold text-white transition hover:bg-[#1e46e5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff]"
+          >
+            Aplicar
+          </button>
+        </div>
+      }
+
       <button
         type="button"
         id="btn-exportar-csv"
@@ -130,7 +160,10 @@
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <!-- KPI 1: Chamados abertos -->
       <article id="kpi-chamados-abertos" class="rounded-xl border border-[#e2e5ec] bg-white p-5 shadow-xs">
-        <p class="text-xs font-medium text-[#6b7280]">Chamados abertos ({{ rotuloPeriodo() }})</p>
+        <div class="flex items-center justify-between gap-1.5">
+          <p class="text-xs font-medium text-[#6b7280]">Chamados abertos ({{ rotuloPeriodo() }})</p>
+          <app-info-tooltip titulo="Chamados abertos" [texto]="tooltips.kpiChamadosAbertos" />
+        </div>
         <p class="mt-2 text-3xl font-bold tracking-tight text-[#14161b]">
           {{ dados.kpis.chamados_abertos.total_atual }}
         </p>
@@ -150,7 +183,16 @@
 
       <!-- KPI 2: Tempo mediano de resolução -->
       <article id="kpi-tempo-resolucao" class="rounded-xl border border-[#e2e5ec] bg-white p-5 shadow-xs">
-        <p class="text-xs font-medium text-[#6b7280]">Tempo mediano de resolução</p>
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-1">
+            <p class="text-xs font-medium text-[#6b7280]">Tempo mediano de resolução</p>
+            <app-info-tooltip titulo="Tempo mediano (P50)" [texto]="tooltips.kpiTempoResolucao" />
+          </div>
+          <span class="inline-flex items-center gap-1 rounded bg-[#f1f5f9] px-1.5 py-0.5 text-[10px] font-semibold text-[#475569] tabular-nums">
+            P90: {{ formatarDuracao(dados.kpis.tempo_resolucao.p90_segundos) }}
+            <app-info-tooltip titulo="Percentil 90 (P90)" [texto]="tooltips.kpiP90" />
+          </span>
+        </div>
         <p class="mt-2 text-3xl font-bold tracking-tight text-[#14161b]">
           {{ formatarDuracao(dados.kpis.tempo_resolucao.mediano_segundos) }}
         </p>
@@ -170,7 +212,10 @@
 
       <!-- KPI 3: Chamados rastreáveis -->
       <article id="kpi-chamados-rastreaveis" class="rounded-xl border border-[#e2e5ec] bg-white p-5 shadow-xs">
-        <p class="text-xs font-medium text-[#6b7280]">Chamados rastreáveis</p>
+        <div class="flex items-center justify-between gap-1.5">
+          <p class="text-xs font-medium text-[#6b7280]">Chamados rastreáveis</p>
+          <app-info-tooltip titulo="Chamados rastreáveis (M01)" [texto]="tooltips.kpiRastreaveis" />
+        </div>
         <p class="mt-2 text-3xl font-bold tracking-tight text-[#14161b]">
           {{ formatarPercentual(dados.kpis.chamados_rastreaveis.percentual) }}
         </p>
@@ -186,7 +231,10 @@
 
       <!-- KPI 4: Dentro da meta (SLA) -->
       <article id="kpi-dentro-meta-sla" class="rounded-xl border border-[#e2e5ec] bg-white p-5 shadow-xs">
-        <p class="text-xs font-medium text-[#6b7280]">Dentro da meta (SLA)</p>
+        <div class="flex items-center justify-between gap-1.5">
+          <p class="text-xs font-medium text-[#6b7280]">Dentro da meta (SLA)</p>
+          <app-info-tooltip titulo="Conformidade SLA (M04)" [texto]="tooltips.kpiSla" />
+        </div>
         <p class="mt-2 text-3xl font-bold tracking-tight text-[#14161b]">
           {{ formatarPercentual(dados.kpis.dentro_da_meta_sla.percentual) }}
         </p>
@@ -208,9 +256,12 @@
         class="rounded-xl border border-[#e2e5ec] bg-white p-5 shadow-xs lg:col-span-2"
         aria-labelledby="titulo-chamados-unidade"
       >
-        <h2 id="titulo-chamados-unidade" class="text-sm font-semibold text-[#14161b]">
-          Chamados por unidade ({{ rotuloPeriodo() }})
-        </h2>
+        <div class="flex items-center gap-1.5">
+          <h2 id="titulo-chamados-unidade" class="text-sm font-semibold text-[#14161b]">
+            Chamados por unidade ({{ rotuloPeriodo() }})
+          </h2>
+          <app-info-tooltip titulo="Chamados por unidade" [texto]="tooltips.chamadosPorUnidade" />
+        </div>
         <p class="mt-0.5 text-xs text-[#6b7280]">
           Volume total, tempo médio de atendimento e % dentro da meta, por unidade e sede
         </p>
@@ -218,42 +269,61 @@
         @if (dados.chamados_por_unidade.length === 0) {
           <p class="py-10 text-center text-xs text-[#6b7280]">Nenhuma unidade ativa encontrada.</p>
         } @else {
-          <div class="mt-5 flex flex-col gap-3.5">
-            @for (unidade of dados.chamados_por_unidade; track unidade.unidade_id) {
-              <div class="grid grid-cols-[minmax(130px,170px)_1fr_auto_auto] items-center gap-3 text-xs">
-                <span class="truncate text-[#363b47]" [title]="unidade.unidade_nome">
-                  {{ unidade.unidade_nome }}
-                </span>
-
-                <div class="h-2.5 w-full overflow-hidden rounded-full bg-[#eef1f7]">
-                  <div
-                    class="h-full rounded-full bg-[#2d5bff] transition-all duration-300"
-                    [style.width.%]="larguraPercentual(unidade.total_chamados, maxChamadosUnidade())"
-                  ></div>
-                </div>
-
-                <span class="w-8 text-right font-semibold text-[#14161b] tabular-nums">
-                  {{ unidade.total_chamados }}
-                </span>
-
-                <span
-                  class="w-24 text-right font-medium tabular-nums"
-                  [class]="
-                    unidade.chamados_resolvidos === 0
-                      ? 'text-[#6b7280]'
-                      : unidade.percentual_dentro_da_meta >= 80
-                        ? 'text-[#16a34a]'
-                        : 'text-[#b45309]'
-                  "
-                >
-                  @if (unidade.chamados_resolvidos === 0) {
-                    Sem resolvidos
-                  } @else {
-                    {{ formatarPercentual(unidade.percentual_dentro_da_meta) }} na meta
-                  }
-                </span>
-              </div>
-            }
+          <div class="mt-4 overflow-x-auto">
+            <table id="tabela-comparativa-unidades" class="w-full min-w-[540px] border-collapse text-left text-xs">
+              <thead>
+                <tr class="border-b border-[#e2e5ec] text-[10px] font-semibold tracking-wider text-[#6b7280] uppercase">
+                  <th scope="col" class="py-2 pr-3 font-semibold">Unidade</th>
+                  <th scope="col" class="px-3 py-2 font-semibold">Volume</th>
+                  <th scope="col" class="px-3 py-2 text-right font-semibold">Chamados</th>
+                  <th scope="col" class="px-3 py-2 text-right font-semibold">Tempo médio</th>
+                  <th scope="col" class="py-2 pl-3 text-right font-semibold">SLA na meta</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[#eef1f7]">
+                @for (unidade of dados.chamados_por_unidade; track unidade.unidade_id) {
+                  <tr [class]="unidadeSelecionada() === unidade.unidade_id ? 'bg-[#2d5bff]/5' : ''">
+                    <td class="max-w-[180px] truncate py-2.5 pr-3 font-medium text-[#363b47]" [title]="unidade.unidade_nome">
+                      {{ unidade.unidade_nome }}
+                    </td>
+                    <td class="w-40 px-3 py-2.5">
+                      <div class="h-2.5 w-full overflow-hidden rounded-full bg-[#eef1f7]">
+                        <div
+                          class="h-full rounded-full bg-[#2d5bff] transition-all duration-300"
+                          [style.width.%]="larguraPercentual(unidade.total_chamados, maxChamadosUnidade())"
+                        ></div>
+                      </div>
+                    </td>
+                    <td class="px-3 py-2.5 text-right font-semibold text-[#14161b] tabular-nums">
+                      {{ unidade.total_chamados }}
+                    </td>
+                    <td class="px-3 py-2.5 text-right font-medium text-[#363b47] tabular-nums">
+                      @if (unidade.chamados_resolvidos === 0) {
+                        —
+                      } @else {
+                        {{ formatarDuracao(unidade.tempo_medio_atendimento_segundos) }}
+                      }
+                    </td>
+                    <td
+                      class="py-2.5 pl-3 text-right font-medium tabular-nums"
+                      [class]="
+                        unidade.chamados_resolvidos === 0
+                          ? 'text-[#6b7280]'
+                          : unidade.percentual_dentro_da_meta >= 80
+                            ? 'text-[#16a34a]'
+                            : 'text-[#b45309]'
+                      "
+                    >
+                      @if (unidade.chamados_resolvidos === 0) {
+                        Sem resolvidos
+                      } @else {
+                        {{ formatarPercentual(unidade.percentual_dentro_da_meta) }} na meta
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
           </div>
         }
       </section>
@@ -264,7 +334,10 @@
         aria-labelledby="titulo-sla-prioridade"
       >
         <div>
-          <h2 id="titulo-sla-prioridade" class="text-sm font-semibold text-[#14161b]">SLA por prioridade</h2>
+          <div class="flex items-center gap-1.5">
+            <h2 id="titulo-sla-prioridade" class="text-sm font-semibold text-[#14161b]">SLA por prioridade</h2>
+            <app-info-tooltip titulo="SLA por prioridade" [texto]="tooltips.slaPorPrioridade" />
+          </div>
           <p class="mt-0.5 text-xs text-[#6b7280]">Chamados dentro da meta de referência</p>
 
           <div class="mt-5 flex flex-col gap-4">
@@ -315,9 +388,12 @@
         class="overflow-hidden rounded-xl border border-[#e2e5ec] bg-white p-5 shadow-xs lg:col-span-2"
         aria-labelledby="titulo-problemas-recorrentes"
       >
-        <h2 id="titulo-problemas-recorrentes" class="text-sm font-semibold text-[#14161b]">
-          Problemas recorrentes
-        </h2>
+        <div class="flex items-center gap-1.5">
+          <h2 id="titulo-problemas-recorrentes" class="text-sm font-semibold text-[#14161b]">
+            Problemas recorrentes
+          </h2>
+          <app-info-tooltip titulo="Problemas recorrentes" [texto]="tooltips.problemasRecorrentes" />
+        </div>
 
         @if (dados.problemas_recorrentes.length === 0) {
           <p class="py-10 text-center text-xs text-[#6b7280]">
@@ -358,7 +434,10 @@
         class="rounded-xl border border-[#e2e5ec] bg-white p-5 shadow-xs"
         aria-labelledby="titulo-tempo-terceiros"
       >
-        <h2 id="titulo-tempo-terceiros" class="text-sm font-semibold text-[#14161b]">Tempo em terceiros</h2>
+        <div class="flex items-center gap-1.5">
+          <h2 id="titulo-tempo-terceiros" class="text-sm font-semibold text-[#14161b]">Tempo em terceiros</h2>
+          <app-info-tooltip titulo="Tempo em terceiros (M05)" [texto]="tooltips.tempoEmTerceiros" />
+        </div>
         <p class="mt-0.5 text-xs text-[#6b7280]">Retorno médio por fornecedor externo</p>
 
         @if (dados.tempo_em_terceiros.length === 0) {
@@ -390,19 +469,22 @@
       </section>
     </div>
 
-    <!-- Linha 4: Volume por Categoria e Equipamento (Critério de Aceite #2) -->
-    <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+    <!-- Linha 4: Volume por Categoria, Equipamento e Carga por Responsável (M02) -->
+    <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
       <section
         id="card-volume-categoria"
         class="rounded-xl border border-[#e2e5ec] bg-white p-5 shadow-xs"
         aria-labelledby="titulo-volume-categoria"
       >
-        <h2 id="titulo-volume-categoria" class="text-sm font-semibold text-[#14161b]">Volume por categoria</h2>
+        <div class="flex items-center gap-1.5">
+          <h2 id="titulo-volume-categoria" class="text-sm font-semibold text-[#14161b]">Volume por categoria</h2>
+          <app-info-tooltip titulo="Volume por categoria" [texto]="tooltips.volumeCategoria" />
+        </div>
         <p class="mt-0.5 text-xs text-[#6b7280]">Distribuição dos chamados no período selecionado</p>
 
         <div class="mt-4 flex flex-col gap-3">
           @for (cat of dados.volume_por_categoria; track cat.id) {
-            <div class="grid grid-cols-[minmax(130px,180px)_1fr_36px] items-center gap-3 text-xs">
+            <div class="grid grid-cols-[minmax(120px,160px)_1fr_32px] items-center gap-3 text-xs">
               <span class="truncate text-[#363b47]" [title]="cat.nome">{{ cat.nome }}</span>
               <div class="h-2 w-full overflow-hidden rounded-full bg-[#eef1f7]">
                 <div
@@ -412,6 +494,8 @@
               </div>
               <span class="text-right font-semibold text-[#14161b] tabular-nums">{{ cat.total_chamados }}</span>
             </div>
+          } @empty {
+            <p class="py-8 text-center text-xs text-[#6b7280]">Nenhuma categoria ativa encontrada.</p>
           }
         </div>
       </section>
@@ -421,14 +505,17 @@
         class="rounded-xl border border-[#e2e5ec] bg-white p-5 shadow-xs"
         aria-labelledby="titulo-volume-equipamento"
       >
-        <h2 id="titulo-volume-equipamento" class="text-sm font-semibold text-[#14161b]">
-          Sistemas e equipamentos mais afetados
-        </h2>
+        <div class="flex items-center gap-1.5">
+          <h2 id="titulo-volume-equipamento" class="text-sm font-semibold text-[#14161b]">
+            Sistemas e equipamentos mais afetados
+          </h2>
+          <app-info-tooltip titulo="Sistemas e equipamentos" [texto]="tooltips.volumeEquipamento" />
+        </div>
         <p class="mt-0.5 text-xs text-[#6b7280]">Equipamentos e sistemas vinculados aos chamados</p>
 
         <div class="mt-4 flex flex-col gap-3">
           @for (eq of dados.volume_por_equipamento; track eq.id) {
-            <div class="grid grid-cols-[minmax(130px,180px)_1fr_36px] items-center gap-3 text-xs">
+            <div class="grid grid-cols-[minmax(120px,160px)_1fr_32px] items-center gap-3 text-xs">
               <span class="truncate text-[#363b47]" [title]="eq.nome">{{ eq.nome }}</span>
               <div class="h-2 w-full overflow-hidden rounded-full bg-[#eef1f7]">
                 <div
@@ -438,53 +525,151 @@
               </div>
               <span class="text-right font-semibold text-[#14161b] tabular-nums">{{ eq.total_chamados }}</span>
             </div>
+          } @empty {
+            <p class="py-8 text-center text-xs text-[#6b7280]">Nenhum equipamento ativo encontrado.</p>
+          }
+        </div>
+      </section>
+
+      <section
+        id="card-chamados-responsavel"
+        class="rounded-xl border border-[#e2e5ec] bg-white p-5 shadow-xs"
+        aria-labelledby="titulo-chamados-responsavel"
+      >
+        <div class="flex items-center gap-1.5">
+          <h2 id="titulo-chamados-responsavel" class="text-sm font-semibold text-[#14161b]">
+            Chamados em aberto por responsável (M02)
+          </h2>
+          <app-info-tooltip titulo="Carga por responsável (M02)" [texto]="tooltips.cargaResponsavel" />
+        </div>
+        <p class="mt-0.5 text-xs text-[#6b7280]">Distribuição da fila em andamento entre os analistas</p>
+
+        <div class="mt-4 flex flex-col gap-3">
+          @for (resp of dados.chamados_por_responsavel; track resp.responsavel_id ?? 'sem-responsavel') {
+            <div class="flex flex-col gap-1 text-xs">
+              <div class="flex items-center justify-between gap-2">
+                <span
+                  class="truncate font-medium"
+                  [class]="resp.responsavel_id === null ? 'text-[#b45309]' : 'text-[#363b47]'"
+                  [title]="resp.responsavel_nome"
+                >
+                  {{ resp.responsavel_nome }}
+                </span>
+                <span class="shrink-0 font-semibold text-[#14161b] tabular-nums">
+                  {{ resp.total_em_aberto }}
+                  @if (resp.total_alta_prioridade > 0) {
+                    <span class="ml-1 rounded-full bg-[#e5484d]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#dc2626]">
+                      {{ resp.total_alta_prioridade }} P1
+                    </span>
+                  }
+                </span>
+              </div>
+              <div class="h-2 w-full overflow-hidden rounded-full bg-[#eef1f7]">
+                <div
+                  class="h-full rounded-full transition-all duration-300"
+                  [class]="resp.responsavel_id === null ? 'bg-[#f59e0b]' : 'bg-[#6366f1]'"
+                  [style.width.%]="larguraPercentual(resp.total_em_aberto, maxChamadosResponsavel())"
+                ></div>
+              </div>
+            </div>
+          } @empty {
+            <p class="py-8 text-center text-xs text-[#6b7280]">Nenhum chamado em aberto no período.</p>
           }
         </div>
       </section>
     </div>
 
-    <!-- Indicadores Operacionais da Seção 9.7 (TT, TPR, TR, M11, M08, M12) -->
+    <!-- Indicadores Operacionais da Seção 9.7 e Métricas M01–M12 -->
     <section
       id="card-indicadores-97"
       class="rounded-xl border border-[#e2e5ec] bg-white p-5 shadow-xs"
       aria-labelledby="titulo-indicadores-97"
     >
-      <h2 id="titulo-indicadores-97" class="text-sm font-semibold text-[#14161b]">
-        Indicadores operacionais e qualidade de processo (Seção 9.7)
-      </h2>
-      <div class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div class="flex items-center gap-1.5">
+        <h2 id="titulo-indicadores-97" class="text-sm font-semibold text-[#14161b]">
+          Indicadores operacionais e qualidade de processo (Seção 9.7)
+        </h2>
+        <app-info-tooltip titulo="Seção 9.7 — Governança" [texto]="tooltips.secao97" />
+      </div>
+      <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <div class="rounded-lg bg-[#f8f9fc] p-3">
-          <p class="text-[11px] font-medium text-[#6b7280]">TT (Tempo Total)</p>
+          <div class="flex items-center justify-between gap-1">
+            <p class="text-[11px] font-medium text-[#6b7280]">TT (Tempo Total)</p>
+            <app-info-tooltip titulo="TT — Tempo Total" [texto]="tooltips.tt" />
+          </div>
           <p class="mt-1 text-base font-bold text-[#14161b]">
             {{ formatarDuracao(dados.indicadores_processo.tt_medio_segundos) }}
           </p>
         </div>
         <div class="rounded-lg bg-[#f8f9fc] p-3">
-          <p class="text-[11px] font-medium text-[#6b7280]">TPR (1ª Resposta)</p>
+          <div class="flex items-center justify-between gap-1">
+            <p class="text-[11px] font-medium text-[#6b7280]">TPR (1ª Resposta)</p>
+            <app-info-tooltip titulo="TPR — Primeira Resposta" [texto]="tooltips.tpr" />
+          </div>
           <p class="mt-1 text-base font-bold text-[#14161b]">
             {{ formatarDuracao(dados.indicadores_processo.tpr_medio_segundos) }}
           </p>
         </div>
         <div class="rounded-lg bg-[#f8f9fc] p-3">
-          <p class="text-[11px] font-medium text-[#6b7280]">TR (Líquido)</p>
+          <div class="flex items-center justify-between gap-1">
+            <p class="text-[11px] font-medium text-[#6b7280]">TR (Líquido)</p>
+            <app-info-tooltip titulo="TR — Tempo Líquido" [texto]="tooltips.tr" />
+          </div>
           <p class="mt-1 text-base font-bold text-[#14161b]">
             {{ formatarDuracao(dados.indicadores_processo.tr_medio_segundos) }}
           </p>
         </div>
         <div class="rounded-lg bg-[#f8f9fc] p-3">
-          <p class="text-[11px] font-medium text-[#6b7280]">M11 (Tempo de Tela)</p>
-          <p class="mt-1 text-base font-bold" [class]="alertaM11() ? 'text-[#b45309]' : 'text-[#14161b]'">
-            {{ formatarDuracao(dados.indicadores_processo.m11_tempo_registro_medio_segundos) }}
+          <div class="flex items-center justify-between gap-1">
+            <p class="text-[11px] font-medium text-[#6b7280]">P90 (Resolução)</p>
+            <app-info-tooltip titulo="P90 — Percentil 90" [texto]="tooltips.p90" />
+          </div>
+          <p class="mt-1 text-base font-bold text-[#14161b]">
+            {{ formatarDuracao(dados.indicadores_processo.tr_p90_segundos) }}
           </p>
         </div>
         <div class="rounded-lg bg-[#f8f9fc] p-3">
-          <p class="text-[11px] font-medium text-[#6b7280]">M08 (Diverg. Prior.)</p>
+          <div class="flex items-center justify-between gap-1">
+            <p class="text-[11px] font-medium text-[#6b7280]">M06 (Reabertura)</p>
+            <app-info-tooltip titulo="M06 — Taxa de Reabertura" [texto]="tooltips.m06" />
+          </div>
+          <p class="mt-1 text-base font-bold text-[#14161b]">
+            {{ formatarPercentual(dados.indicadores_processo.m06_taxa_reabertura_percentual) }}
+          </p>
+        </div>
+        <div class="rounded-lg bg-[#f8f9fc] p-3">
+          <div class="flex items-center justify-between gap-1">
+            <p class="text-[11px] font-medium text-[#6b7280]">M07 (Duplicidade)</p>
+            <app-info-tooltip titulo="M07 — Taxa de Duplicidade" [texto]="tooltips.m07" />
+          </div>
+          <p class="mt-1 text-base font-bold text-[#14161b]">
+            {{ formatarPercentual(dados.indicadores_processo.m07_taxa_duplicidade_percentual) }}
+            <span class="text-xs font-normal text-[#6b7280]">({{ dados.indicadores_processo.m07_total_duplicados }})</span>
+          </p>
+        </div>
+        <div class="rounded-lg bg-[#f8f9fc] p-3">
+          <div class="flex items-center justify-between gap-1">
+            <p class="text-[11px] font-medium text-[#6b7280]">M08 (Diverg. Prior.)</p>
+            <app-info-tooltip titulo="M08 — Divergência de Prioridade" [texto]="tooltips.m08" />
+          </div>
           <p class="mt-1 text-base font-bold" [class]="alertaM08() ? 'text-[#b45309]' : 'text-[#14161b]'">
             {{ formatarPercentual(dados.indicadores_processo.m08_percentual_divergencia_prioridade) }}
           </p>
         </div>
         <div class="rounded-lg bg-[#f8f9fc] p-3">
-          <p class="text-[11px] font-medium text-[#6b7280]">M12 (Privacidade)</p>
+          <div class="flex items-center justify-between gap-1">
+            <p class="text-[11px] font-medium text-[#6b7280]">M11 (Tempo de Tela)</p>
+            <app-info-tooltip titulo="M11 — Tempo de Tela" [texto]="tooltips.m11" />
+          </div>
+          <p class="mt-1 text-base font-bold" [class]="alertaM11() ? 'text-[#b45309]' : 'text-[#14161b]'">
+            {{ formatarDuracao(dados.indicadores_processo.m11_tempo_registro_medio_segundos) }}
+          </p>
+        </div>
+        <div class="rounded-lg bg-[#f8f9fc] p-3">
+          <div class="flex items-center justify-between gap-1">
+            <p class="text-[11px] font-medium text-[#6b7280]">M12 (Privacidade)</p>
+            <app-info-tooltip titulo="M12 — Privacidade (LGPD)" [texto]="tooltips.m12" />
+          </div>
           <p class="mt-1 text-base font-bold" [class]="alertaM12() ? 'text-[#dc2626]' : 'text-[#16a34a]'">
             {{ dados.indicadores_processo.m12_incidentes_privacidade }}
           </p>

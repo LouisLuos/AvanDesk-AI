@@ -42,6 +42,7 @@ describe('PainelAdministracao (HU08)', () => {
       tempo_resolucao: {
         mediano_segundos: 10080,
         medio_segundos: 9600,
+        p90_segundos: 16200,
         diferenca_mediana_segundos_anterior: -720,
         diferenca_media_segundos_anterior: -600,
       },
@@ -64,6 +65,10 @@ describe('PainelAdministracao (HU08)', () => {
       tt_medio_segundos: 11400,
       tpr_medio_segundos: 540,
       tr_medio_segundos: 9600,
+      tr_p90_segundos: 16200,
+      m06_taxa_reabertura_percentual: 6,
+      m07_taxa_duplicidade_percentual: 2,
+      m07_total_duplicados: 4,
       m11_tempo_registro_medio_segundos: 42,
       m08_percentual_divergencia_prioridade: 15,
       m12_incidentes_privacidade: 0,
@@ -91,6 +96,20 @@ describe('PainelAdministracao (HU08)', () => {
         chamados_resolvidos: 0,
         percentual_dentro_da_meta: 0,
         tempo_medio_atendimento_segundos: 0,
+      },
+    ],
+    chamados_por_responsavel: [
+      {
+        responsavel_id: 'ana-1',
+        responsavel_nome: 'Analista 01',
+        total_em_aberto: 9,
+        total_alta_prioridade: 2,
+      },
+      {
+        responsavel_id: null,
+        responsavel_nome: 'Sem responsável',
+        total_em_aberto: 3,
+        total_alta_prioridade: 1,
       },
     ],
     sla_por_prioridade: [
@@ -177,14 +196,16 @@ describe('PainelAdministracao (HU08)', () => {
     expect(texto('#kpi-chamados-abertos')).toContain('182');
     expect(texto('#kpi-chamados-abertos')).toContain('+8% em relação ao período anterior');
     expect(texto('#kpi-tempo-resolucao')).toContain('2 h 48');
+    expect(texto('#kpi-tempo-resolucao')).toContain('P90: 4 h 30');
     expect(texto('#kpi-tempo-resolucao')).toContain('12 min mais rápido que o período anterior');
     expect(texto('#kpi-chamados-rastreaveis')).toContain('91%');
     expect(texto('#kpi-dentro-meta-sla')).toContain('84%');
 
-    expect(texto('#card-chamados-unidade')).toContain('U.03 Boa Viagem');
-    expect(texto('#card-chamados-unidade')).toContain('78% na meta');
-    expect(texto('#card-chamados-unidade')).toContain('U.07 Recife Centro');
-    expect(texto('#card-chamados-unidade')).toContain('Sem resolvidos');
+    expect(texto('#tabela-comparativa-unidades')).toContain('U.03 Boa Viagem');
+    expect(texto('#tabela-comparativa-unidades')).toContain('1 h 30');
+    expect(texto('#tabela-comparativa-unidades')).toContain('78% na meta');
+    expect(texto('#tabela-comparativa-unidades')).toContain('U.07 Recife Centro');
+    expect(texto('#tabela-comparativa-unidades')).toContain('Sem resolvidos');
 
     expect(texto('#card-sla-prioridade')).toContain('Alta (P1)');
     expect(texto('#card-sla-prioridade')).toContain('78%');
@@ -198,6 +219,13 @@ describe('PainelAdministracao (HU08)', () => {
 
     expect(texto('#card-volume-categoria')).toContain('Sistema hospitalar');
     expect(texto('#card-volume-equipamento')).toContain('Impressora de etiquetas');
+    expect(texto('#card-chamados-responsavel')).toContain('Analista 01');
+    expect(texto('#card-chamados-responsavel')).toContain('2 P1');
+    expect(texto('#card-chamados-responsavel')).toContain('Sem responsável');
+
+    expect(texto('#card-indicadores-97')).toContain('4 h 30');
+    expect(texto('#card-indicadores-97')).toContain('6%');
+    expect(texto('#card-indicadores-97')).toContain('2% (4)');
 
     expect(elemento.querySelector('#alerta-critico-m12')).toBeNull();
     expect(elemento.querySelector('#alerta-m08')).toBeNull();
@@ -259,6 +287,41 @@ describe('PainelAdministracao (HU08)', () => {
     expect(texto('#kpi-chamados-abertos')).toContain('90 dias');
   });
 
+  it('permite filtrar por periodo personalizado com datas livres', () => {
+    configurar();
+    responderCargaInicial();
+
+    (elemento.querySelector('#filtro-periodo-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const opcaoCustom = Array.from(elemento.querySelectorAll<HTMLButtonElement>('[role="option"]')).find(
+      (b) => b.textContent?.trim() === 'Período personalizado',
+    );
+    opcaoCustom?.click();
+    fixture.detectChanges();
+
+    const inputInicio = elemento.querySelector('#input-data-inicio') as HTMLInputElement;
+    const inputFim = elemento.querySelector('#input-data-fim') as HTMLInputElement;
+    expect(inputInicio).not.toBeNull();
+    expect(inputFim).not.toBeNull();
+
+    inputInicio.value = '2026-10-01';
+    inputInicio.dispatchEvent(new Event('input'));
+    inputFim.value = '2026-10-15';
+    inputFim.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    (elemento.querySelector('#btn-aplicar-periodo') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const reqCustom = http.expectOne((r) => r.url === '/api/v1/dashboard/metricas');
+    expect(reqCustom.request.params.get('inicio')).toBe('2026-10-01T00:00:00.000Z');
+    expect(reqCustom.request.params.get('fim')).toBe('2026-10-15T23:59:59.999Z');
+    reqCustom.flush(envelope(METRICAS_PADRAO));
+    fixture.detectChanges();
+
+    expect(texto('#kpi-chamados-abertos')).toContain('01/10/2026 – 15/10/2026');
+  });
+
   it('exibe estado de erro e permite recarregar', () => {
     configurar();
     http.expectOne('/api/v1/unidades?ativo=true').flush(envelope(UNIDADES));
@@ -276,5 +339,25 @@ describe('PainelAdministracao (HU08)', () => {
     fixture.detectChanges();
 
     expect(texto('#kpi-chamados-abertos')).toContain('182');
+  });
+
+  it('exibe tooltips explicativos para KPIs, cards e indicadores da Secao 9.7', () => {
+    configurar();
+    responderCargaInicial();
+
+    const triggers = elemento.querySelectorAll<HTMLButtonElement>('[data-testid="info-tooltip-trigger"]');
+    expect(triggers.length).toBeGreaterThanOrEqual(22);
+
+    const triggerM08 = elemento.querySelector<HTMLButtonElement>(
+      '#card-indicadores-97 [aria-label="Explicação sobre M08 — Divergência de Prioridade"]',
+    );
+    expect(triggerM08).not.toBeNull();
+
+    triggerM08!.dispatchEvent(new MouseEvent('mouseenter'));
+    fixture.detectChanges();
+
+    const tooltip = elemento.querySelector('[role="tooltip"]');
+    expect(tooltip?.textContent).toContain('Matriz 3D');
+    expect(tooltip?.textContent).toContain('30%');
   });
 });
