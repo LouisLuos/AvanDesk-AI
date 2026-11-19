@@ -14,4 +14,6 @@ public interface RegistroContatoRepository extends JpaRepository<RegistroContato
     List<RegistroContato> findByChamadoIdOrderByOcorridoEmAsc(UUID chamadoId);
 
     boolean existsByCanalAndIdentificadorExterno(CanalOrigem canal, String identificadorExterno);
+
+    boolean existsByChamadoId(UUID chamadoId);
 }

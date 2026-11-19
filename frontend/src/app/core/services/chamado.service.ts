@@ -9,6 +9,7 @@ import {
   ChamadoRequest,
   ChamadoResponse,
   EscalonamentoRequest,
+  FechamentoRequest,
   FilaChamados,
   FiltrosFila,
   MesclagemRequest,
@@ -20,6 +21,7 @@ import {
   TAMANHO_PAGINA_FILA,
   TotalChamadosPorResponsavel,
   TotalChamadosPorUnidade,
+  VerificacaoEncerramento,
 } from '../../shared/models/chamado.model';
 import { mapearChamadoDetalhe } from '../../shared/utils/chamado-detalhe.mapper';
 
@@ -224,6 +226,18 @@ export class ChamadoService {
         `${this.baseUrl}/${id}/mesclar`,
         payload,
       )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  verificarEncerramento(id: string): Observable<VerificacaoEncerramento> {
+    return this.http
+      .get<ApiResponse<VerificacaoEncerramento>>(`${this.baseUrl}/${id}/verificacao-encerramento`)
+      .pipe(map((res) => res.data as VerificacaoEncerramento));
+  }
+
+  fechar(id: string, payload: FechamentoRequest): Observable<ChamadoDetalhe> {
+    return this.http
+      .post<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(`${this.baseUrl}/${id}/fechar`, payload)
       .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
   }
 }

@@ -25,7 +25,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(OperacaoNaoPermitidaException.class)
     public ResponseEntity<ApiResponse<Void>> tratarOperacaoNaoPermitida(OperacaoNaoPermitidaException ex) {
-        return responder(HttpStatus.UNPROCESSABLE_CONTENT, "Operação não permitida", List.of(ex.getMessage()));
+        return responder(HttpStatus.UNPROCESSABLE_CONTENT, "Operação não permitida", ex.getErros());
     }
 
     @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class})

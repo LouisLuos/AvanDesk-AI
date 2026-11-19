@@ -209,6 +209,22 @@
             Resolver
           </button>
         }
+
+        @if (podeEncerrar()) {
+          <button
+            type="button"
+            id="btn-encerrar-chamado"
+            [disabled]="salvando()"
+            (click)="abrirModalEncerramento()"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-[#14161b] px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#363b47] disabled:opacity-50 cursor-pointer"
+          >
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            Encerrar chamado
+          </button>
+        }
       </div>
     </header>
 
@@ -1332,6 +1348,132 @@
                 Registrando...
               } @else {
                 Registrar retorno
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (modalEncerramentoAberto()) {
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-encerramento-titulo"
+      >
+        <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl border border-[#e2e5ec]">
+          <div class="flex items-start justify-between border-b border-[#f1f3f8] pb-4">
+            <div>
+              <h2 id="modal-encerramento-titulo" class="text-base font-bold text-[#14161b]">Encerrar chamado</h2>
+              <p class="mt-0.5 text-[11px] text-[#6b7280]">
+                {{ item.codigo }} · o histórico precisa ter os seis itens de rastreabilidade
+              </p>
+            </div>
+            <button
+              type="button"
+              (click)="fecharModalEncerramento()"
+              class="rounded-lg p-1.5 text-[#9aa2b1] hover:bg-[#f1f3f8] hover:text-[#14161b] transition cursor-pointer"
+              aria-label="Fechar modal"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="mt-4 space-y-4">
+            @if (carregandoVerificacao()) {
+              <p id="verificacao-carregando" class="text-xs text-[#6b7280]">Verificando o histórico do chamado...</p>
+            } @else if (verificacaoEncerramento()) {
+              <ul id="checklist-encerramento" class="space-y-2" aria-label="Checklist de rastreabilidade">
+                @for (verificacao of itensEncerramento(); track verificacao.codigo) {
+                  <li
+                    class="flex items-start gap-2.5 rounded-lg border p-2.5 text-xs"
+                    [class]="verificacao.ok ? 'border-[#22c55e]/30 bg-[#f0fdf4]' : 'border-[#e5484d]/30 bg-[#fef2f2]'"
+                    [attr.data-item]="verificacao.codigo"
+                    [attr.data-ok]="verificacao.ok"
+                  >
+                    @if (verificacao.ok) {
+                      <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#15803d]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-label="Conforme">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    } @else {
+                      <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#e5484d]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-label="Pendente">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    }
+                    <div>
+                      <p class="font-semibold text-[#14161b]">{{ verificacao.descricao }}</p>
+                      @if (verificacao.pendencia) {
+                        <p class="mt-0.5 text-[11px] text-[#b42318]">{{ verificacao.pendencia }}</p>
+                      }
+                    </div>
+                  </li>
+                }
+              </ul>
+
+              @if (faltaCausaRaiz()) {
+                <div class="space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <label for="campo-justificativa-sem-causa-raiz" class="block text-xs font-bold text-[#14161b]">
+                      Por que não há causa raiz? <span class="text-[#e5484d]">*</span>
+                    </label>
+                    <span class="text-[11px] text-[#6b7280]">{{ justificativaSemCausaRaiz().trim().length }}/500</span>
+                  </div>
+                  <textarea
+                    id="campo-justificativa-sem-causa-raiz"
+                    rows="3"
+                    maxlength="500"
+                    [placeholder]="'Mínimo de ' + tamanhoMinimoJustificativaEncerramento + ' caracteres'"
+                    [value]="justificativaSemCausaRaiz()"
+                    (input)="justificativaSemCausaRaiz.set($any($event.target).value)"
+                    class="w-full rounded-lg border border-[#e2e5ec] bg-white p-3 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:border-[#2d5bff] focus:outline-none focus:ring-2 focus:ring-[#2d5bff]/20 transition"
+                  ></textarea>
+                </div>
+              }
+
+              <p id="resumo-verificacao" class="text-[11px] font-semibold" [class]="encerramentoLiberado() ? 'text-[#15803d]' : 'text-[#b42318]'">
+                @if (encerramentoLiberado()) {
+                  Tudo certo: o chamado pode ser encerrado.
+                } @else {
+                  Resolva as pendências antes de encerrar.
+                }
+              </p>
+            }
+
+            @if (errosEncerramento().length) {
+              <ul id="erros-encerramento" role="alert" class="space-y-1 rounded-lg bg-[#fdebe4] p-3 text-[11px] text-[#b42318]">
+                @for (erro of errosEncerramento(); track erro) {
+                  <li>{{ erro }}</li>
+                }
+              </ul>
+            }
+          </div>
+
+          <div class="mt-6 flex items-center justify-end gap-2.5 border-t border-[#f1f3f8] pt-4">
+            <button
+              type="button"
+              [disabled]="salvando()"
+              (click)="fecharModalEncerramento()"
+              class="rounded-lg border border-[#e2e5ec] bg-white px-3.5 py-2 text-xs font-semibold text-[#4b5563] shadow-2xs hover:bg-[#f8f9fc] disabled:opacity-50 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              id="btn-confirmar-encerramento"
+              [disabled]="salvando() || !encerramentoLiberado()"
+              (click)="confirmarEncerramento()"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-[#14161b] px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#363b47] disabled:opacity-50 cursor-pointer"
+            >
+              @if (salvando()) {
+                <span class="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                Encerrando...
+              } @else {
+                Confirmar encerramento
               }
             </button>
           </div>
