@@ -621,6 +621,40 @@ components:
           type: string
           format: uuid
           description: "Chamado principal, que recebe os contatos do duplicado. Diferente do {id} do caminho. Para achar pelo protocolo, use GET /chamados?codigo=."
+    FechamentoRequest:
+      type: object
+      properties:
+        justificativa_sem_causa_raiz:
+          type: string
+          maxLength: 500
+          description: "Só quando o chamado não tem causa raiz: por que não há causa raiz, com pelo menos 15 caracteres (HU15)."
+    ItemVerificacaoResponse:
+      type: object
+      properties:
+        codigo:
+          type: string
+          enum: [PROBLEMA_E_CATEGORIA, UNIDADE, RESPONSAVEL, CONTATO, CAUSA_RAIZ_OU_JUSTIFICATIVA, RESOLUCAO]
+        descricao:
+          type: string
+        ok:
+          type: boolean
+        pendencia:
+          type: string
+          nullable: true
+          description: "O que falta para o item ficar conforme; null quando ok."
+    VerificacaoEncerramentoResponse:
+      type: object
+      properties:
+        aprovado:
+          type: boolean
+        itens_conformes:
+          type: integer
+        total_itens:
+          type: integer
+        itens:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemVerificacaoResponse'
 security:
   - bearerAuth: []
 paths:
@@ -1612,6 +1646,93 @@ paths:
                 data: null
                 errors:
                   - "Não é possível mesclar um chamado nele mesmo."
+  /chamados/{id}/verificacao-encerramento:
+    get:
+      summary: Conferir o checklist de rastreabilidade antes de encerrar (HU15)
+      description: "Os seis itens: problema e categoria, unidade, responsável, ao menos um contato, causa raiz (ou justificativa no encerramento) e resolução detalhada. Cada item vem com ok e, quando falta, a pendência."
+      tags:
+        - Encerramento
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Resultado do checklist
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/VerificacaoEncerramentoResponse'
+        '404':
+          description: Chamado não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+  /chamados/{id}/fechar:
+    post:
+      summary: Encerrar o chamado resolvido (HU15)
+      description: "Só a partir de RESOLVIDO. Roda o checklist; aprovado, o chamado vai para FECHADO, grava fechado_em e o evento CHAMADO_FECHADO com status_anterior, itens_conformes, total_itens, itens_verificados e, quando usada, justificativa_sem_causa_raiz (M01)."
+      tags:
+        - Encerramento
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FechamentoRequest'
+      responses:
+        '200':
+          description: Chamado encerrado; devolve o detalhe com status FECHADO
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '400':
+          description: justificativa_sem_causa_raiz com mais de 500 caracteres
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Chamado não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '422':
+          description: Status diferente de RESOLVIDO ou itens pendentes (uma linha por pendência em errors)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Operação não permitida"
+                data: null
+                errors:
+                  - "Atribua um responsável ao chamado."
+                  - "Registre ao menos um contato do solicitante."
   /chamados/{id}/prioridade:
     patch:
       summary: Definir a Prioridade do Chamado (HU04)
