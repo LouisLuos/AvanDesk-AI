@@ -1191,4 +1191,63 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
       expect(el.textContent).toContain('Origem: LUM-2026-000101');
     });
   });
+
+  describe('Auditoria do contador de SLA no detalhe', () => {
+    it('congela o contador em RESOLVIDO e CANCELADO e mantem estourados ativos crescendo', () => {
+      const baseAbertura = '2026-11-19T10:00:00Z';
+      const resolucaoIso = '2026-11-19T10:25:00Z';
+      const cancelamentoIso = '2026-11-19T10:40:00Z';
+
+      // 1) Resolvido congela em 25 min mesmo com o relógio avançando 12h
+      component['slaService'].agora.set(new Date('2026-11-19T22:00:00Z').getTime());
+      component['chamado'].set({
+        ...mockDetalhe,
+        status: 'RESOLVIDO',
+        aberto_em_iso: baseAbertura,
+        resolvido_em_iso: resolucaoIso,
+      });
+      const slaResolvido1 = component['slaItensDinamicos']();
+      component['slaService'].agora.set(new Date('2026-11-20T10:00:00Z').getTime());
+      const slaResolvido2 = component['slaItensDinamicos']();
+      expect(slaResolvido1[2].situacaoTexto).toBe('Cumprida em 25 min');
+      expect(slaResolvido2[2].situacaoTexto).toBe('Cumprida em 25 min');
+
+      // 2) Cancelado congela no timestamp do evento CHAMADO_CANCELADO e não estoura
+      component['chamado'].set({
+        ...mockDetalhe,
+        status: 'CANCELADO',
+        prioridade: null,
+        primeira_resposta_em: null,
+        aberto_em_iso: baseAbertura,
+        historico: [
+          {
+            id: 'ev-canc',
+            tipo: 'CHAMADO_CANCELADO',
+            titulo: 'Chamado cancelado',
+            hora: '10:40',
+            dataCompleta: '19/11/2026 10:40',
+            ocorridoEmIso: cancelamentoIso,
+          },
+        ],
+      });
+      const slaCancelado = component['slaItensDinamicos']();
+      expect(slaCancelado[0].situacaoTexto).toBe('Encerrada (cancelado)');
+      expect(slaCancelado[2].situacaoTexto).toBe('Cancelado após 40 min');
+
+      // 3) Chamado ativo estourado continua aumentando conforme o relógio avança
+      component['chamado'].set({
+        ...mockDetalhe,
+        status: 'EM_ATENDIMENTO',
+        prioridade: 'ALTA',
+        aberto_em_iso: baseAbertura,
+        resolvido_em_iso: null,
+      });
+      component['slaService'].agora.set(new Date('2026-11-19T14:00:00Z').getTime()); // +2h de excesso
+      const estouradoAntes = component['slaItensDinamicos']()[2].situacaoTexto;
+      component['slaService'].agora.set(new Date('2026-11-19T16:00:00Z').getTime()); // +4h de excesso
+      const estouradoDepois = component['slaItensDinamicos']()[2].situacaoTexto;
+      expect(estouradoAntes).toBe('Estourado · +2 h');
+      expect(estouradoDepois).toBe('Estourado · +4 h');
+    });
+  });
 });

@@ -80,6 +80,21 @@ describe('FilaChamados', () => {
       expect(component['estiloStatus'](status)).toContain('bg-');
     }
   });
+
+  it('exibe tooltip no indicador Estourados explicando que cancelados e encerrados não entram na contagem', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    const trigger = el.querySelector<HTMLButtonElement>(
+      '#indicador-estourados [data-testid="info-tooltip-trigger"]',
+    );
+    expect(trigger).not.toBeNull();
+
+    trigger!.dispatchEvent(new MouseEvent('mouseenter'));
+    fixture.detectChanges();
+
+    const tooltip = el.querySelector('#indicador-estourados [role="tooltip"]');
+    expect(tooltip?.textContent).toContain('cancelados');
+    expect(tooltip?.textContent).toContain('SLA ultrapassado');
+  });
 });
 
 describe('FilaChamados integrada ao GET /chamados (HU14)', () => {

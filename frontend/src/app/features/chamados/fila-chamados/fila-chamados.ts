@@ -6,6 +6,7 @@ import { ChamadoService } from '../../../core/services/chamado.service';
 import { SlaService } from '../../../core/services/sla.service';
 import { UnidadeService } from '../../../core/services/unidade.service';
 import { CustomDropdown } from '../../../shared/components/custom-dropdown/custom-dropdown';
+import { InfoTooltip } from '../../../shared/components/info-tooltip/info-tooltip';
 import {
   CANAIS_ORIGEM,
   CanalOrigem,
@@ -63,12 +64,13 @@ const ESTILO_SLA: Record<SituacaoSla, { texto: string; barra: string }> = {
   ESTOURADO: { texto: 'text-[#dc2626]', barra: 'bg-[#dc2626]' },
   PAUSADO: { texto: 'text-[#6b7280]', barra: 'bg-[#9aa2b1]' },
   CUMPRIDO: { texto: 'text-[#14161b]', barra: 'bg-[#22c55e]' },
+  CANCELADO: { texto: 'text-[#64748b]', barra: '' },
   INCORPORADO: { texto: 'text-[#6b7280]', barra: '' },
 };
 
 @Component({
   selector: 'app-fila-chamados',
-  imports: [RouterLink, CustomDropdown, DatePipe],
+  imports: [RouterLink, CustomDropdown, InfoTooltip, DatePipe],
   templateUrl: './fila-chamados.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -149,7 +151,7 @@ export class FilaChamados implements OnInit {
         rotulo: 'Estourados',
         corPonto: 'bg-[#dc2626]',
         valor: fila?.total_estourados ?? null,
-        dica: 'Chamados em andamento com prazo de SLA ultrapassado.',
+        dica: 'Só são considerados estourados chamados ativos em andamento com SLA ultrapassado — chamados cancelados, encerrados (resolvidos, fechados ou mesclados) e pausados aguardando solicitante não entram nesta contagem.',
       },
     ];
   });
@@ -309,6 +311,7 @@ export class FilaChamados implements OnInit {
       prioridade: this.obterPrioridade(chamado),
       motivo_espera: chamado.motivo_espera,
       resolvido_em: chamado.resolvido_em,
+      atualizado_em: chamado.atualizado_em,
     });
   }
 

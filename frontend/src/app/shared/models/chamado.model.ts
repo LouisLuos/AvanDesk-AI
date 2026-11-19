@@ -344,6 +344,7 @@ export type SituacaoSla =
   | 'ESTOURADO'
   | 'PAUSADO'
   | 'CUMPRIDO'
+  | 'CANCELADO'
   | 'INCORPORADO';
 
 export interface SlaChamado {
