@@ -265,6 +265,7 @@ Cria um novo chamado estruturado a partir de uma solicitação recebida por um d
   "descricao": "Impressora de etiquetas da coleta parou de imprimir. Há pacientes aguardando na recepção.",
   "categoria_id": "c4e0a000-0002-4000-8000-000000000002",
   "sistema_equipamento_id": "5e5a0000-0003-4000-8000-000000000003",
+  "respostas_prioridade": { "severidade": 3, "urgencia": 3, "impacto": 2 },
   "registro_iniciado_em": "2026-10-07T14:29:15Z"
 }
 ```
@@ -277,6 +278,7 @@ Cria um novo chamado estruturado a partir de uma solicitação recebida por um d
 * `registro_iniciado_em` no futuro ou de mais de 2 h antes da abertura é descartado silenciosamente (gravado como `NULL`), sem recusar o chamado.
 * O registro grava, numa única transação, o chamado, o registro de contato inicial e os eventos `CHAMADO_ABERTO` e `REGISTRO_DE_CONTATO_RECEBIDO` tendo como `autor_id` o usuário autenticado no token JWT.
 * `atribuir_a_mim` (opcional, padrão `false`): com `true`, quem registra assume o chamado na mesma operação (HU12, ver seção 8).
+* `respostas_prioridade` (opcional, HU22): as respostas do solicitante às três perguntas de negócio, já como notas de 1 a 3 (`severidade`, `urgencia`, `impacto`, todas obrigatórias quando o objeto vem). O servidor calcula a `prioridade_sugerida` pela Matriz 3D e a devolve na resposta; a prioridade final fica vazia até o analista validar (seção 14). Na fila, o chamado já aparece com a sugerida, que é usada enquanto não há final. Mandar `respostas_prioridade` e `prioridade` juntos responde `400`.
 
 > **Aviso de Negócio (RN01 / LGPD):** O frontend exibe um alerta fixo proibindo o envio de dados clínicos de pacientes ou resultados de exames no campo `descricao`.
 
@@ -291,7 +293,8 @@ Cria um novo chamado estruturado a partir de uma solicitação recebida por um d
     "codigo": "LUM-2026-000123",
     "status": "ABERTO",
     "data_criacao": "2026-10-07T14:30:00Z",
-    "origem_dado": "TESTE"
+    "origem_dado": "TESTE",
+    "prioridade_sugerida": "ALTA"
   },
   "errors": null
 }
@@ -341,6 +344,9 @@ Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 e
     },
     "responsavel": null,
     "prioridade": null,
+    "prioridade_sugerida": "ALTA",
+    "prioridade_final": null,
+    "respostas_prioridade": { "severidade": 3, "urgencia": 3, "impacto": 2 },
     "aberto_em": "2026-10-07T14:30:00Z",
     "primeira_resposta_em": null,
     "resolvido_em": null,
@@ -962,6 +968,45 @@ No detalhe do principal, os contatos recebidos aparecem em `registros_contato` c
 
 ---
 
-## 14. Evolução do Ciclo de Atendimento (HU04 — Planejado)
+## 14. Definir e Validar a Prioridade (HU04 e HU22)
 
-* **`PATCH /chamados/{id}/prioridade`** (`HU04`): registra a triagem estruturada pela Matriz 3D (`severidade`, `urgencia`, `impacto_operacional`).
+O analista valida a prioridade pela Matriz 3D. Quando o chamado foi aberto com `respostas_prioridade` (seção 4), a sugestão do contexto já existe e não muda: o analista confirma ou reclassifica.
+
+* **Endpoint:** `PATCH /chamados/{id}/prioridade`
+* **Autenticação:** Bearer Token (Analista de Suporte, Liderança de TI ou Admin)
+
+### Request Body (`application/json`)
+
+```json
+{
+  "severidade": 1,
+  "urgencia": 2,
+  "impacto_operacional": 1,
+  "prioridade_final": null,
+  "justificativa_prioridade": "Só uma estação afetada, há alternativa."
+}
+```
+
+**Regras:**
+
+* `severidade`, `urgencia` e `impacto_operacional` são obrigatórios, de 1 a 3. Matriz: soma 3 a 5 é `BAIXA` (P3), 6 a 7 é `MEDIA` (P2), 8 a 9 é `ALTA` (P1).
+* Sem `prioridade_final`, a final é a da matriz com as notas do analista.
+* **Sugerida:** a da abertura, quando o chamado tem `respostas_prioridade`; sem elas, a da matriz com as notas do analista (como na HU04).
+* **Confirmar:** mandar as mesmas notas da abertura (ou a `prioridade_final` igual à sugerida) dispensa justificativa.
+* **Reclassificar:** final diferente da sugerida exige `justificativa_prioridade` com pelo menos 15 caracteres (constraint `ck_chamados_justificativa`). A divergência entre sugerida e final alimenta a M08.
+* Grava o evento `PRIORIDADE_DEFINIDA` com as notas, a sugerida, a final e a justificativa, e marca a primeira resposta quando ainda não havia.
+
+### Response: `200 OK`
+
+O detalhe atualizado do chamado (seção 5), com `prioridade`, `prioridade_sugerida`, `prioridade_final`, `justificativa_prioridade` e `respostas_prioridade`.
+
+### Erros
+
+| Situação | Status | Mensagem |
+| :--- | :---: | :--- |
+| Nota fora de 1 a 3 ou ausente | `400` | "Campo 'severidade' deve ser no máximo 3." |
+| Chamado inexistente | `404` | "Chamado não encontrado." |
+| Final diferente da sugerida sem justificativa de 15 caracteres | `422` | "É obrigatório informar uma justificativa de pelo menos 15 caracteres ao definir uma prioridade final diferente da sugerida." |
+| Chamado encerrado ou mesclado | `422` | "Não é possível alterar a prioridade de um chamado FECHADO." |
+| Perfil sem permissão | `422` | "Apenas analistas de suporte ou liderança podem definir a prioridade do chamado." |
+| Sem token | `401` | — |

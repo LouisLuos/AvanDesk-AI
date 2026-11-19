@@ -96,6 +96,26 @@ components:
         ativo:
           type: boolean
           example: true
+    RespostasPrioridade:
+      type: object
+      description: "Respostas do solicitante às três perguntas de negócio da abertura (HU22), como notas de 1 a 3."
+      required: [severidade, urgencia, impacto]
+      properties:
+        severidade:
+          type: integer
+          minimum: 1
+          maximum: 3
+          description: "Quão quebrado está? 1: dúvida ou lentidão com alternativa; 2: uma função parou sem alternativa; 3: sistema ou equipamento fora do ar."
+        urgencia:
+          type: integer
+          minimum: 1
+          maximum: 3
+          description: "Quão rápido precisa? 1: pode aguardar; 2: afeta atividades do dia, sem paciente esperando; 3: há paciente aguardando agora."
+        impacto:
+          type: integer
+          minimum: 1
+          maximum: 3
+          description: "Quantos são afetados? 1: só o meu usuário; 2: várias pessoas do setor; 3: a unidade inteira (ou mais de uma)."
     ChamadoResponse:
       type: object
       properties:
@@ -119,6 +139,12 @@ components:
           enum: [REAL, TESTE, SIMULADO]
           description: "Definido pelo servidor conforme o ambiente (REAL em produção); o cliente nunca envia."
           example: TESTE
+        prioridade_sugerida:
+          type: string
+          nullable: true
+          enum: [ALTA, MEDIA, BAIXA]
+          description: "Calculada pela Matriz 3D a partir de respostas_prioridade (HU22); null quando o chamado foi aberto sem elas."
+          example: ALTA
     ChamadoDetalheResponse:
       type: object
       description: "Detalhe completo do chamado (HU02 + HU05): status, responsável, contatos, escalonamentos para fornecedor (HU07), mesclagens (HU03) e linha do tempo cronológica em UTC."
@@ -176,6 +202,23 @@ components:
           type: string
           nullable: true
           enum: [ALTA, MEDIA, BAIXA]
+        prioridade_sugerida:
+          type: string
+          nullable: true
+          enum: [ALTA, MEDIA, BAIXA]
+          description: "Da abertura (HU22) quando o chamado tem respostas_prioridade; senão, da matriz do analista (HU04)."
+        prioridade_final:
+          type: string
+          nullable: true
+          enum: [ALTA, MEDIA, BAIXA]
+          description: "Validada pelo analista; null enquanto aguarda triagem."
+        justificativa_prioridade:
+          type: string
+          nullable: true
+        respostas_prioridade:
+          allOf:
+            - $ref: '#/components/schemas/RespostasPrioridade'
+          nullable: true
         aberto_em:
           type: string
           format: date-time
@@ -1058,6 +1101,14 @@ paths:
                   type: boolean
                   default: false
                   description: "Opcional (HU12). Com true, quem registra vira o responsável e o chamado vai para EM_ATENDIMENTO, com os eventos TRIAGEM_INICIADA, CHAMADO_ATRIBUIDO e CHAMADO_TRIADO. Quem não é analista ativo recebe 422."
+                respostas_prioridade:
+                  allOf:
+                    - $ref: '#/components/schemas/RespostasPrioridade'
+                  description: "Opcional (HU22). Gera a prioridade_sugerida; a final fica vazia até a triagem. Não pode vir junto com prioridade (400)."
+                prioridade:
+                  type: string
+                  enum: [ALTA, MEDIA, BAIXA]
+                  description: "Opcional. Define sugerida e final direto na abertura; a tela usa respostas_prioridade."
       responses:
         '201':
           description: Chamado criado com sucesso
@@ -1614,7 +1665,7 @@ paths:
                   - "Não é possível mesclar um chamado nele mesmo."
   /chamados/{id}/prioridade:
     patch:
-      summary: Definir a Prioridade do Chamado (HU04)
+      summary: Definir e validar a prioridade do chamado (HU04 / HU22)
       tags:
         - Chamados
       parameters:
@@ -1630,6 +1681,7 @@ paths:
           application/json:
             schema:
               type: object
+              required: [severidade, urgencia, impacto_operacional]
               properties:
                 severidade:
                   type: integer
@@ -1643,9 +1695,19 @@ paths:
                   type: integer
                   minimum: 1
                   maximum: 3
+                prioridade_final:
+                  type: string
+                  nullable: true
+                  enum: [ALTA, MEDIA, BAIXA]
+                  description: "Opcional. Sem ela, a final é a da matriz com as notas enviadas."
+                justificativa_prioridade:
+                  type: string
+                  nullable: true
+                  maxLength: 500
+                  description: "Obrigatória, com pelo menos 15 caracteres, quando a final diverge da sugerida (a da abertura, quando houver respostas_prioridade)."
       responses:
         '200':
-          description: Prioridade calculada e definida
+          description: Prioridade validada; devolve o detalhe atualizado
           content:
             application/json:
               schema:
@@ -1654,15 +1716,13 @@ paths:
                   - $ref: '#/components/schemas/ApiResponse'
                 properties:
                   data:
-                    type: object
-                    properties:
-                      status:
-                        type: string
-                      prioridade_calculada:
-                        type: string
-                      id_evento:
-                        type: string
-                        format: uuid
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '400':
+          description: Nota ausente ou fora de 1 a 3
+        '404':
+          description: Chamado inexistente
+        '422':
+          description: Final diferente da sugerida sem justificativa de 15 caracteres, chamado encerrado ou mesclado, ou perfil sem permissão
   /analistas:
     get:
       summary: Listar analistas de suporte (HU10)
