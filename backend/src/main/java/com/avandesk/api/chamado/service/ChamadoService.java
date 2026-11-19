@@ -11,6 +11,7 @@ import com.avandesk.api.chamado.dto.ChamadoResponse;
 import com.avandesk.api.chamado.dto.PrioridadeRequest;
 import com.avandesk.api.chamado.dto.RegistroContatoRequest;
 import com.avandesk.api.chamado.dto.ResolucaoRequest;
+import com.avandesk.api.chamado.dto.RespostasPrioridadeRequest;
 import com.avandesk.api.chamado.dto.StatusRequest;
 import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.DirecaoContato;
@@ -75,6 +76,11 @@ public class ChamadoService {
 
     @Transactional
     public ChamadoResponse registrar(ChamadoRequest request) {
+        RespostasPrioridadeRequest respostas = request.respostasPrioridade();
+        if (respostas != null && request.prioridade() != null) {
+            throw new RegraNegocioException(
+                "Informe as respostas de prioridade ou a prioridade, não os dois.");
+        }
         Unidade unidade = unidadeService.obterAtivaParaNovoChamado(request.unidadeId());
         Categoria categoria = categoriaService.obterAtivaParaNovoChamado(request.categoriaId());
         SistemaEquipamento sistema = request.sistemaEquipamentoId() == null
@@ -103,7 +109,12 @@ public class ChamadoService {
         chamado.setAbertoEm(abertoEm);
         chamado.setRegistroIniciadoEm(validarInicioRegistro(request.registroIniciadoEm(), abertoEm));
         chamado.setOrigemDado(nexoProperties.origemDado());
-        if (request.prioridade() != null) {
+        if (respostas != null) {
+            Prioridade sugerida = slaDomainService.calcularPrioridadeSugerida(
+                respostas.severidade(), respostas.urgencia(), respostas.impacto());
+            chamado.registrarRespostasDaAbertura(
+                respostas.severidade(), respostas.urgencia(), respostas.impacto(), sugerida);
+        } else if (request.prioridade() != null) {
             chamado.setPrioridadeSugerida(request.prioridade());
             chamado.setPrioridadeFinal(request.prioridade());
         }
@@ -124,6 +135,12 @@ public class ChamadoService {
         dadosAbertura.put("canal", chamado.getCanalOrigem().name());
         if (chamado.getPrioridadeFinal() != null) {
             dadosAbertura.put("prioridade", chamado.getPrioridadeFinal().name());
+        }
+        if (respostas != null) {
+            dadosAbertura.put("severidade_informada", respostas.severidade());
+            dadosAbertura.put("urgencia_informada", respostas.urgencia());
+            dadosAbertura.put("impacto_informado", respostas.impacto());
+            dadosAbertura.put("prioridade_sugerida", chamado.getPrioridadeSugerida().name());
         }
         eventoHistoricoService.registrar(chamado, TipoEvento.CHAMADO_ABERTO, autor, dadosAbertura);
         eventoHistoricoService.registrar(chamado, TipoEvento.REGISTRO_DE_CONTATO_RECEBIDO, autor,
@@ -281,10 +298,12 @@ public class ChamadoService {
             && autor.getPerfil() != PerfilUsuario.ADMIN) {
             throw new OperacaoNaoPermitidaException("Apenas analistas de suporte ou liderança podem definir a prioridade do chamado.");
         }
-        Prioridade sugerida = slaDomainService.calcularPrioridadeSugerida(
+        Prioridade daMatrizDoAnalista = slaDomainService.calcularPrioridadeSugerida(
             request.severidade(), request.urgencia(), request.impactoOperacional()
         );
-        Prioridade finalDefinida = request.prioridadeFinal() != null ? request.prioridadeFinal() : sugerida;
+        boolean temRespostasDaAbertura = chamado.getSeveridadeInformada() != null;
+        Prioridade sugerida = temRespostasDaAbertura ? chamado.getPrioridadeSugerida() : daMatrizDoAnalista;
+        Prioridade finalDefinida = request.prioridadeFinal() != null ? request.prioridadeFinal() : daMatrizDoAnalista;
         String justificativa = textoOuNulo(request.justificativaPrioridade());
 
         chamado.aplicarTriagemPrioridade(sugerida, finalDefinida, justificativa,

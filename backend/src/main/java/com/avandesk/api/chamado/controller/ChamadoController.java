@@ -150,11 +150,13 @@ public class ChamadoController {
     }
 
     @PatchMapping("/{id}/prioridade")
-    @Operation(summary = "Define a prioridade do chamado pela Matriz 3D (HU04)",
-        description = "Calcula a prioridade sugerida com base em severidade, urgência e impacto (1 a 3). "
-            + "Se a prioridade final for diferente da sugerida, a justificativa é obrigatória. "
-            + "Grava o evento PRIORIDADE_DEFINIDA. Responde 200 com o detalhe atualizado; 400 para notas fora de 1 a 3; "
-            + "404 para chamado inexistente; 422 para divergência sem justificativa ou chamado encerrado.")
+    @Operation(summary = "Define a prioridade do chamado pela Matriz 3D (HU04 / HU22)",
+        description = "O analista valida severidade, urgência e impacto (1 a 3). Sem prioridade_final, a final é a da "
+            + "matriz com essas notas. A sugerida é a da abertura (respostas do solicitante, HU22) e não muda; "
+            + "sem respostas na abertura, é a da matriz do analista. Final diferente da sugerida exige justificativa "
+            + "com pelo menos 15 caracteres. Grava o evento PRIORIDADE_DEFINIDA. Responde 200 com o detalhe atualizado; "
+            + "400 para notas fora de 1 a 3; 404 para chamado inexistente; 422 para divergência sem justificativa "
+            + "ou chamado encerrado.")
     public ResponseEntity<ApiResponse<ChamadoDetalheResponse>> definirPrioridade(
         @PathVariable UUID id, @Valid @RequestBody PrioridadeRequest request) {
         ChamadoDetalheResponse chamado = chamadoService.definirPrioridade(id, request);

@@ -33,6 +33,8 @@ import java.util.UUID;
 @NoArgsConstructor
 public class Chamado {
 
+    public static final int TAMANHO_MINIMO_JUSTIFICATIVA = 15;
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -82,6 +84,15 @@ public class Chamado {
     @Column(name = "impacto_operacional")
     private Short impactoOperacional;
 
+    @Column(name = "severidade_informada")
+    private Short severidadeInformada;
+
+    @Column(name = "urgencia_informada")
+    private Short urgenciaInformada;
+
+    @Column(name = "impacto_informado")
+    private Short impactoInformado;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "prioridade_sugerida")
     private Prioridade prioridadeSugerida;
@@ -118,6 +129,14 @@ public class Chamado {
     @Column(name = "resolvido_em")
     private Instant resolvidoEm;
 
+    /** Respostas do solicitante na abertura (HU22). A prioridade final fica vazia até o analista validar. */
+    public void registrarRespostasDaAbertura(Short severidade, Short urgencia, Short impacto, Prioridade sugerida) {
+        this.severidadeInformada = severidade;
+        this.urgenciaInformada = urgencia;
+        this.impactoInformado = impacto;
+        this.prioridadeSugerida = sugerida;
+    }
+
     /**
      * Aplica a triagem pela Matriz 3D (HU04 / RF-009 / RF-010).
      * Garante a invariante de que divergências entre a prioridade sugerida e a final
@@ -126,9 +145,10 @@ public class Chamado {
     public void aplicarTriagemPrioridade(Prioridade sugerida, Prioridade finalDefinida, String justificativa,
                                          Short severidade, Short urgencia, Short impactoOperacional) {
         if (finalDefinida != null && finalDefinida != sugerida) {
-            if (justificativa == null || justificativa.trim().isBlank()) {
+            if (justificativa == null || justificativa.trim().length() < TAMANHO_MINIMO_JUSTIFICATIVA) {
                 throw new com.avandesk.api.core.exception.OperacaoNaoPermitidaException(
-                    "É obrigatório informar uma justificativa ao definir uma prioridade final diferente da sugerida pela Matriz 3D."
+                    "É obrigatório informar uma justificativa de pelo menos %d caracteres ao definir uma prioridade final diferente da sugerida."
+                        .formatted(TAMANHO_MINIMO_JUSTIFICATIVA)
                 );
             }
         }

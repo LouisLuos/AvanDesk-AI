@@ -37,8 +37,18 @@ public record ChamadoRequest(
     Instant registroIniciadoEm,
 
     @JsonProperty("atribuir_a_mim")
-    Boolean atribuirAMim
+    Boolean atribuirAMim,
+
+    @Valid
+    RespostasPrioridadeRequest respostasPrioridade
 ) {
+
+    public ChamadoRequest(UUID unidadeId, CanalOrigem canalOrigem, SolicitanteRequest solicitante,
+                          String descricao, UUID categoriaId, UUID sistemaEquipamentoId,
+                          Prioridade prioridade, Instant registroIniciadoEm, Boolean atribuirAMim) {
+        this(unidadeId, canalOrigem, solicitante, descricao, categoriaId, sistemaEquipamentoId, prioridade,
+            registroIniciadoEm, atribuirAMim, null);
+    }
 
     public ChamadoRequest(UUID unidadeId, CanalOrigem canalOrigem, SolicitanteRequest solicitante,
                           String descricao, UUID categoriaId, UUID sistemaEquipamentoId,
