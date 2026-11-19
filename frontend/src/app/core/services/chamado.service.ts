@@ -229,18 +229,12 @@ export class ChamadoService {
       .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
   }
 
-  /**
-   * GET /chamados/{id}/verificacao-encerramento — checklist de rastreabilidade antes de encerrar (HU15).
-   */
   verificarEncerramento(id: string): Observable<VerificacaoEncerramento> {
     return this.http
       .get<ApiResponse<VerificacaoEncerramento>>(`${this.baseUrl}/${id}/verificacao-encerramento`)
       .pipe(map((res) => res.data as VerificacaoEncerramento));
   }
 
-  /**
-   * POST /chamados/{id}/fechar — encerra o chamado resolvido que passou na verificação (HU15).
-   */
   fechar(id: string, payload: FechamentoRequest): Observable<ChamadoDetalhe> {
     return this.http
       .post<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(`${this.baseUrl}/${id}/fechar`, payload)

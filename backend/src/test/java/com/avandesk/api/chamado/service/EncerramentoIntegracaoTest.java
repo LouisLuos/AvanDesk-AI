@@ -35,7 +35,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** HU15 com o PostgreSQL de verdade: verificação de rastreabilidade e encerramento, em transação desfeita. */
 @SpringBootTest
 @WithMockUser(username = "analista1@lumen.local")
 class EncerramentoIntegracaoTest {

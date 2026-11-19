@@ -253,7 +253,6 @@ export class DetalheChamado implements OnInit {
       ) ?? false,
   );
 
-  /** A justificativa digitada no modal cobre a falta de causa raiz, como o backend faz no POST /fechar. */
   protected readonly itensEncerramento = computed<ItemVerificacao[]>(() => {
     const itens = this.verificacaoEncerramento()?.itens ?? [];
     const justificativaOk =

@@ -6,7 +6,6 @@ import com.avandesk.api.chamado.entity.Chamado;
 
 import java.util.List;
 
-/** Checklist de rastreabilidade do encerramento (HU15 / M01): os seis itens que o histórico precisa ter. */
 public class VerificadorRastreabilidade {
 
     public static final int TAMANHO_MINIMO_TEXTO = 10;
