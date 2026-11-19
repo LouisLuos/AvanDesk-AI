@@ -9,6 +9,7 @@ import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
 import com.avandesk.api.chamado.dto.PrioridadeRequest;
 import com.avandesk.api.chamado.dto.ResolucaoRequest;
+import com.avandesk.api.chamado.dto.RespostasPrioridadeRequest;
 import com.avandesk.api.chamado.dto.SolicitanteRequest;
 import com.avandesk.api.chamado.dto.StatusRequest;
 import com.avandesk.api.chamado.entity.CanalOrigem;
@@ -170,6 +171,62 @@ class ChamadoServiceTest {
     }
 
     @Test
+    void deveRecusarJustificativaComMenosDeQuinzeCaracteresNaDivergencia() {
+        Chamado chamado = chamadoParaDetalhe(StatusChamado.EM_TRIAGEM);
+        autor.setPerfil(PerfilUsuario.ANALISTA_SUPORTE);
+        when(usuarioLogadoService.obterUsuarioLogado()).thenReturn(autor);
+
+        PrioridadeRequest req = new PrioridadeRequest((short) 1, (short) 1, (short) 1, Prioridade.ALTA, "Urgente agora");
+
+        assertThrows(OperacaoNaoPermitidaException.class, () -> chamadoService.definirPrioridade(chamado.getId(), req));
+        assertNull(chamado.getPrioridadeFinal());
+    }
+
+    @Test
+    void deveConfirmarASugeridaDaAberturaSemJustificativa() {
+        Chamado chamado = chamadoComRespostasDaAbertura((short) 3, (short) 3, (short) 2, Prioridade.ALTA);
+        autor.setPerfil(PerfilUsuario.ANALISTA_SUPORTE);
+        when(usuarioLogadoService.obterUsuarioLogado()).thenReturn(autor);
+
+        chamadoService.definirPrioridade(chamado.getId(),
+            new PrioridadeRequest((short) 3, (short) 3, (short) 2, null, null));
+
+        assertEquals(Prioridade.ALTA, chamado.getPrioridadeSugerida());
+        assertEquals(Prioridade.ALTA, chamado.getPrioridadeFinal());
+        assertNull(chamado.getJustificativaPrioridade());
+        assertEquals((short) 3, chamado.getSeveridadeInformada());
+    }
+
+    @Test
+    void deveManterASugeridaDaAberturaQuandoOAnalistaReclassificaPelosEixos() {
+        Chamado chamado = chamadoComRespostasDaAbertura((short) 3, (short) 3, (short) 2, Prioridade.ALTA);
+        autor.setPerfil(PerfilUsuario.ANALISTA_SUPORTE);
+        when(usuarioLogadoService.obterUsuarioLogado()).thenReturn(autor);
+
+        chamadoService.definirPrioridade(chamado.getId(), new PrioridadeRequest((short) 1, (short) 2, (short) 1, null,
+            "Só um computador afetado, há alternativa."));
+
+        assertEquals(Prioridade.ALTA, chamado.getPrioridadeSugerida());
+        assertEquals(Prioridade.BAIXA, chamado.getPrioridadeFinal());
+        assertEquals((short) 1, chamado.getSeveridade());
+        assertEquals("Só um computador afetado, há alternativa.", chamado.getJustificativaPrioridade());
+    }
+
+    @Test
+    void deveExigirJustificativaQuandoOsEixosDoAnalistaDivergemDaSugeridaDaAbertura() {
+        Chamado chamado = chamadoComRespostasDaAbertura((short) 3, (short) 3, (short) 2, Prioridade.ALTA);
+        autor.setPerfil(PerfilUsuario.ANALISTA_SUPORTE);
+        when(usuarioLogadoService.obterUsuarioLogado()).thenReturn(autor);
+
+        PrioridadeRequest semJustificativa = new PrioridadeRequest((short) 1, (short) 2, (short) 1, null, null);
+
+        assertThrows(OperacaoNaoPermitidaException.class,
+            () -> chamadoService.definirPrioridade(chamado.getId(), semJustificativa));
+        assertNull(chamado.getPrioridadeFinal());
+        verify(eventoHistoricoService, never()).registrar(any(), eq(TipoEvento.PRIORIDADE_DEFINIDA), any(), any());
+    }
+
+    @Test
     void deveRegistrarChamadoComContatoInicialEDoisEventosDoMesmoAutor() {
         prepararCenarioValido(123L);
 
@@ -231,6 +288,38 @@ class ChamadoServiceTest {
         Chamado salvo = chamadoSalvo();
         assertEquals(Prioridade.ALTA, salvo.getPrioridadeSugerida());
         assertEquals(Prioridade.ALTA, salvo.getPrioridadeFinal());
+    }
+
+    @Test
+    void deveCalcularSugeridaPelasRespostasDaAberturaSemDefinirAFinal() {
+        prepararCenarioValido(125L);
+
+        ChamadoResponse response = chamadoService.registrar(requestComRespostas((short) 3, (short) 3, (short) 2));
+
+        Chamado salvo = chamadoSalvo();
+        assertEquals((short) 3, salvo.getSeveridadeInformada());
+        assertEquals((short) 3, salvo.getUrgenciaInformada());
+        assertEquals((short) 2, salvo.getImpactoInformado());
+        assertEquals(Prioridade.ALTA, salvo.getPrioridadeSugerida());
+        assertNull(salvo.getPrioridadeFinal());
+        assertNull(salvo.getSeveridade());
+        assertEquals(Prioridade.ALTA, response.prioridadeSugerida());
+
+        ArgumentCaptor<Map<String, Object>> dados = ArgumentCaptor.forClass(Map.class);
+        verify(eventoHistoricoService).registrar(eq(salvo), eq(TipoEvento.CHAMADO_ABERTO), eq(autor), dados.capture());
+        assertEquals("ALTA", dados.getValue().get("prioridade_sugerida"));
+        assertEquals((short) 3, dados.getValue().get("severidade_informada"));
+        assertFalse(dados.getValue().containsKey("prioridade"));
+    }
+
+    @Test
+    void naoDeveAceitarRespostasEPrioridadeJuntasNaAbertura() {
+        ChamadoRequest ambos = new ChamadoRequest(unidadeId, CanalOrigem.LIGACAO,
+            new SolicitanteRequest("Recepção Boa Viagem", "81999999999"), "Descrição do chamado.", categoriaId, null,
+            Prioridade.ALTA, null, null, new RespostasPrioridadeRequest((short) 1, (short) 1, (short) 1));
+
+        assertThrows(RegraNegocioException.class, () -> chamadoService.registrar(ambos));
+        verifyNoInteractions(chamadoRepository, unidadeService, solicitanteService);
     }
 
     @Test
@@ -617,10 +706,22 @@ class ChamadoServiceTest {
             registroIniciadoEm, null);
     }
 
+    private ChamadoRequest requestComRespostas(short severidade, short urgencia, short impacto) {
+        return new ChamadoRequest(unidadeId, CanalOrigem.LIGACAO,
+            new SolicitanteRequest("Recepção Boa Viagem", "81999999999"), "Descrição do chamado.", categoriaId, null,
+            null, null, null, new RespostasPrioridadeRequest(severidade, urgencia, impacto));
+    }
+
     private Chamado chamadoSalvo() {
         ArgumentCaptor<Chamado> captor = ArgumentCaptor.forClass(Chamado.class);
         verify(chamadoRepository).save(captor.capture());
         return captor.getValue();
+    }
+
+    private Chamado chamadoComRespostasDaAbertura(short severidade, short urgencia, short impacto, Prioridade sugerida) {
+        Chamado chamado = chamadoParaDetalhe(StatusChamado.EM_TRIAGEM);
+        chamado.registrarRespostasDaAbertura(severidade, urgencia, impacto, sugerida);
+        return chamado;
     }
 
     private Chamado chamadoParaDetalhe(StatusChamado status) {

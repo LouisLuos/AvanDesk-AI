@@ -60,6 +60,23 @@ class RegrasOficiaisSlaTest {
             assertEquals(Prioridade.ALTA, calculadora.calcular(s, u, i));
         }
 
+        @ParameterizedTest(name = "S{0} U{1} I{2} = {3}")
+        @DisplayName("HU22 / QA3-01: as 27 combinações da Matriz 3D")
+        @CsvSource({
+            "1, 1, 1, BAIXA", "1, 1, 2, BAIXA", "1, 1, 3, BAIXA",
+            "1, 2, 1, BAIXA", "1, 2, 2, BAIXA", "1, 2, 3, MEDIA",
+            "1, 3, 1, BAIXA", "1, 3, 2, MEDIA", "1, 3, 3, MEDIA",
+            "2, 1, 1, BAIXA", "2, 1, 2, BAIXA", "2, 1, 3, MEDIA",
+            "2, 2, 1, BAIXA", "2, 2, 2, MEDIA", "2, 2, 3, MEDIA",
+            "2, 3, 1, MEDIA", "2, 3, 2, MEDIA", "2, 3, 3, ALTA",
+            "3, 1, 1, BAIXA", "3, 1, 2, MEDIA", "3, 1, 3, MEDIA",
+            "3, 2, 1, MEDIA", "3, 2, 2, MEDIA", "3, 2, 3, ALTA",
+            "3, 3, 1, MEDIA", "3, 3, 2, ALTA", "3, 3, 3, ALTA"
+        })
+        void deveCalcularAsVinteESeteCombinacoes(int s, int u, int i, Prioridade esperada) {
+            assertEquals(esperada, calculadora.calcular(s, u, i));
+        }
+
         @Test
         @DisplayName("Deve rejeitar dimensões menores que 1 ou maiores que 3")
         void deveRejeitarDimensoesForaDoRange() {

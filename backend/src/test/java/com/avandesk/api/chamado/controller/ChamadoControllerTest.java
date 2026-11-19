@@ -11,6 +11,8 @@ import com.avandesk.api.chamado.dto.FiltroChamados;
 import com.avandesk.api.chamado.dto.PrioridadeRequest;
 import com.avandesk.api.chamado.dto.RegistroContatoResponse;
 import com.avandesk.api.chamado.dto.ResolucaoRequest;
+import com.avandesk.api.chamado.dto.RespostasPrioridadeRequest;
+import com.avandesk.api.chamado.dto.RespostasPrioridadeResponse;
 import com.avandesk.api.chamado.dto.SolicitanteResponse;
 import com.avandesk.api.chamado.dto.StatusRequest;
 import com.avandesk.api.chamado.entity.CanalOrigem;
@@ -136,6 +138,7 @@ class ChamadoControllerTest {
             null,
             null,
             null,
+            new RespostasPrioridadeResponse((short) 3, (short) 2, (short) 1),
             abertoEm,
             null,
             null, null, null, false,
@@ -171,6 +174,8 @@ class ChamadoControllerTest {
             .andExpect(jsonPath("$.data.codigo").value("LUM-2026-000001"))
             .andExpect(jsonPath("$.data.status").value("ABERTO"))
             .andExpect(jsonPath("$.data.canal_origem").value("LIGACAO"))
+            .andExpect(jsonPath("$.data.respostas_prioridade.severidade").value(3))
+            .andExpect(jsonPath("$.data.respostas_prioridade.impacto").value(1))
             .andExpect(jsonPath("$.data.unidade.nome").value("U.03 Boa Viagem"))
             .andExpect(jsonPath("$.data.responsavel").value(nullValue()))
             .andExpect(jsonPath("$.data.registros_contato[0].id").value(contatoId.toString()))
@@ -236,6 +241,37 @@ class ChamadoControllerTest {
         mockMvc.perform(post("/api/v1/chamados").contentType(MediaType.APPLICATION_JSON).content(canalInvalido))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("Requisição inválida"));
+
+        verifyNoInteractions(chamadoService);
+    }
+
+    @Test
+    @WithMockUser
+    void deveRepassarAsRespostasDaAberturaEDevolverASugerida() throws Exception {
+        String comRespostas = CORPO_VALIDO.replace("\"registro_iniciado_em\"",
+            "\"respostas_prioridade\": { \"severidade\": 3, \"urgencia\": 2, \"impacto\": 1 }, \"registro_iniciado_em\"");
+        when(chamadoService.registrar(any(ChamadoRequest.class))).thenReturn(new ChamadoResponse(UUID.randomUUID(),
+            "LUM-2026-000002", StatusChamado.ABERTO, Instant.parse("2026-10-22T14:30:00Z"), OrigemDado.TESTE,
+            Prioridade.MEDIA));
+
+        mockMvc.perform(post("/api/v1/chamados").contentType(MediaType.APPLICATION_JSON).content(comRespostas))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.prioridade_sugerida").value("MEDIA"));
+
+        ArgumentCaptor<ChamadoRequest> request = ArgumentCaptor.forClass(ChamadoRequest.class);
+        verify(chamadoService).registrar(request.capture());
+        assertEquals(new RespostasPrioridadeRequest((short) 3, (short) 2, (short) 1), request.getValue().respostasPrioridade());
+    }
+
+    @Test
+    @WithMockUser
+    void deveRecusarRespostaForaDeUmATres() throws Exception {
+        String respostaInvalida = CORPO_VALIDO.replace("\"registro_iniciado_em\"",
+            "\"respostas_prioridade\": { \"severidade\": 4, \"urgencia\": 2, \"impacto\": 1 }, \"registro_iniciado_em\"");
+
+        mockMvc.perform(post("/api/v1/chamados").contentType(MediaType.APPLICATION_JSON).content(respostaInvalida))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.errors[0]").value("Campo 'respostas_prioridade.severidade' deve ser no máximo 3."));
 
         verifyNoInteractions(chamadoService);
     }
