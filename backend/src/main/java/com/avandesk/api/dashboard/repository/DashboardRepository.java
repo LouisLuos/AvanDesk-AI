@@ -1,6 +1,7 @@
 package com.avandesk.api.dashboard.repository;
 
 import com.avandesk.api.chamado.entity.OrigemDado;
+import com.avandesk.api.chamado.entity.TipoEvento;
 import com.avandesk.api.dashboard.dto.DashboardMetricasResponse.ChamadosPorUnidadeDto;
 import com.avandesk.api.dashboard.dto.DashboardMetricasResponse.ProblemaRecorrenteDto;
 import com.avandesk.api.dashboard.dto.DashboardMetricasResponse.SlaPorPrioridadeDto;
@@ -22,6 +23,8 @@ public class DashboardRepository {
 
     private static final double META_INICIAL_SLA_PERCENTUAL = 80.0;
     private static final String SEPARADOR_UNIDADES = ";;";
+    private static final List<String> TIPOS_MUDANCA_STATUS =
+        TipoEvento.MUDANCAS_DE_STATUS.stream().map(Enum::name).toList();
 
     private final JdbcClient jdbcClient;
 
@@ -79,6 +82,7 @@ public class DashboardRepository {
                     FROM eventos_historico e
                     WHERE e.origem_dado = :origemDado
                       AND e.chamado_id IN (SELECT id FROM chamados_janela)
+                      AND e.tipo IN (:tiposMudancaStatus)
                 ) ev
                 WHERE ev.tipo = 'CHAMADO_AGUARDANDO'
                   AND ev.motivo_espera = 'SOLICITANTE'
@@ -204,7 +208,8 @@ public class DashboardRepository {
             .param("fim", Timestamp.from(fim))
             .param("inicioAnterior", Timestamp.from(inicioAnterior))
             .param("fimAnterior", Timestamp.from(fimAnterior))
-            .param("origemDado", origemDado.name());
+            .param("origemDado", origemDado.name())
+            .param("tiposMudancaStatus", TIPOS_MUDANCA_STATUS);
 
         if (unidadeId != null) {
             spec = spec.param("unidadeId", unidadeId);
@@ -254,6 +259,7 @@ public class DashboardRepository {
                       AND ch.origem_dado = :origemDado
                       AND ch.aberto_em >= :inicio
                       AND ch.aberto_em <= :fim
+                      AND e.tipo IN (:tiposMudancaStatus)
                 ) ev
                 WHERE ev.tipo = 'CHAMADO_AGUARDANDO'
                   AND ev.motivo_espera = 'SOLICITANTE'
@@ -317,6 +323,7 @@ public class DashboardRepository {
             .param("inicio", Timestamp.from(inicio))
             .param("fim", Timestamp.from(fim))
             .param("origemDado", origemDado.name())
+            .param("tiposMudancaStatus", TIPOS_MUDANCA_STATUS)
             .query((rs, rowNum) -> new ChamadosPorUnidadeDto(
                 UUID.fromString(rs.getString("unidade_id")),
                 rs.getString("unidade_nome"),
@@ -364,6 +371,7 @@ public class DashboardRepository {
                       AND ch.origem_dado = :origemDado
                       AND ch.aberto_em >= :inicio
                       AND ch.aberto_em <= :fim
+                      AND e.tipo IN (:tiposMudancaStatus)
                 ) ev
                 WHERE ev.tipo = 'CHAMADO_AGUARDANDO'
                   AND ev.motivo_espera = 'SOLICITANTE'
@@ -405,7 +413,8 @@ public class DashboardRepository {
         var spec = jdbcClient.sql(sql)
             .param("inicio", Timestamp.from(inicio))
             .param("fim", Timestamp.from(fim))
-            .param("origemDado", origemDado.name());
+            .param("origemDado", origemDado.name())
+            .param("tiposMudancaStatus", TIPOS_MUDANCA_STATUS);
 
         if (unidadeId != null) {
             spec = spec.param("unidadeId", unidadeId);
