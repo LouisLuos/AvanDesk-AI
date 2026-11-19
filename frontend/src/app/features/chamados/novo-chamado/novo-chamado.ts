@@ -27,14 +27,18 @@ import {
 import { Unidade } from '../../../shared/models/unidade.model';
 import { extrairMensagensErro } from '../../../shared/utils/api-error';
 import { contatoValidator, normalizarContato } from '../../../shared/utils/contato';
+import {
+  EixoMatriz,
+  PERGUNTAS_MATRIZ_3D,
+  ROTULOS_PRIORIDADE,
+  calcularPrioridadeMatriz3D,
+} from '../../../shared/utils/matriz-prioridade';
 
 const LIMITE_DESCRICAO = 2000;
 const TAMANHO_MAXIMO_ANEXO = 10 * 1024 * 1024; // 10 MB
 const TIPOS_ANEXO = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf'];
 const SIMILARIDADE_MINIMA = 0.25;
 const MAXIMO_DUPLICIDADES = 3;
-
-export type OpcaoPrioridade = 'TRIAGEM' | PrioridadeChamado;
 
 export interface AnexoItem {
   id: string;
@@ -56,7 +60,6 @@ type CampoChamado =
   | 'categoriaId'
   | 'sistemaId'
   | 'descricao'
-  | 'prioridade'
   | 'atribuirAMim';
 
 function radicais(texto: string): Set<string> {
@@ -93,12 +96,8 @@ export class NovoChamado implements OnInit {
   protected readonly carregandoListas = signal(true);
   protected readonly erroListas = signal(false);
 
-  protected readonly prioridades: ReadonlyArray<{ valor: OpcaoPrioridade; rotulo: string }> = [
-    { valor: 'TRIAGEM', rotulo: 'Definir na triagem' },
-    { valor: 'ALTA', rotulo: 'Alta' },
-    { valor: 'MEDIA', rotulo: 'Média' },
-    { valor: 'BAIXA', rotulo: 'Baixa' },
-  ];
+  protected readonly perguntas = PERGUNTAS_MATRIZ_3D;
+  protected readonly rotulosPrioridade = ROTULOS_PRIORIDADE;
 
   protected readonly prazos = [
     { prioridade: 'Alta (P1)', estilo: 'bg-[#dc2626] text-white', prazo: '15 min · 2 h' },
@@ -131,7 +130,9 @@ export class NovoChamado implements OnInit {
       '',
       [Validators.required, Validators.minLength(10), Validators.maxLength(LIMITE_DESCRICAO)],
     ],
-    prioridade: ['TRIAGEM' as OpcaoPrioridade],
+    severidade: this.fb.control<number | null>(null, Validators.required),
+    urgencia: this.fb.control<number | null>(null, Validators.required),
+    impacto: this.fb.control<number | null>(null, Validators.required),
     atribuirAMim: [true],
   });
 
@@ -146,7 +147,12 @@ export class NovoChamado implements OnInit {
 
   protected readonly tamanhoDescricao = computed(() => this.valores().descricao?.length ?? 0);
   protected readonly canalSelecionado = computed(() => this.valores().canalOrigem);
-  protected readonly prioridadeSelecionada = computed(() => this.valores().prioridade);
+
+  protected readonly prioridadePrevia = computed(() => {
+    const { severidade, urgencia, impacto } = this.valores();
+    if (!severidade || !urgencia || !impacto) return null;
+    return calcularPrioridadeMatriz3D(severidade, urgencia, impacto);
+  });
 
   protected readonly duplicidades = computed<DuplicidadeItem[]>(() => {
     const { descricao = '', sistemaId = '', unidadeId = '' } = this.valoresDebounced();
@@ -230,8 +236,19 @@ export class NovoChamado implements OnInit {
     this.form.controls.canalOrigem.setValue(canal);
   }
 
-  protected selecionarPrioridade(prioridade: OpcaoPrioridade): void {
-    this.form.controls.prioridade.setValue(prioridade);
+  protected responder(eixo: EixoMatriz, nota: number): void {
+    const controle = this.form.controls[eixo];
+    controle.setValue(nota);
+    controle.markAsTouched();
+  }
+
+  protected respostaSelecionada(eixo: EixoMatriz): number | null {
+    return this.valores()[eixo] ?? null;
+  }
+
+  protected perguntaSemResposta(eixo: EixoMatriz): boolean {
+    const controle = this.form.controls[eixo];
+    return controle.invalid && controle.touched;
   }
 
   protected alternarVinculo(id: string): void {
@@ -302,6 +319,15 @@ export class NovoChamado implements OnInit {
     return estilos[status] ?? 'bg-[#e2e5ec] text-[#363b47]';
   }
 
+  protected estiloPrioridade(prioridade: PrioridadeChamado): string {
+    const estilos: Record<PrioridadeChamado, string> = {
+      ALTA: 'bg-[#dc2626] text-white',
+      MEDIA: 'bg-[#f59e0b] text-white',
+      BAIXA: 'bg-[#94a3b8] text-white',
+    };
+    return estilos[prioridade];
+  }
+
   protected rotuloStatus(status: StatusChamado): string {
     const labels: Record<StatusChamado, string> = {
       ABERTO: 'Aberto',
@@ -343,7 +369,11 @@ export class NovoChamado implements OnInit {
       descricao: valor.descricao.trim(),
       categoria_id: valor.categoriaId,
       ...(valor.sistemaId ? { sistema_equipamento_id: valor.sistemaId } : {}),
-      ...(valor.prioridade !== 'TRIAGEM' ? { prioridade: valor.prioridade } : {}),
+      respostas_prioridade: {
+        severidade: valor.severidade!,
+        urgencia: valor.urgencia!,
+        impacto: valor.impacto!,
+      },
       atribuir_a_mim: valor.atribuirAMim,
       ...(vinculado ? { chamado_relacionado_id: vinculado } : {}),
       registro_iniciado_em: this.registroIniciadoEm.toISOString(),
@@ -360,7 +390,10 @@ export class NovoChamado implements OnInit {
             chamado.origem_dado && chamado.origem_dado !== 'REAL'
               ? ` (dado ${chamado.origem_dado})`
               : '';
-          this.toast.sucesso(`Chamado ${chamado.codigo} registrado com sucesso${origem}.`);
+          const sugerida = chamado.prioridade_sugerida
+            ? ` Prioridade sugerida: ${ROTULOS_PRIORIDADE[chamado.prioridade_sugerida]}.`
+            : '';
+          this.toast.sucesso(`Chamado ${chamado.codigo} registrado com sucesso${origem}.${sugerida}`);
           this.router.navigate(['/chamados']);
         },
         error: (erro) => this.errosApi.set(extrairMensagensErro(erro)),
@@ -376,7 +409,9 @@ export class NovoChamado implements OnInit {
       categoriaId: '',
       sistemaId: '',
       descricao: '',
-      prioridade: 'TRIAGEM',
+      severidade: null,
+      urgencia: null,
+      impacto: null,
       atribuirAMim: true,
     });
     this.vinculadoId.set(null);

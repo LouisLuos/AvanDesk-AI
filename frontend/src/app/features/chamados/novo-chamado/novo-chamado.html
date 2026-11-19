@@ -367,31 +367,62 @@
           }
         </div>
 
-        <!-- Prioridade (opcional) -->
-        <div>
-          <label class="mb-1.5 block text-xs font-semibold text-[#363b47]">Prioridade (opcional)</label>
-          <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Prioridade do chamado">
-            @for (p of prioridades; track p.valor) {
-              <button
-                type="button"
-                role="radio"
-                [id]="'prio-' + p.valor.toLowerCase()"
-                [attr.aria-checked]="prioridadeSelecionada() === p.valor"
-                (click)="selecionarPrioridade(p.valor)"
-                class="rounded-lg px-3.5 py-1.5 text-xs font-medium shadow-xs transition"
-                [class]="
-                  prioridadeSelecionada() === p.valor
-                    ? 'border border-[#2d5bff] bg-[#e8edff] text-[#1e3fcc] font-semibold'
-                    : 'border border-[#e2e5ec] bg-white text-[#363b47] hover:bg-[#f8f9fc]'
-                "
-              >
-                {{ p.rotulo }}
-              </button>
+        <!-- Perguntas de prioridade (HU22) -->
+        <div id="perguntas-prioridade" class="space-y-4">
+          <div>
+            <p class="text-xs font-semibold text-[#363b47]">
+              Perguntas para o solicitante <span class="text-[#dc2626]">*</span>
+            </p>
+            <p class="mt-0.5 text-[11px] text-[#9aa2b1]">
+              As respostas geram a prioridade sugerida; o analista confirma ou reclassifica na triagem.
+            </p>
+          </div>
+
+          @for (pergunta of perguntas; track pergunta.eixo; let i = $index) {
+            <fieldset [id]="'pergunta-' + pergunta.eixo">
+              <legend class="mb-1.5 text-xs font-semibold text-[#14161b]">
+                {{ i + 1 }}. {{ pergunta.pergunta }}
+                <span class="font-normal text-[#9aa2b1]">· {{ pergunta.titulo }}</span>
+              </legend>
+              <div class="grid grid-cols-1 gap-2 sm:grid-cols-3" role="radiogroup" [attr.aria-label]="pergunta.pergunta">
+                @for (opcao of pergunta.opcoes; track opcao.nota) {
+                  <button
+                    type="button"
+                    role="radio"
+                    [id]="'resposta-' + pergunta.eixo + '-' + opcao.nota"
+                    [attr.aria-checked]="respostaSelecionada(pergunta.eixo) === opcao.nota"
+                    (click)="responder(pergunta.eixo, opcao.nota)"
+                    class="rounded-lg border px-3 py-2 text-left text-[11px] leading-snug shadow-xs transition"
+                    [class]="
+                      respostaSelecionada(pergunta.eixo) === opcao.nota
+                        ? 'border-[#2d5bff] bg-[#e8edff] font-semibold text-[#1e3fcc]'
+                        : 'border-[#e2e5ec] bg-white text-[#363b47] hover:bg-[#f8f9fc]'
+                    "
+                  >
+                    {{ opcao.texto }}
+                  </button>
+                }
+              </div>
+              @if (perguntaSemResposta(pergunta.eixo)) {
+                <p class="mt-1 text-[11px] font-medium text-[#dc2626]">Escolha uma resposta.</p>
+              }
+            </fieldset>
+          }
+
+          <div
+            id="previa-prioridade"
+            class="flex items-center justify-between rounded-lg border border-[#e2e5ec] bg-[#f8f9fc] px-3.5 py-2.5"
+            aria-live="polite"
+          >
+            <span class="text-xs text-[#363b47]">Prioridade sugerida</span>
+            @if (prioridadePrevia(); as previa) {
+              <span class="rounded-md px-2 py-0.5 text-[11px] font-semibold" [class]="estiloPrioridade(previa)">
+                {{ rotulosPrioridade[previa] }}
+              </span>
+            } @else {
+              <span class="text-[11px] text-[#9aa2b1]">Responda às três perguntas</span>
             }
           </div>
-          <p class="mt-1 text-[11px] text-[#9aa2b1]">
-            Se você não definir, o sistema sugere a prioridade pela matriz de severidade, urgência e impacto.
-          </p>
         </div>
 
         <!-- Checkbox Atribuir a Mim -->

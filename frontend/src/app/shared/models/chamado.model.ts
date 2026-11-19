@@ -32,8 +32,9 @@ export interface ChamadoRequest {
   categoria_id: string;
   /** Opcional. Id de um sistema/equipamento ativo (GET /sistemas-equipamentos). */
   sistema_equipamento_id?: string;
-  /** Ainda ignorados pelo backend (HU04, HU05 e HU03); a tela já envia. */
+  /** Prioridade escolhida direto na abertura; a tela usa as respostas_prioridade (HU22). */
   prioridade?: PrioridadeChamado;
+  respostas_prioridade?: RespostasPrioridade;
   atribuir_a_mim?: boolean;
   chamado_relacionado_id?: string;
   /** Quando a tela Novo Chamado foi aberta, em ISO-8601 UTC (métrica M11, seção 9.5). */
@@ -47,12 +48,19 @@ export type MotivoEspera = 'FORNECEDOR' | 'SOLICITANTE' | 'PECA_EQUIPAMENTO';
 
 export type DirecaoContato = 'RECEBIDO' | 'ENVIADO';
 
+export interface RespostasPrioridade {
+  severidade: number;
+  urgencia: number;
+  impacto: number;
+}
+
 export interface ChamadoResponse {
   id: string;
   codigo: string;
   status: StatusChamado;
   data_criacao: string;
   origem_dado?: OrigemDado;
+  prioridade_sugerida?: PrioridadeChamado | null;
 }
 
 /**
@@ -172,6 +180,7 @@ export interface ChamadoDetalheApiResponse {
   prioridadeFinal?: PrioridadeChamado | null;
   justificativa_prioridade?: string | null;
   justificativaPrioridade?: string | null;
+  respostas_prioridade?: RespostasPrioridade | null;
   aberto_em: string;
   primeira_resposta_em?: string | null;
   resolvido_em?: string | null;
@@ -277,6 +286,7 @@ export interface ChamadoDetalhe {
   prioridade_sugerida?: PrioridadeChamado | null;
   prioridade_final?: PrioridadeChamado | null;
   justificativa_prioridade?: string | null;
+  respostas_prioridade?: RespostasPrioridade | null;
   categoria: string;
   sistema: string;
   responsavel: ResponsavelChamado | null;
