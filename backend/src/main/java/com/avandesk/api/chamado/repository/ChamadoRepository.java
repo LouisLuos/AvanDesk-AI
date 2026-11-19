@@ -2,6 +2,7 @@ package com.avandesk.api.chamado.repository;
 
 import com.avandesk.api.chamado.dto.ChamadoReferenciaResponse;
 import com.avandesk.api.chamado.entity.Chamado;
+import com.avandesk.api.chamado.entity.OrigemDado;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,6 +24,8 @@ public interface ChamadoRepository extends JpaRepository<Chamado, UUID>, JpaSpec
 
     @Query(value = "SELECT nextval('chamados_codigo_seq')", nativeQuery = true)
     Long proximoNumeroCodigo();
+
+    long countByOrigemDado(OrigemDado origemDado);
 
     @EntityGraph(attributePaths = {
         "unidade", "solicitante", "categoria", "sistemaEquipamento", "responsavel", "chamadoPrincipal"
