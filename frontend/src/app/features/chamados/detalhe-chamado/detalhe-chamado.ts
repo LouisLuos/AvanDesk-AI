@@ -31,6 +31,14 @@ import {
   StatusRequest,
 } from '../../../shared/models/chamado.model';
 import { extrairMensagensErro } from '../../../shared/utils/api-error';
+import {
+  PERGUNTAS_MATRIZ_3D,
+  ROTULOS_PRIORIDADE,
+  calcularPrioridadeMatriz3D,
+  textoDaResposta,
+} from '../../../shared/utils/matriz-prioridade';
+
+const TAMANHO_MINIMO_JUSTIFICATIVA = 15;
 
 @Component({
   selector: 'app-detalhe-chamado',
@@ -69,12 +77,38 @@ export class DetalheChamado implements OnInit {
     return this.severidade() + this.urgencia() + this.impacto();
   });
 
-  protected readonly prioridadeSugerida = computed<PrioridadeChamado>(() => {
-    const soma = this.somaNotas();
-    if (soma <= 4) return 'BAIXA';
-    if (soma <= 6) return 'MEDIA';
-    return 'ALTA';
+  protected readonly prioridadeSugerida = computed<PrioridadeChamado>(() =>
+    calcularPrioridadeMatriz3D(this.severidade(), this.urgencia(), this.impacto()),
+  );
+
+  protected readonly rotulosPrioridade = ROTULOS_PRIORIDADE;
+  protected readonly tamanhoMinimoJustificativa = TAMANHO_MINIMO_JUSTIFICATIVA;
+
+  /** Sugestão gravada na abertura a partir das respostas do solicitante (HU22); não muda na triagem. */
+  protected readonly sugeridaDoContexto = computed<PrioridadeChamado | null>(() => {
+    const c = this.chamado();
+    return c?.respostas_prioridade ? (c.prioridade_sugerida ?? null) : null;
   });
+
+  protected readonly respostasDoSolicitante = computed(() => {
+    const respostas = this.chamado()?.respostas_prioridade;
+    if (!respostas) return [];
+    return PERGUNTAS_MATRIZ_3D.map((p) => ({
+      eixo: p.eixo,
+      titulo: p.titulo,
+      pergunta: p.pergunta,
+      nota: respostas[p.eixo],
+      texto: textoDaResposta(p.eixo, respostas[p.eixo]),
+    }));
+  });
+
+  protected readonly aguardandoValidacao = computed(
+    () => !!this.sugeridaDoContexto() && !this.chamado()?.prioridade_final,
+  );
+
+  protected readonly prioridadeReferencia = computed<PrioridadeChamado>(
+    () => this.sugeridaDoContexto() ?? this.prioridadeSugerida(),
+  );
 
   protected readonly metaReferenciaTexto = computed<string>(() => {
     const prio = this.prioridadeSugerida();
@@ -88,12 +122,12 @@ export class DetalheChamado implements OnInit {
   });
 
   protected readonly temDivergencia = computed<boolean>(() => {
-    return this.prioridadeFinalEfetiva() !== this.prioridadeSugerida();
+    return this.prioridadeFinalEfetiva() !== this.prioridadeReferencia();
   });
 
   protected readonly justificativaValida = computed<boolean>(() => {
     if (!this.temDivergencia()) return true;
-    return this.justificativaPrioridade().trim().length >= 10;
+    return this.justificativaPrioridade().trim().length >= TAMANHO_MINIMO_JUSTIFICATIVA;
   });
 
   protected readonly slaItensDinamicos = computed<ItemSlaDetalhe[]>(() => {
@@ -106,7 +140,7 @@ export class DetalheChamado implements OnInit {
     const decorridoMinutos = Math.max(0, Math.floor((agora - dataAbertura) / 60000));
 
     // 1. Triagem
-    const temTriagem = Boolean(item.prioridade || item.prioridade_final || item.prioridade_sugerida);
+    const temTriagem = Boolean(item.prioridade || item.prioridade_final);
     let triagemTexto = 'Em andamento na fila';
     let triagemProgresso = Math.min(100, Math.max(10, Math.round((decorridoMinutos / 15) * 100)));
     let triagemEstilo = 'bg-[#14b8a6]';
@@ -1024,7 +1058,7 @@ export class DetalheChamado implements OnInit {
   }
 
   protected selecionarPrioridadeFinal(prio: PrioridadeChamado): void {
-    this.prioridadeManual.set(prio);
+    this.prioridadeManual.set(prio === this.prioridadeSugerida() ? null : prio);
   }
 
   protected abrirModalPrioridade(): void {
@@ -1039,11 +1073,44 @@ export class DetalheChamado implements OnInit {
   }
 
   protected inicializarMatriz(dados: ChamadoDetalhe): void {
-    if (dados.severidade) this.severidade.set(dados.severidade);
-    if (dados.urgencia) this.urgencia.set(dados.urgencia);
-    if (dados.impacto_operacional) this.impacto.set(dados.impacto_operacional);
-    if (dados.prioridade_final) this.prioridadeManual.set(dados.prioridade_final);
-    if (dados.justificativa_prioridade) this.justificativaPrioridade.set(dados.justificativa_prioridade);
+    const respostas = dados.respostas_prioridade;
+    const severidade = dados.severidade ?? respostas?.severidade;
+    const urgencia = dados.urgencia ?? respostas?.urgencia;
+    const impacto = dados.impacto_operacional ?? respostas?.impacto;
+    if (severidade) this.severidade.set(severidade);
+    if (urgencia) this.urgencia.set(urgencia);
+    if (impacto) this.impacto.set(impacto);
+    const escolhidaNaMao = dados.prioridade_final && dados.prioridade_final !== this.prioridadeSugerida();
+    this.prioridadeManual.set(escolhidaNaMao ? dados.prioridade_final! : null);
+    this.justificativaPrioridade.set(dados.justificativa_prioridade ?? '');
+  }
+
+  protected confirmarSugerida(): void {
+    const id = this.idChamado();
+    const respostas = this.chamado()?.respostas_prioridade;
+    const sugerida = this.sugeridaDoContexto();
+    if (!id || !respostas || !sugerida || this.chamadoEncerrado()) return;
+
+    this.salvandoPrioridade.set(true);
+    this.chamadoService
+      .definirPrioridade(id, {
+        severidade: respostas.severidade,
+        urgencia: respostas.urgencia,
+        impacto_operacional: respostas.impacto,
+        prioridade_final: sugerida,
+        justificativa_prioridade: null,
+      })
+      .pipe(finalize(() => this.salvandoPrioridade.set(false)))
+      .subscribe({
+        next: (dados) => {
+          this.chamado.set(dados);
+          this.toast.sucesso(`Prioridade ${ROTULOS_PRIORIDADE[sugerida]} confirmada.`);
+        },
+        error: (err) => {
+          const msg = extrairMensagensErro(err)[0] ?? 'Erro ao confirmar a prioridade.';
+          this.toast.erro(msg);
+        },
+      });
   }
 
   protected salvarTriagemPrioridade(): void {
@@ -1051,7 +1118,9 @@ export class DetalheChamado implements OnInit {
     if (!id || this.chamadoEncerrado()) return;
 
     if (this.temDivergencia() && !this.justificativaValida()) {
-      this.toast.erro('Informe uma justificativa de no mínimo 10 caracteres para a divergência de prioridade.');
+      this.toast.erro(
+        `Informe uma justificativa de no mínimo ${TAMANHO_MINIMO_JUSTIFICATIVA} caracteres para a divergência de prioridade.`,
+      );
       return;
     }
 

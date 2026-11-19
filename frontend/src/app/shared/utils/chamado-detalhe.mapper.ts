@@ -218,6 +218,7 @@ export function mapearChamadoDetalhe(
     prioridade_sugerida: (entrada as any).prioridade_sugerida ?? (entrada as any).prioridadeSugerida ?? null,
     prioridade_final: (entrada as any).prioridade_final ?? (entrada as any).prioridadeFinal ?? null,
     justificativa_prioridade: (entrada as any).justificativa_prioridade ?? (entrada as any).justificativaPrioridade ?? null,
+    respostas_prioridade: entrada.respostas_prioridade ?? null,
     categoria: entrada.categoria?.nome ?? '',
     sistema: entrada.sistema_equipamento?.nome ?? '',
     responsavel: entrada.responsavel ?? null,
