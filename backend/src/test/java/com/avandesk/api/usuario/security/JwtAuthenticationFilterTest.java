@@ -6,6 +6,7 @@ import com.avandesk.api.usuario.repository.UsuarioRepository;
 import com.avandesk.api.usuario.service.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -54,6 +55,46 @@ class JwtAuthenticationFilterTest {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    @DisplayName("HU26: Deve autenticar requisição no SecurityContext quando houver cookie nexo_access_token válido")
+    void deveAutenticarRequisicaoQuandoCookieHttpOnlyEstiverValido() throws ServletException, IOException {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setCookies(new Cookie(JwtAuthenticationFilter.COOKIE_ACCESS_TOKEN, "token-cookie-123"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(jwtService.isTokenValido("token-cookie-123")).thenReturn(true);
+        when(jwtService.obterUsuarioId("token-cookie-123")).thenReturn(ID_ANALISTA);
+        when(usuarioRepository.findById(ID_ANALISTA)).thenReturn(Optional.of(analista(true)));
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getName())
+            .isEqualTo("analista@lumen.local");
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getAuthorities())
+            .extracting("authority")
+            .containsExactly("ROLE_ANALISTA_SUPORTE");
+
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("HU26: Deve priorizar o cookie nexo_access_token quando cookie e header Authorization estiverem presentes")
+    void devePriorizarCookieSobreHeaderAuthorization() throws ServletException, IOException {
+        MockHttpServletRequest request = requisicaoComToken("token-header");
+        request.setCookies(new Cookie(JwtAuthenticationFilter.COOKIE_ACCESS_TOKEN, "token-cookie"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(jwtService.isTokenValido("token-cookie")).thenReturn(true);
+        when(jwtService.obterUsuarioId("token-cookie")).thenReturn(ID_ANALISTA);
+        when(usuarioRepository.findById(ID_ANALISTA)).thenReturn(Optional.of(analista(true)));
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(jwtService).isTokenValido("token-cookie");
+        verify(filterChain).doFilter(request, response);
     }
 
     @Test

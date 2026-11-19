@@ -4,8 +4,11 @@ import com.avandesk.api.core.dto.ApiResponse;
 import com.avandesk.api.usuario.security.JwtAuthenticationFilter;
 import com.avandesk.api.usuario.service.JwtService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -19,16 +22,22 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 
 /**
- * Configuração de segurança da plataforma Nexo (HU09, RN06).
- * Arquitetura Stateless com autenticação via Bearer token JWT e suporte a CORS para o frontend.
+ * Configuração de segurança da plataforma Nexo (HU09, HU26, RN06).
+ * Arquitetura Stateless com autenticação via cookie HttpOnly (e fallback Bearer) e suporte a CORS/CSRF.
  */
 @Configuration
 @EnableWebSecurity
@@ -39,30 +48,45 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    @Value("${nexo.cors.allowed-origins:http://localhost:4200}")
+    private List<String> allowedOrigins;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        RequestMatcher csrfMatcher = request -> {
+            if (!CsrfFilter.DEFAULT_CSRF_MATCHER.matches(request)) {
+                return false;
+            }
+            String uri = request.getRequestURI();
+            if ("/api/v1/auth/login".equals(uri) || "/auth/login".equals(uri)
+                || "/api/v1/auth/logout".equals(uri) || "/auth/logout".equals(uri)) {
+                return false;
+            }
+            Cookie[] cookies = request.getCookies();
+            if (cookies == null) {
+                return false;
+            }
+            return Arrays.stream(cookies)
+                .anyMatch(c -> JwtAuthenticationFilter.COOKIE_ACCESS_TOKEN.equals(c.getName()));
+        };
+
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .csrf(csrf -> csrf.disable())
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .exceptionHandling(ex -> ex
-                .authenticationEntryPoint((request, response, authException) -> {
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                    response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-                    ApiResponse<Void> apiResponse = ApiResponse.erro(
-                        HttpStatus.UNAUTHORIZED, "E-mail ou senha inválidos.", null);
-                    new ObjectMapper().writeValue(response.getOutputStream(), apiResponse);
-                })
-                .accessDeniedHandler((request, response, accessDeniedException) -> {
-                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                    response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-                    ApiResponse<Void> apiResponse = ApiResponse.erro(
-                        HttpStatus.FORBIDDEN, "Acesso negado para o perfil do usuário.", null);
-                    new ObjectMapper().writeValue(response.getOutputStream(), apiResponse);
-                })
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                .requireCsrfProtectionMatcher(csrfMatcher)
             )
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(ex -> {
+                ObjectMapper snakeCaseMapper = new ObjectMapper()
+                    .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+                ex
+                    .authenticationEntryPoint((request, response, authException) ->
+                        escreverErroJson(response, snakeCaseMapper, HttpStatus.UNAUTHORIZED, "E-mail ou senha inválidos."))
+                    .accessDeniedHandler((request, response, accessDeniedException) ->
+                        escreverErroJson(response, snakeCaseMapper, HttpStatus.FORBIDDEN, "Acesso negado para o perfil do usuário."));
+            })
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/health",
@@ -73,8 +97,10 @@ public class SecurityConfig {
                     "/api-docs.yaml",
                     "/v3/api-docs",
                     "/v3/api-docs/**",
-                    "/api/v1/auth/**",
-                    "/auth/**"
+                    "/api/v1/auth/login",
+                    "/api/v1/auth/logout",
+                    "/auth/login",
+                    "/auth/logout"
                 ).permitAll()
                 .anyRequest().authenticated()
             )
@@ -86,7 +112,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
@@ -98,5 +124,13 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    private static void escreverErroJson(HttpServletResponse response, ObjectMapper mapper,
+                                         HttpStatus status, String mensagem) throws IOException {
+        response.setStatus(status.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        mapper.writeValue(response.getOutputStream(), ApiResponse.erro(status, mensagem, null));
     }
 }
