@@ -133,7 +133,8 @@ export class PainelAdministracao implements OnInit {
       `KPI;Chamados rastreaveis;${Math.round(m.kpis.chamados_rastreaveis.percentual)}%;Meta >= ${m.kpis.chamados_rastreaveis.meta_inicial_percentual}%`,
       `KPI;Dentro da meta (SLA);${Math.round(m.kpis.dentro_da_meta_sla.percentual)}%;Meta >= ${m.kpis.dentro_da_meta_sla.meta_inicial_percentual}%`,
       ...m.chamados_por_unidade.map(
-        (u) => `Unidade;${u.unidade_nome};${u.total_chamados};${Math.round(u.percentual_dentro_da_meta)}% na meta`,
+        (u) =>
+          `Unidade;${u.unidade_nome};${u.total_chamados};${Math.round(u.percentual_dentro_da_meta)}% na meta - tempo medio ${this.formatarDuracao(u.tempo_medio_atendimento_segundos)}`,
       ),
       ...m.sla_por_prioridade.map(
         (p) => `SLA Prioridade;${p.rotulo};${Math.round(p.percentual_dentro_da_meta)}%;${p.total_dentro_da_meta}/${p.total_avaliados}`,

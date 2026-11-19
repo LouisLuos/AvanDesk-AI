@@ -220,7 +220,7 @@
         } @else {
           <div class="mt-5 flex flex-col gap-3.5">
             @for (unidade of dados.chamados_por_unidade; track unidade.unidade_id) {
-              <div class="grid grid-cols-[minmax(130px,170px)_1fr_auto_auto] items-center gap-3 text-xs">
+              <div class="grid grid-cols-[minmax(130px,170px)_1fr_auto_auto_auto] items-center gap-3 text-xs">
                 <span class="truncate text-[#363b47]" [title]="unidade.unidade_nome">
                   {{ unidade.unidade_nome }}
                 </span>
@@ -234,6 +234,10 @@
 
                 <span class="w-8 text-right font-semibold text-[#14161b] tabular-nums">
                   {{ unidade.total_chamados }}
+                </span>
+
+                <span class="w-16 text-right text-[#363b47] tabular-nums" title="Tempo médio de atendimento">
+                  {{ formatarDuracao(unidade.tempo_medio_atendimento_segundos) }}
                 </span>
 
                 <span
