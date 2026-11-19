@@ -14,6 +14,7 @@ public record DashboardMetricasResponse(
     IndicadoresProcessoDto indicadoresProcesso,
     AlertasProcessoDto alertas,
     List<ChamadosPorUnidadeDto> chamadosPorUnidade,
+    List<ChamadosPorResponsavelDto> chamadosPorResponsavel,
     List<SlaPorPrioridadeDto> slaPorPrioridade,
     List<ProblemaRecorrenteDto> problemasRecorrentes,
     List<TempoTerceirosFornecedorDto> tempoEmTerceiros,
@@ -46,6 +47,7 @@ public record DashboardMetricasResponse(
     public record KpiTempoResolucaoDto(
         double medianoSegundos,
         double medioSegundos,
+        double p90Segundos,
         Double diferencaMedianaSegundosAnterior,
         Double diferencaMediaSegundosAnterior
     ) {}
@@ -58,11 +60,15 @@ public record DashboardMetricasResponse(
         long totalConformes
     ) {}
 
-    /** Indicadores operacionais da Seção 9.7 (TT, TPR, TR, M11, M08, M12). */
+    /** Indicadores operacionais da Seção 9.7 e métricas de processo (TT, TPR, TR, P90, M06, M07, M08, M11, M12). */
     public record IndicadoresProcessoDto(
         double ttMedioSegundos,
         double tprMedioSegundos,
         double trMedioSegundos,
+        double trP90Segundos,
+        double m06TaxaReaberturaPercentual,
+        double m07TaxaDuplicidadePercentual,
+        long m07TotalDuplicados,
         double m11TempoRegistroMedioSegundos,
         double m08PercentualDivergenciaPrioridade,
         long m12IncidentesPrivacidade
@@ -75,7 +81,7 @@ public record DashboardMetricasResponse(
         boolean alertaCriticoPrivacidadeM12
     ) {}
 
-    /** Gráfico de barras horizontais: volume total e % na meta por unidade. */
+    /** Tabela comparativa das unidades: volume total, tempo médio de atendimento e % na meta. */
     public record ChamadosPorUnidadeDto(
         UUID unidadeId,
         String unidadeNome,
@@ -84,6 +90,14 @@ public record DashboardMetricasResponse(
         long chamadosResolvidos,
         double percentualDentroDaMeta,
         double tempoMedioAtendimentoSegundos
+    ) {}
+
+    /** Distribuição de chamados em andamento por analista responsável (M02). */
+    public record ChamadosPorResponsavelDto(
+        UUID responsavelId,
+        String responsavelNome,
+        long totalEmAberto,
+        long totalAltaPrioridade
     ) {}
 
     /** Card "SLA por prioridade" (Alta P1, Média P2, Baixa P3). */

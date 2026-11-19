@@ -658,6 +658,7 @@ components:
               properties:
                 mediano_segundos: { type: number, example: 10080 }
                 medio_segundos: { type: number, example: 9840 }
+                p90_segundos: { type: number, example: 16200 }
                 diferenca_mediana_segundos_anterior: { type: number, nullable: true, example: -720 }
                 diferenca_media_segundos_anterior: { type: number, nullable: true, example: -600 }
             chamados_rastreaveis:
@@ -682,6 +683,10 @@ components:
             tt_medio_segundos: { type: number }
             tpr_medio_segundos: { type: number }
             tr_medio_segundos: { type: number }
+            tr_p90_segundos: { type: number }
+            m06_taxa_reabertura_percentual: { type: number }
+            m07_taxa_duplicidade_percentual: { type: number }
+            m07_total_duplicados: { type: integer, format: int64 }
             m11_tempo_registro_medio_segundos: { type: number }
             m08_percentual_divergencia_prioridade: { type: number }
             m12_incidentes_privacidade: { type: integer, format: int64 }
@@ -703,6 +708,16 @@ components:
               chamados_resolvidos: { type: integer, format: int64 }
               percentual_dentro_da_meta: { type: number }
               tempo_medio_atendimento_segundos: { type: number }
+        chamados_por_responsavel:
+          type: array
+          description: "Distribuição de chamados em aberto (em andamento) por analista responsável (M02)."
+          items:
+            type: object
+            properties:
+              responsavel_id: { type: string, format: uuid, nullable: true }
+              responsavel_nome: { type: string }
+              total_em_aberto: { type: integer, format: int64 }
+              total_alta_prioridade: { type: integer, format: int64 }
         sla_por_prioridade:
           type: array
           items:

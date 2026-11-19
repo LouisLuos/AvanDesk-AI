@@ -15,6 +15,7 @@ export interface KpiChamadosAbertos {
 export interface KpiTempoResolucao {
   mediano_segundos: number;
   medio_segundos: number;
+  p90_segundos: number;
   diferenca_mediana_segundos_anterior: number | null;
   diferenca_media_segundos_anterior: number | null;
 }
@@ -38,6 +39,10 @@ export interface IndicadoresProcesso {
   tt_medio_segundos: number;
   tpr_medio_segundos: number;
   tr_medio_segundos: number;
+  tr_p90_segundos: number;
+  m06_taxa_reabertura_percentual: number;
+  m07_taxa_duplicidade_percentual: number;
+  m07_total_duplicados: number;
   m11_tempo_registro_medio_segundos: number;
   m08_percentual_divergencia_prioridade: number;
   m12_incidentes_privacidade: number;
@@ -57,6 +62,13 @@ export interface ChamadosPorUnidade {
   chamados_resolvidos: number;
   percentual_dentro_da_meta: number;
   tempo_medio_atendimento_segundos: number;
+}
+
+export interface ChamadosPorResponsavel {
+  responsavel_id: string | null;
+  responsavel_nome: string;
+  total_em_aberto: number;
+  total_alta_prioridade: number;
 }
 
 export interface SlaPorPrioridade {
@@ -95,6 +107,7 @@ export interface DashboardMetricas {
   indicadores_processo: IndicadoresProcesso;
   alertas: AlertasProcesso;
   chamados_por_unidade: ChamadosPorUnidade[];
+  chamados_por_responsavel: ChamadosPorResponsavel[];
   sla_por_prioridade: SlaPorPrioridade[];
   problemas_recorrentes: ProblemaRecorrente[];
   tempo_em_terceiros: TempoTerceirosFornecedor[];

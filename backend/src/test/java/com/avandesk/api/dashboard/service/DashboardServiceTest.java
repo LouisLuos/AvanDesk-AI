@@ -4,6 +4,7 @@ import com.avandesk.api.chamado.entity.OrigemDado;
 import com.avandesk.api.core.config.NexoProperties;
 import com.avandesk.api.core.exception.RegraNegocioException;
 import com.avandesk.api.dashboard.dto.DashboardMetricasResponse;
+import com.avandesk.api.dashboard.dto.DashboardMetricasResponse.ChamadosPorResponsavelDto;
 import com.avandesk.api.dashboard.dto.DashboardMetricasResponse.ChamadosPorUnidadeDto;
 import com.avandesk.api.dashboard.dto.DashboardMetricasResponse.ProblemaRecorrenteDto;
 import com.avandesk.api.dashboard.dto.DashboardMetricasResponse.SlaPorPrioridadeDto;
@@ -56,10 +57,14 @@ class DashboardServiceTest {
             100L, 90L,
             10080.0, 10800.0, // 2h48 vs 3h00 (-720s = 12 min mais rápido)
             9500.0, 10100.0,
+            16200.0,          // P90 = 4h30
             100L, 91L,        // 91% rastreáveis (meta >= 90%)
             100L, 84L,        // 84% dentro do SLA (meta >= 80%)
             11000.0,
             600.0,
+            6.5,              // M06 reabertura
+            4L,               // M07 total duplicados
+            2.2,              // M07 taxa duplicidade
             65.5,             // M11 > 60s -> alerta
             35.0,             // M08 > 30% -> alerta
             1L                // M12 > 0 -> alerta crítico
@@ -69,6 +74,8 @@ class DashboardServiceTest {
             .thenReturn(resumo);
         when(dashboardRepository.buscarChamadosPorUnidade(inicio, fim, OrigemDado.REAL))
             .thenReturn(List.of(new ChamadosPorUnidadeDto(unidadeId, "U.03 Boa Viagem", "LUM-BVG", 52L, 48L, 78.0, 3200.0)));
+        when(dashboardRepository.buscarChamadosAbertosPorResponsavel(inicio, fim, unidadeId, OrigemDado.REAL))
+            .thenReturn(List.of(new ChamadosPorResponsavelDto(UUID.randomUUID(), "Analista 01", 8L, 2L)));
         when(dashboardRepository.buscarSlaPorPrioridade(inicio, fim, unidadeId, OrigemDado.REAL))
             .thenReturn(List.of(new SlaPorPrioridadeDto("ALTA", "Alta (P1)", 7200L, 20L, 15L, 75.0, true)));
         when(dashboardRepository.buscarProblemasRecorrentes(inicio, fim, unidadeId, OrigemDado.REAL))
@@ -85,12 +92,19 @@ class DashboardServiceTest {
         assertEquals(182L, resposta.kpis().chamadosAbertos().totalAtual());
         assertEquals(8.33, resposta.kpis().chamadosAbertos().variacaoPercentual());
         assertEquals(10080.0, resposta.kpis().tempoResolucao().medianoSegundos());
+        assertEquals(16200.0, resposta.kpis().tempoResolucao().p90Segundos());
         assertEquals(-720.0, resposta.kpis().tempoResolucao().diferencaMedianaSegundosAnterior());
 
         assertEquals(91.0, resposta.kpis().chamadosRastreaveis().percentual());
         assertTrue(resposta.kpis().chamadosRastreaveis().dentroDaMeta());
         assertEquals(84.0, resposta.kpis().dentroDaMetaSla().percentual());
         assertTrue(resposta.kpis().dentroDaMetaSla().dentroDaMeta());
+
+        assertEquals(16200.0, resposta.indicadoresProcesso().trP90Segundos());
+        assertEquals(6.5, resposta.indicadoresProcesso().m06TaxaReaberturaPercentual());
+        assertEquals(2.2, resposta.indicadoresProcesso().m07TaxaDuplicidadePercentual());
+        assertEquals(4L, resposta.indicadoresProcesso().m07TotalDuplicados());
+        assertEquals(1, resposta.chamadosPorResponsavel().size());
 
         assertTrue(resposta.alertas().alertaDivergenciaPrioridadeM08());
         assertTrue(resposta.alertas().alertaTempoRegistroM11());
@@ -116,9 +130,12 @@ class DashboardServiceTest {
             5L, 0L,
             1800.0, 0.0,
             2000.0, 0.0,
+            2400.0,
             0L, 0L,
             0L, 0L,
-            2000.0, 300.0, 42.0, 15.0, 0L
+            2000.0, 300.0,
+            0.0, 0L, 0.0,
+            42.0, 15.0, 0L
         );
 
         when(dashboardRepository.buscarResumoIndicadores(any(), any(), any(), any(), any(), eq(OrigemDado.REAL)))

@@ -103,6 +103,7 @@ class DashboardIntegracaoTest {
             Instant fim = AGORA;
 
             // 1. Chamado ALTA resolvido em 3h corridas, mas com 2h pausadas em SOLICITANTE => TR = 1h (DENTRO da meta de 2h)
+            // Evento informativo (NOTIFICACAO_ENVIADA) no meio da pausa NÃO pode interromper a contagem do LEAD()
             Instant aberturaC1 = AGORA.minus(2, ChronoUnit.DAYS);
             Chamado c1 = dados.chamadoResolvido(
                 unidadeAlvo, OrigemDado.TESTE, aberturaC1, aberturaC1.minusSeconds(90), // M11 = 90s (> 60s)
@@ -112,8 +113,12 @@ class DashboardIntegracaoTest {
             );
             dados.evento(c1, TipoEvento.CHAMADO_AGUARDANDO, aberturaC1.plus(30, ChronoUnit.MINUTES), dados.analista1,
                 Map.of("motivo_espera", "SOLICITANTE"));
+            dados.evento(c1, TipoEvento.NOTIFICACAO_ENVIADA, aberturaC1.plus(60, ChronoUnit.MINUTES), dados.analista1,
+                Map.of("canal", "EMAIL"));
             dados.evento(c1, TipoEvento.RETORNO_RECEBIDO, aberturaC1.plus(150, ChronoUnit.MINUTES), dados.analista1,
                 Map.of("status_anterior", "AGUARDANDO"));
+            dados.evento(c1, TipoEvento.CHAMADO_REABERTO, aberturaC1.plus(190, ChronoUnit.MINUTES), dados.analista1,
+                Map.of("motivo", "Recorrência imediata"));
 
             // 2. Chamado ALTA escalonado a fornecedor por 2h (FORNECEDOR NÃO pausa SLA) => TT = TR = 3h (FORA da meta de 2h)
             // Também diverge da prioridade sugerida (MEDIA -> ALTA => 50% de divergência M08 > 30%)
@@ -154,9 +159,15 @@ class DashboardIntegracaoTest {
             assertEquals(1L, resposta.kpis().chamadosAbertos().totalPeriodoAnterior());
             assertEquals(100.0, resposta.kpis().chamadosAbertos().variacaoPercentual());
 
-            // KPI 2: TR mediano de [3600s, 10800s] = 7200s vs anterior 14400s (-7200s = 2h mais rápido)
+            // KPI 2: TR mediano de [3600s, 10800s] = 7200s vs anterior 14400s (-7200s = 2h mais rápido); P90 = 10080s
             assertEquals(7200.0, resposta.kpis().tempoResolucao().medianoSegundos());
+            assertEquals(10080.0, resposta.kpis().tempoResolucao().p90Segundos());
             assertEquals(-7200.0, resposta.kpis().tempoResolucao().diferencaMedianaSegundosAnterior());
+
+            // M06 (c1 teve evento CHAMADO_REABERTO entre 2 resolvidos => 50%) e M07 (0 mesclados)
+            assertEquals(50.0, resposta.indicadoresProcesso().m06TaxaReaberturaPercentual());
+            assertEquals(0L, resposta.indicadoresProcesso().m07TotalDuplicados());
+            assertEquals(0.0, resposta.indicadoresProcesso().m07TaxaDuplicidadePercentual());
 
             // KPI 3: Rastreabilidade (c1 completo, c2 sem contato/evento => 50%)
             assertEquals(50.0, resposta.kpis().chamadosRastreaveis().percentual());
@@ -198,6 +209,44 @@ class DashboardIntegracaoTest {
                 .orElse(null);
             assertNotNull(semChamadosDto);
             assertEquals(0L, semChamadosDto.totalChamados());
+        });
+    }
+
+    @Test
+    void deveCalcularM02PorResponsavelEM07Duplicidade() {
+        emTransacaoDesfeita(dados -> {
+            Unidade unidade = dados.unidade("U.97 Teste M02 M07");
+            Instant inicio = AGORA.minus(7, ChronoUnit.DAYS);
+            Instant fim = AGORA;
+
+            Chamado principal = dados.chamadoEmAberto(unidade, dados.analista1, Prioridade.ALTA, StatusChamado.EM_ATENDIMENTO);
+            dados.chamadoEmAberto(unidade, null, Prioridade.MEDIA, StatusChamado.ABERTO);
+            dados.chamadoMesclado(unidade, principal);
+
+            entityManager.flush();
+
+            DashboardMetricasResponse resposta = dashboardService.consultarMetricas(inicio, fim, unidade.getId());
+
+            // M07: 1 mesclado entre 3 chamados no período (33.33%)
+            assertEquals(1L, resposta.indicadoresProcesso().m07TotalDuplicados());
+            assertEquals(33.33, resposta.indicadoresProcesso().m07TaxaDuplicidadePercentual());
+
+            // M02: 2 chamados em aberto (1 com analista1 P1, 1 sem responsável)
+            assertEquals(2, resposta.chamadosPorResponsavel().size());
+            var comAnalista = resposta.chamadosPorResponsavel().stream()
+                .filter(r -> dados.analista1.getId().equals(r.responsavelId()))
+                .findFirst()
+                .orElseThrow();
+            assertEquals(1L, comAnalista.totalEmAberto());
+            assertEquals(1L, comAnalista.totalAltaPrioridade());
+
+            var semResponsavel = resposta.chamadosPorResponsavel().stream()
+                .filter(r -> r.responsavelId() == null)
+                .findFirst()
+                .orElseThrow();
+            assertEquals("Sem responsável", semResponsavel.responsavelNome());
+            assertEquals(1L, semResponsavel.totalEmAberto());
+            assertEquals(0L, semResponsavel.totalAltaPrioridade());
         });
     }
 
@@ -280,6 +329,43 @@ class DashboardIntegracaoTest {
                 evento(salvo, TipoEvento.CHAMADO_RESOLVIDO, resolvidoEm, analista1, Map.of("resolucao", salvo.getResolucao()));
             }
             return salvo;
+        }
+
+        Chamado chamadoEmAberto(Unidade unidade, Usuario responsavel, Prioridade prioridade, StatusChamado status) {
+            Chamado c = new Chamado();
+            c.setCodigo("LUM-2098-%03d%03d".formatted(prefixo, ++sequencia));
+            c.setUnidade(unidade);
+            c.setSolicitante(solicitante);
+            c.setCanalOrigem(CanalOrigem.WHATSAPP);
+            c.setDescricao("Chamado em aberto para validação de M02 por responsável.");
+            c.setCategoria(categoria);
+            c.setSistemaEquipamento(sistema);
+            c.setStatus(status);
+            c.setCriadoPor(analista1);
+            c.setResponsavel(responsavel);
+            c.setPrioridadeSugerida(prioridade);
+            c.setPrioridadeFinal(prioridade);
+            c.setAbertoEm(AGORA.minus(2, ChronoUnit.HOURS));
+            c.setOrigemDado(OrigemDado.TESTE);
+            return chamadoRepository.save(c);
+        }
+
+        Chamado chamadoMesclado(Unidade unidade, Chamado principal) {
+            Chamado c = new Chamado();
+            c.setCodigo("LUM-2098-%03d%03d".formatted(prefixo, ++sequencia));
+            c.setUnidade(unidade);
+            c.setSolicitante(solicitante);
+            c.setCanalOrigem(CanalOrigem.EMAIL);
+            c.setDescricao("Relato duplicado mesclado no chamado principal (M07).");
+            c.setCategoria(categoria);
+            c.setSistemaEquipamento(sistema);
+            c.setStatus(StatusChamado.MESCLADO);
+            c.setChamadoPrincipal(principal);
+            c.setCriadoPor(analista1);
+            c.setResponsavel(analista1);
+            c.setAbertoEm(AGORA.minus(1, ChronoUnit.HOURS));
+            c.setOrigemDado(OrigemDado.TESTE);
+            return chamadoRepository.save(c);
         }
 
         void evento(Chamado chamado, TipoEvento tipo, Instant ocorridoEm, Usuario autor, Map<String, Object> dados) {

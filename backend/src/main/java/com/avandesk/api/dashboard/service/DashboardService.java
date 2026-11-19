@@ -64,6 +64,10 @@ public class DashboardService {
             arredondar(resumo.ttMedioSegundos()),
             arredondar(resumo.tprMedioSegundos()),
             arredondar(resumo.trMedioAtualSegundos()),
+            arredondar(resumo.trP90AtualSegundos()),
+            arredondar(resumo.m06TaxaReabertura()),
+            arredondar(resumo.m07TaxaDuplicidade()),
+            resumo.m07TotalDuplicados(),
             arredondar(resumo.m11MedioSegundos()),
             arredondar(resumo.m08PercentualDivergencia()),
             resumo.m12IncidentesPrivacidade()
@@ -81,6 +85,7 @@ public class DashboardService {
             indicadores97,
             alertas,
             dashboardRepository.buscarChamadosPorUnidade(inicioEfetivo, fimEfetivo, origemDado),
+            dashboardRepository.buscarChamadosAbertosPorResponsavel(inicioEfetivo, fimEfetivo, unidadeId, origemDado),
             dashboardRepository.buscarSlaPorPrioridade(inicioEfetivo, fimEfetivo, unidadeId, origemDado),
             dashboardRepository.buscarProblemasRecorrentes(inicioEfetivo, fimEfetivo, unidadeId, origemDado),
             dashboardRepository.buscarTempoEmTerceiros(inicioEfetivo, fimEfetivo, unidadeId, origemDado),
@@ -110,6 +115,7 @@ public class DashboardService {
             new KpiTempoResolucaoDto(
                 arredondar(r.trMedianoAtualSegundos()),
                 arredondar(r.trMedioAtualSegundos()),
+                arredondar(r.trP90AtualSegundos()),
                 diferencaMediana,
                 diferencaMedia
             ),

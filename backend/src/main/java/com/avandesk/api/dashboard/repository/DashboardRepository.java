@@ -1,6 +1,7 @@
 package com.avandesk.api.dashboard.repository;
 
 import com.avandesk.api.chamado.entity.OrigemDado;
+import com.avandesk.api.dashboard.dto.DashboardMetricasResponse.ChamadosPorResponsavelDto;
 import com.avandesk.api.dashboard.dto.DashboardMetricasResponse.ChamadosPorUnidadeDto;
 import com.avandesk.api.dashboard.dto.DashboardMetricasResponse.ProblemaRecorrenteDto;
 import com.avandesk.api.dashboard.dto.DashboardMetricasResponse.SlaPorPrioridadeDto;
@@ -22,6 +23,15 @@ public class DashboardRepository {
 
     private static final double META_INICIAL_SLA_PERCENTUAL = 80.0;
     private static final String SEPARADOR_UNIDADES = ";;";
+    /**
+     * Apenas eventos que alteram efetivamente o estado do relógio de SLA entram na janela do LEAD().
+     * Eventos informativos (ANEXO_VISUALIZADO, NOTIFICACAO_ENVIADA, ANOTACAO_ADICIONADA, contatos)
+     * não podem encerrar prematuramente uma pausa por SOLICITANTE.
+     */
+    private static final String TIPOS_EVENTO_RELOGIO_SLA =
+        "'CHAMADO_AGUARDANDO', 'ATENDIMENTO_RETOMADO', 'RETORNO_RECEBIDO', "
+        + "'CHAMADO_ESCALADO', 'CHAMADO_RESOLVIDO', 'CHAMADO_REABERTO', "
+        + "'CHAMADO_FECHADO', 'CHAMADO_CANCELADO', 'CHAMADO_MESCLADO'";
 
     private final JdbcClient jdbcClient;
 
@@ -49,6 +59,7 @@ public class DashboardRepository {
                     c.status,
                     c.descricao,
                     c.resolucao,
+                    c.chamado_principal_id,
                     COALESCE(c.prioridade_final, c.prioridade_sugerida) AS prioridade_efetiva,
                     c.prioridade_sugerida,
                     c.prioridade_final,
@@ -67,7 +78,10 @@ public class DashboardRepository {
                 SELECT
                     ev.chamado_id,
                     SUM(
-                        EXTRACT(EPOCH FROM (COALESCE(ev.proximo_evento_em, NOW()) - ev.ocorrido_em))
+                        GREATEST(
+                            EXTRACT(EPOCH FROM (COALESCE(ev.proximo_evento_em, ev.resolvido_em, NOW()) - ev.ocorrido_em)),
+                            0.0
+                        )
                     ) AS segundos_pausados
                 FROM (
                     SELECT
@@ -75,10 +89,12 @@ public class DashboardRepository {
                         e.tipo,
                         e.dados->>'motivo_espera' AS motivo_espera,
                         e.ocorrido_em,
+                        cj.resolvido_em,
                         LEAD(e.ocorrido_em) OVER (PARTITION BY e.chamado_id ORDER BY e.ocorrido_em ASC) AS proximo_evento_em
                     FROM eventos_historico e
+                    JOIN chamados_janela cj ON cj.id = e.chamado_id
                     WHERE e.origem_dado = :origemDado
-                      AND e.chamado_id IN (SELECT id FROM chamados_janela)
+                      AND e.tipo IN (%s)
                 ) ev
                 WHERE ev.tipo = 'CHAMADO_AGUARDANDO'
                   AND ev.motivo_espera = 'SOLICITANTE'
@@ -149,6 +165,11 @@ public class DashboardRepository {
                     AVG(tr_segundos) FILTER (WHERE NOT no_periodo_atual AND aberto_em < :fimAnterior AND tr_segundos IS NOT NULL),
                     0.0
                 ) AS tr_medio_anterior_segundos,
+                COALESCE(
+                    PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY tr_segundos)
+                        FILTER (WHERE no_periodo_atual AND tr_segundos IS NOT NULL),
+                    0.0
+                ) AS tr_p90_atual_segundos,
 
                 COUNT(id) FILTER (WHERE no_periodo_atual AND rastreavel IS NOT NULL) AS rastreaveis_avaliados,
                 COUNT(id) FILTER (WHERE no_periodo_atual AND rastreavel IS TRUE) AS rastreaveis_conformes,
@@ -166,6 +187,36 @@ public class DashboardRepository {
                         FILTER (WHERE no_periodo_atual AND primeira_resposta_em IS NOT NULL),
                     0.0
                 ) AS tpr_medio_segundos,
+                COALESCE(
+                    (COUNT(id) FILTER (
+                        WHERE no_periodo_atual
+                          AND (
+                              status = 'REABERTO'
+                              OR EXISTS (
+                                  SELECT 1 FROM eventos_historico eh
+                                  WHERE eh.chamado_id = metricas_por_chamado.id
+                                    AND eh.tipo = 'CHAMADO_REABERTO'
+                              )
+                          )
+                    ) * 100.0)
+                    / NULLIF(COUNT(id) FILTER (
+                        WHERE no_periodo_atual
+                          AND (status IN ('RESOLVIDO', 'FECHADO', 'REABERTO') OR resolvido_em IS NOT NULL)
+                    ), 0),
+                    0.0
+                ) AS m06_taxa_reabertura,
+                COUNT(id) FILTER (
+                    WHERE no_periodo_atual
+                      AND (status = 'MESCLADO' OR chamado_principal_id IS NOT NULL)
+                ) AS m07_total_duplicados,
+                COALESCE(
+                    (COUNT(id) FILTER (
+                        WHERE no_periodo_atual
+                          AND (status = 'MESCLADO' OR chamado_principal_id IS NOT NULL)
+                    ) * 100.0)
+                    / NULLIF(COUNT(id) FILTER (WHERE no_periodo_atual), 0),
+                    0.0
+                ) AS m07_taxa_duplicidade,
                 COALESCE(
                     AVG(EXTRACT(EPOCH FROM (aberto_em - registro_iniciado_em)))
                         FILTER (WHERE no_periodo_atual AND registro_iniciado_em IS NOT NULL),
@@ -197,7 +248,7 @@ public class DashboardRepository {
                       %s
                 ) AS m12_incidentes_privacidade
             FROM metricas_por_chamado
-            """.formatted(filtroUnidadeChamado, filtroUnidadeSub);
+            """.formatted(filtroUnidadeChamado, TIPOS_EVENTO_RELOGIO_SLA, filtroUnidadeSub);
 
         var spec = jdbcClient.sql(sql)
             .param("inicio", Timestamp.from(inicio))
@@ -219,12 +270,16 @@ public class DashboardRepository {
             rs.getDouble("tr_mediano_anterior_segundos"),
             rs.getDouble("tr_medio_atual_segundos"),
             rs.getDouble("tr_medio_anterior_segundos"),
+            rs.getDouble("tr_p90_atual_segundos"),
             rs.getLong("rastreaveis_avaliados"),
             rs.getLong("rastreaveis_conformes"),
             rs.getLong("sla_avaliados"),
             rs.getLong("sla_conformes"),
             rs.getDouble("tt_medio_segundos"),
             rs.getDouble("tpr_medio_segundos"),
+            rs.getDouble("m06_taxa_reabertura"),
+            rs.getLong("m07_total_duplicados"),
+            rs.getDouble("m07_taxa_duplicidade"),
             rs.getDouble("m11_medio_segundos"),
             rs.getDouble("m08_percentual_divergencia"),
             rs.getLong("m12_incidentes_privacidade")
@@ -240,17 +295,24 @@ public class DashboardRepository {
             WITH pausas_solicitante AS (
                 SELECT
                     ev.chamado_id,
-                    SUM(EXTRACT(EPOCH FROM (COALESCE(ev.proximo_evento_em, NOW()) - ev.ocorrido_em))) AS segundos_pausados
+                    SUM(
+                        GREATEST(
+                            EXTRACT(EPOCH FROM (COALESCE(ev.proximo_evento_em, ev.resolvido_em, NOW()) - ev.ocorrido_em)),
+                            0.0
+                        )
+                    ) AS segundos_pausados
                 FROM (
                     SELECT
                         e.chamado_id,
                         e.tipo,
                         e.dados->>'motivo_espera' AS motivo_espera,
                         e.ocorrido_em,
+                        ch.resolvido_em,
                         LEAD(e.ocorrido_em) OVER (PARTITION BY e.chamado_id ORDER BY e.ocorrido_em ASC) AS proximo_evento_em
                     FROM eventos_historico e
                     JOIN chamados ch ON ch.id = e.chamado_id
                     WHERE e.origem_dado = :origemDado
+                      AND e.tipo IN (%s)
                       AND ch.origem_dado = :origemDado
                       AND ch.aberto_em >= :inicio
                       AND ch.aberto_em <= :fim
@@ -311,7 +373,7 @@ public class DashboardRepository {
             WHERE u.ativo = TRUE
             GROUP BY u.id, u.nome, u.identificacao
             ORDER BY total_chamados DESC, u.nome ASC
-            """;
+            """.formatted(TIPOS_EVENTO_RELOGIO_SLA);
 
         return jdbcClient.sql(sql)
             .param("inicio", Timestamp.from(inicio))
@@ -327,6 +389,55 @@ public class DashboardRepository {
                 arredondar(rs.getDouble("tempo_medio_atendimento_segundos"))
             ))
             .list();
+    }
+
+    /**
+     * Distribuição de chamados em aberto (em andamento) por analista responsável (M02).
+     * Chamados sem responsável atribuído aparecem explicitamente como "Sem responsável".
+     */
+    public List<ChamadosPorResponsavelDto> buscarChamadosAbertosPorResponsavel(
+        Instant inicio,
+        Instant fim,
+        UUID unidadeId,
+        OrigemDado origemDado
+    ) {
+        String filtroUnidade = unidadeId != null ? " AND c.unidade_id = :unidadeId " : "";
+
+        String sql = """
+            SELECT
+                u.id AS responsavel_id,
+                COALESCE(u.nome, 'Sem responsável') AS responsavel_nome,
+                COUNT(c.id) AS total_em_aberto,
+                COUNT(c.id) FILTER (WHERE COALESCE(c.prioridade_final, c.prioridade_sugerida) = 'ALTA') AS total_alta_prioridade
+            FROM chamados c
+            LEFT JOIN usuarios u ON u.id = c.responsavel_id
+            WHERE c.origem_dado = :origemDado
+              AND c.aberto_em >= :inicio
+              AND c.aberto_em <= :fim
+              AND c.status NOT IN ('RESOLVIDO', 'FECHADO', 'CANCELADO', 'MESCLADO')
+              %s
+            GROUP BY u.id, u.nome
+            ORDER BY total_em_aberto DESC, (u.id IS NULL) DESC, responsavel_nome ASC
+            """.formatted(filtroUnidade);
+
+        var spec = jdbcClient.sql(sql)
+            .param("inicio", Timestamp.from(inicio))
+            .param("fim", Timestamp.from(fim))
+            .param("origemDado", origemDado.name());
+
+        if (unidadeId != null) {
+            spec = spec.param("unidadeId", unidadeId);
+        }
+
+        return spec.query((rs, rowNum) -> {
+            String respId = rs.getString("responsavel_id");
+            return new ChamadosPorResponsavelDto(
+                respId != null ? UUID.fromString(respId) : null,
+                rs.getString("responsavel_nome"),
+                rs.getLong("total_em_aberto"),
+                rs.getLong("total_alta_prioridade")
+            );
+        }).list();
     }
 
     /**
@@ -350,17 +461,24 @@ public class DashboardRepository {
             pausas_solicitante AS (
                 SELECT
                     ev.chamado_id,
-                    SUM(EXTRACT(EPOCH FROM (COALESCE(ev.proximo_evento_em, NOW()) - ev.ocorrido_em))) AS segundos_pausados
+                    SUM(
+                        GREATEST(
+                            EXTRACT(EPOCH FROM (COALESCE(ev.proximo_evento_em, ev.resolvido_em, NOW()) - ev.ocorrido_em)),
+                            0.0
+                        )
+                    ) AS segundos_pausados
                 FROM (
                     SELECT
                         e.chamado_id,
                         e.tipo,
                         e.dados->>'motivo_espera' AS motivo_espera,
                         e.ocorrido_em,
+                        ch.resolvido_em,
                         LEAD(e.ocorrido_em) OVER (PARTITION BY e.chamado_id ORDER BY e.ocorrido_em ASC) AS proximo_evento_em
                     FROM eventos_historico e
                     JOIN chamados ch ON ch.id = e.chamado_id
                     WHERE e.origem_dado = :origemDado
+                      AND e.tipo IN (%s)
                       AND ch.origem_dado = :origemDado
                       AND ch.aberto_em >= :inicio
                       AND ch.aberto_em <= :fim
@@ -400,7 +518,7 @@ public class DashboardRepository {
             LEFT JOIN chamados_avaliados ca ON ca.prioridade = f.codigo
             GROUP BY f.codigo, f.rotulo, f.meta_segundos, f.ordem
             ORDER BY f.ordem ASC
-            """.formatted(filtroUnidade);
+            """.formatted(TIPOS_EVENTO_RELOGIO_SLA, filtroUnidade);
 
         var spec = jdbcClient.sql(sql)
             .param("inicio", Timestamp.from(inicio))
@@ -641,12 +759,16 @@ public class DashboardRepository {
         double trMedianoAnteriorSegundos,
         double trMedioAtualSegundos,
         double trMedioAnteriorSegundos,
+        double trP90AtualSegundos,
         long rastreaveisAvaliados,
         long rastreaveisConformes,
         long slaAvaliados,
         long slaConformes,
         double ttMedioSegundos,
         double tprMedioSegundos,
+        double m06TaxaReabertura,
+        long m07TotalDuplicados,
+        double m07TaxaDuplicidade,
         double m11MedioSegundos,
         double m08PercentualDivergencia,
         long m12IncidentesPrivacidade

@@ -986,7 +986,8 @@ Fornece os indicadores executivos agregados da operação (sem exposição de da
 ### Regras de Cálculo (Seção 9.7 e SLA)
 
 * Segregação de dados: considera estritamente registros cujo `origem_dado` coincide com `nexo.origem-dado` (`REAL` em produção, `TESTE` em desenvolvimento).
-* **TR (Tempo de Resolução líquido):** desconta o tempo em que o chamado permaneceu em `AGUARDANDO` com `motivo_espera = SOLICITANTE`; esperas por `FORNECEDOR` (RN07) ou `PECA_EQUIPAMENTO` continuam contando no SLA.
+* **TR (Tempo de Resolução líquido) e P90:** desconta o tempo em que o chamado permaneceu em `AGUARDANDO` com `motivo_espera = SOLICITANTE` (considerando na janela `LEAD()` apenas eventos que alteram o estado do relógio de SLA); esperas por `FORNECEDOR` (RN07) ou `PECA_EQUIPAMENTO` continuam contando no SLA. Expõe mediana (`P50`), média e percentil 90 (`P90`).
+* **Métricas M01–M12 consolidadas:** `M01` (rastreabilidade), `M02` (`chamados_por_responsavel` em aberto + P1), `M03` (TT, TPR, TR, P90), `M04` (SLA geral e P1/P2/P3), `M05` (`tempo_em_terceiros`), `M06` (taxa de reabertura), `M07` (taxa e volume de chamados mesclados/duplicados), `M08` (divergência de prioridade), `M11` (tempo médio de registro) e `M12` (incidentes de privacidade).
 * **Metas de referência por prioridade:** `ALTA` (P1) ≤ 2h (`7200s`), `MEDIA` (P2) ≤ 8h (`28800s`), `BAIXA` (P3) ≤ 24h (`86400s`).
 * **Alertas automáticos:**
   * `alerta_divergencia_prioridade_m08`: `true` quando M08 > `30%`.
