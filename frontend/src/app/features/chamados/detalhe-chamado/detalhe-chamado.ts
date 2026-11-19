@@ -21,6 +21,8 @@ import {
   DirecaoContato,
   ItemSlaDetalhe,
   EscalonamentoRequest,
+  FechamentoRequest,
+  ItemVerificacao,
   MotivoEspera,
   PrioridadeChamado,
   PrioridadeRequest,
@@ -29,8 +31,11 @@ import {
   RegistroContatoRequest,
   RetornoFornecedorRequest,
   StatusRequest,
+  VerificacaoEncerramento,
 } from '../../../shared/models/chamado.model';
 import { extrairMensagensErro } from '../../../shared/utils/api-error';
+
+const TAMANHO_MINIMO_JUSTIFICATIVA_ENCERRAMENTO = 15;
 
 @Component({
   selector: 'app-detalhe-chamado',
@@ -230,6 +235,39 @@ export class DetalheChamado implements OnInit {
   protected readonly podeResolver = computed(() => {
     const s = this.chamado()?.status;
     return (s === 'EM_ATENDIMENTO' || s === 'AGUARDANDO') && !this.aguardandoFornecedor();
+  });
+
+  protected readonly modalEncerramentoAberto = signal(false);
+  protected readonly carregandoVerificacao = signal(false);
+  protected readonly verificacaoEncerramento = signal<VerificacaoEncerramento | null>(null);
+  protected readonly justificativaSemCausaRaiz = signal('');
+  protected readonly errosEncerramento = signal<string[]>([]);
+  protected readonly tamanhoMinimoJustificativaEncerramento = TAMANHO_MINIMO_JUSTIFICATIVA_ENCERRAMENTO;
+
+  protected readonly podeEncerrar = computed(() => this.chamado()?.status === 'RESOLVIDO');
+
+  protected readonly faltaCausaRaiz = computed(
+    () =>
+      this.verificacaoEncerramento()?.itens.some(
+        (item) => item.codigo === 'CAUSA_RAIZ_OU_JUSTIFICATIVA' && !item.ok,
+      ) ?? false,
+  );
+
+  /** A justificativa digitada no modal cobre a falta de causa raiz, como o backend faz no POST /fechar. */
+  protected readonly itensEncerramento = computed<ItemVerificacao[]>(() => {
+    const itens = this.verificacaoEncerramento()?.itens ?? [];
+    const justificativaOk =
+      this.justificativaSemCausaRaiz().trim().length >= TAMANHO_MINIMO_JUSTIFICATIVA_ENCERRAMENTO;
+    return itens.map((item) =>
+      item.codigo === 'CAUSA_RAIZ_OU_JUSTIFICATIVA' && !item.ok && justificativaOk
+        ? { ...item, ok: true, pendencia: null }
+        : item,
+    );
+  });
+
+  protected readonly encerramentoLiberado = computed(() => {
+    const itens = this.itensEncerramento();
+    return itens.length > 0 && itens.every((item) => item.ok);
   });
 
   protected readonly resolucaoValida = computed(() => {
@@ -837,6 +875,51 @@ export class DetalheChamado implements OnInit {
           const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao registrar o retorno do fornecedor.';
           this.toast.erro(msgApi);
         },
+      });
+  }
+
+  protected abrirModalEncerramento(): void {
+    const id = this.idChamado();
+    if (!id || !this.podeEncerrar()) return;
+
+    this.verificacaoEncerramento.set(null);
+    this.justificativaSemCausaRaiz.set('');
+    this.errosEncerramento.set([]);
+    this.modalEncerramentoAberto.set(true);
+    this.carregandoVerificacao.set(true);
+    this.chamadoService
+      .verificarEncerramento(id)
+      .pipe(finalize(() => this.carregandoVerificacao.set(false)))
+      .subscribe({
+        next: (verificacao) => this.verificacaoEncerramento.set(verificacao),
+        error: (err) => this.errosEncerramento.set(extrairMensagensErro(err)),
+      });
+  }
+
+  protected fecharModalEncerramento(): void {
+    this.modalEncerramentoAberto.set(false);
+  }
+
+  protected confirmarEncerramento(): void {
+    const id = this.idChamado();
+    if (!id || !this.encerramentoLiberado()) return;
+
+    const payload: FechamentoRequest = this.faltaCausaRaiz()
+      ? { justificativa_sem_causa_raiz: this.justificativaSemCausaRaiz().trim() }
+      : {};
+
+    this.salvando.set(true);
+    this.errosEncerramento.set([]);
+    this.chamadoService
+      .fechar(id, payload)
+      .pipe(finalize(() => this.salvando.set(false)))
+      .subscribe({
+        next: (dadosAtualizados) => {
+          this.chamado.set(dadosAtualizados);
+          this.toast.sucesso('Chamado encerrado.');
+          this.fecharModalEncerramento();
+        },
+        error: (err) => this.errosEncerramento.set(extrairMensagensErro(err)),
       });
   }
 
