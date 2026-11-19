@@ -958,12 +958,12 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
       expect(component['temDivergencia']()).toBe(true);
       expect(component['justificativaValida']()).toBe(false);
 
-      // Justificativa curta (< 10) -> inválida
-      component['justificativaPrioridade'].set('Curta');
+      // Justificativa curta (< 15) -> inválida
+      component['justificativaPrioridade'].set('Não é urgente');
       expect(component['justificativaValida']()).toBe(false);
 
-      // Justificativa válida (>= 10) -> válida
-      component['justificativaPrioridade'].set('Justificativa válida com mais de 10 caracteres');
+      // Justificativa válida (>= 15) -> válida
+      component['justificativaPrioridade'].set('Justificativa válida com mais de 15 caracteres');
       expect(component['justificativaValida']()).toBe(true);
     });
 
@@ -989,6 +989,119 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
         justificativa_prioridade: null,
       });
       expect(toastSpy).toHaveBeenCalledWith('Prioridade definida com sucesso!');
+    });
+
+    it('deve usar as mesmas faixas do backend (2 + 2 + 1 = 5 é Baixa)', () => {
+      component['selecionarSeveridade'](2);
+      component['selecionarUrgencia'](2);
+      component['selecionarImpacto'](1);
+      expect(component['prioridadeSugerida']()).toBe('BAIXA');
+    });
+  });
+
+  describe('Prioridade sugerida pelo contexto (HU22)', () => {
+    const comRespostas: ChamadoDetalhe = {
+      ...mockDetalhe,
+      status: 'ABERTO',
+      prioridade: null,
+      prioridade_sugerida: 'ALTA',
+      prioridade_final: null,
+      respostas_prioridade: { severidade: 3, urgencia: 3, impacto: 2 },
+    };
+
+    function criar(detalhe: ChamadoDetalhe): HTMLElement {
+      vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(detalhe));
+      fixture = TestBed.createComponent(DetalheChamado);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('a sugestão da abertura não conta como triagem cumprida no prazo de referência', () => {
+      criar(comRespostas);
+
+      const triagem = component['slaItensDinamicos']().find((i) => i.etapa === 'Triagem');
+      expect(triagem?.situacaoTexto).not.toBe('Cumprida');
+    });
+
+    it('não mostra o painel quando o chamado não tem respostas da abertura', () => {
+      expect(criar(mockDetalhe).querySelector('#card-prioridade-contexto')).toBeNull();
+    });
+
+    it('mostra a sugestão do contexto com as respostas em linguagem de negócio', () => {
+      const painel = criar(comRespostas).querySelector('#card-prioridade-contexto');
+
+      expect(painel?.querySelector('#painel-sugerido-contexto')?.textContent).toContain('Alta (P1)');
+      expect(painel?.textContent).toContain('O sistema ou equipamento está totalmente fora do ar / inacessível.');
+      expect(painel?.textContent).toContain('Há paciente aguardando presencialmente na recepção/sala de exame neste momento.');
+      expect(painel?.textContent).toContain('Várias pessoas do meu setor ou recepção.');
+      expect(painel?.querySelector('#situacao-validacao')?.textContent).toContain('Aguardando a validação técnica.');
+      expect(painel?.querySelector('#btn-confirmar-sugerida')?.textContent).toContain('Confirmar Alta (P1)');
+    });
+
+    it('confirma a sugerida com um clique, mandando as notas do solicitante sem justificativa', () => {
+      const elemento = criar(comRespostas);
+      const definirSpy = vi
+        .spyOn(chamadoService, 'definirPrioridade')
+        .mockReturnValue(of({ ...comRespostas, prioridade: 'ALTA', prioridade_final: 'ALTA' }));
+      const toastSpy = vi.spyOn(toastService, 'sucesso');
+
+      (elemento.querySelector('#btn-confirmar-sugerida') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(definirSpy).toHaveBeenCalledWith('chm-127', {
+        severidade: 3,
+        urgencia: 3,
+        impacto_operacional: 2,
+        prioridade_final: 'ALTA',
+        justificativa_prioridade: null,
+      });
+      expect(toastSpy).toHaveBeenCalledWith('Prioridade Alta (P1) confirmada.');
+      expect(elemento.querySelector('#situacao-validacao')?.textContent).toContain('Confirmada');
+      expect(elemento.querySelector('#btn-confirmar-sugerida')).toBeNull();
+    });
+
+    it('mostra "Reclassificada" com a justificativa quando a final diverge da sugerida', () => {
+      const elemento = criar({
+        ...comRespostas,
+        prioridade: 'BAIXA',
+        prioridade_final: 'BAIXA',
+        justificativa_prioridade: 'Só uma estação afetada, há alternativa.',
+      });
+
+      expect(elemento.querySelector('#situacao-validacao')?.textContent).toContain('Reclassificada');
+      expect(elemento.querySelector('#painel-validacao-analista')?.textContent).toContain(
+        'Só uma estação afetada, há alternativa.',
+      );
+    });
+
+    it('reclassificar abre a matriz com as notas do solicitante', () => {
+      const elemento = criar(comRespostas);
+
+      (elemento.querySelector('#btn-reclassificar-prioridade') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(component['modalPrioridadeAberto']()).toBe(true);
+      expect(component['severidade']()).toBe(3);
+      expect(component['urgencia']()).toBe(3);
+      expect(component['impacto']()).toBe(2);
+      expect(elemento.querySelector('#modal-sugerido-contexto')?.textContent).toContain('Alta (P1)');
+    });
+
+    it('exige justificativa de 15 caracteres quando as notas do analista divergem da sugestão do contexto', () => {
+      criar(comRespostas);
+      component['abrirModalPrioridade']();
+
+      component['selecionarSeveridade'](1);
+      component['selecionarUrgencia'](2);
+      component['selecionarImpacto'](1);
+
+      expect(component['prioridadeSugerida']()).toBe('BAIXA');
+      expect(component['temDivergencia']()).toBe(true);
+      component['justificativaPrioridade'].set('Não é urgente');
+      expect(component['justificativaValida']()).toBe(false);
+      component['justificativaPrioridade'].set('Só uma estação afetada, há alternativa.');
+      expect(component['justificativaValida']()).toBe(true);
     });
   });
 

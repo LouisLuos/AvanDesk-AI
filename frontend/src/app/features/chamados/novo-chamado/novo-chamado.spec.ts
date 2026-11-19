@@ -106,6 +106,9 @@ describe('NovoChamado', () => {
       contato: '81988771234',
       categoriaId: 'cat-equip',
       descricao: 'Impressora de etiquetas da coleta parou de imprimir.',
+      severidade: 3,
+      urgencia: 2,
+      impacto: 2,
       ...valores,
     });
   }
@@ -138,7 +141,9 @@ describe('NovoChamado', () => {
     it('deve inicializar o formulário com valores padrão alinhados ao mockup', () => {
       const valor = component['form'].getRawValue();
       expect(valor.canalOrigem).toBe('LIGACAO');
-      expect(valor.prioridade).toBe('TRIAGEM');
+      expect(valor.severidade).toBeNull();
+      expect(valor.urgencia).toBeNull();
+      expect(valor.impacto).toBeNull();
       expect(valor.atribuirAMim).toBe(true);
     });
 
@@ -430,5 +435,87 @@ describe('NovoChamado', () => {
     expect(caixa.getAttribute('role')).toBe('alert');
     expect(caixa.textContent).toContain("Campo 'categoria_id' é obrigatório.");
     expect(caixa.textContent).toContain('Unidade inativa não pode receber novos chamados.');
+  });
+
+  // ---------- perguntas de prioridade (HU22) ----------
+
+  describe('perguntas de prioridade (HU22)', () => {
+    function clicar(id: string): void {
+      (fixture.nativeElement.querySelector(`#${id}`) as HTMLButtonElement).click();
+      fixture.detectChanges();
+    }
+
+    it('deve mostrar as três perguntas de negócio com três respostas cada', () => {
+      abrirTela();
+      responderCarga();
+
+      const tela = fixture.nativeElement as HTMLElement;
+      expect(tela.querySelectorAll('#perguntas-prioridade fieldset')).toHaveLength(3);
+      expect(tela.querySelectorAll('#perguntas-prioridade [role="radio"]')).toHaveLength(9);
+      expect(tela.querySelector('#pergunta-severidade legend')?.textContent).toContain('Quão quebrado está?');
+      expect(tela.querySelector('#resposta-urgencia-3')?.textContent).toContain(
+        'Há paciente aguardando presencialmente',
+      );
+      expect(tela.querySelector('#prio-triagem')).toBeNull();
+    });
+
+    it('deve mostrar a prioridade sugerida só depois das três respostas', () => {
+      abrirTela();
+      responderCarga();
+      const previa = () => (fixture.nativeElement.querySelector('#previa-prioridade') as HTMLElement).textContent;
+
+      clicar('resposta-severidade-3');
+      clicar('resposta-urgencia-3');
+      expect(previa()).toContain('Responda às três perguntas');
+
+      clicar('resposta-impacto-2');
+      expect(previa()).toContain('Alta (P1)');
+      expect(fixture.nativeElement.querySelector('#resposta-impacto-2').getAttribute('aria-checked')).toBe('true');
+    });
+
+    it('não deve registrar sem as três respostas', () => {
+      abrirTela();
+      responderCarga();
+      preencher({});
+      component['form'].patchValue({ urgencia: null });
+
+      registrar();
+
+      nenhumRegistroEnviado();
+      expect(component['form'].controls.urgencia.hasError('required')).toBe(true);
+      expect(fixture.nativeElement.querySelector('#pergunta-urgencia').textContent).toContain('Escolha uma resposta.');
+    });
+
+    it('deve enviar as respostas como notas e não enviar a prioridade antiga', () => {
+      abrirTela();
+      responderCarga();
+      preencher({});
+
+      registrar();
+
+      const body = requisicaoDeRegistro().request.body as ChamadoRequest;
+      expect(body.respostas_prioridade).toEqual({ severidade: 3, urgencia: 2, impacto: 2 });
+      expect(body.prioridade).toBeUndefined();
+    });
+
+    it('deve avisar a prioridade sugerida que o servidor calculou', () => {
+      vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      abrirTela();
+      responderCarga();
+      preencher({});
+
+      registrar();
+      requisicaoDeRegistro().flush({
+        ...envelope({ ...CHAMADO_CRIADO, origem_dado: 'REAL', prioridade_sugerida: 'MEDIA' }),
+        status_code: 201,
+      });
+
+      const mensagens = TestBed.inject(ToastService)
+        .toasts()
+        .map((t) => t.mensagem);
+      expect(mensagens).toContain(
+        'Chamado LUM-2026-000124 registrado com sucesso. Prioridade sugerida: Média (P2).',
+      );
+    });
   });
 });
