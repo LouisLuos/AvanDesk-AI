@@ -6,7 +6,10 @@ import com.avandesk.api.usuario.dto.UsuarioAutenticadoResponse;
 import com.avandesk.api.usuario.entity.Usuario;
 import com.avandesk.api.usuario.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,5 +50,20 @@ public class AuthService {
         String token = jwtService.gerarToken(usuario);
 
         return new LoginResponse(token, UsuarioAutenticadoResponse.de(usuario));
+    }
+
+    @Transactional(readOnly = true)
+    public UsuarioAutenticadoResponse obterUsuarioAutenticado() {
+        Authentication autenticacao = SecurityContextHolder.getContext().getAuthentication();
+        if (autenticacao == null || !autenticacao.isAuthenticated()
+            || autenticacao instanceof AnonymousAuthenticationToken) {
+            throw new BadCredentialsException("Sessão inválida ou expirada.");
+        }
+
+        Usuario usuario = usuarioRepository.findByEmail(autenticacao.getName())
+            .filter(Usuario::isAtivo)
+            .orElseThrow(() -> new BadCredentialsException("Sessão inválida ou expirada."));
+
+        return UsuarioAutenticadoResponse.de(usuario);
     }
 }

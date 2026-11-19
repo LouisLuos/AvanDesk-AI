@@ -3,16 +3,12 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRouteSnapshot, Router, RouterStateSnapshot, UrlTree, provideRouter } from '@angular/router';
 import { MODO_SIMULADO } from '../config/modo-simulado';
+import { AuthService } from '../services/auth.service';
 import { perfilGuard } from './perfil.guard';
 
 describe('perfilGuard', () => {
   function executar(perfilLogado: string | null, modoSimulado = false) {
-    if (perfilLogado) {
-      sessionStorage.setItem(
-        'avandesk.user',
-        JSON.stringify({ id: 'u-1', nome: 'Usuário de Teste', email: 'teste@lumen.local', perfil: perfilLogado }),
-      );
-    }
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
@@ -21,12 +17,20 @@ describe('perfilGuard', () => {
         { provide: MODO_SIMULADO, useValue: modoSimulado },
       ],
     });
+    if (perfilLogado) {
+      TestBed.inject(AuthService).definirUsuario({
+        id: 'u-1',
+        nome: 'Usuário de Teste',
+        email: 'teste@lumen.local',
+        perfil: perfilLogado,
+      });
+    }
     return TestBed.runInInjectionContext(() =>
       perfilGuard(['LIDERANCA_TI'])({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
     );
   }
 
-  afterEach(() => sessionStorage.clear());
+  afterEach(() => globalThis.sessionStorage?.clear());
 
   it('libera a Liderança de TI', () => {
     expect(executar('LIDERANCA_TI')).toBe(true);
