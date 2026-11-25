@@ -37,16 +37,17 @@ public class EncerramentoService {
     @Transactional(readOnly = true)
     public VerificacaoEncerramentoResponse verificar(UUID chamadoId) {
         Chamado chamado = buscarChamado(chamadoId);
+        exigirStatusResolvido(chamado);
         return verificador.verificar(chamado, registroContatoRepository.existsByChamadoId(chamadoId), null);
     }
 
     @Transactional
     public ChamadoDetalheResponse fechar(UUID chamadoId, FechamentoRequest request) {
         Chamado chamado = buscarChamado(chamadoId);
-        if (chamado.getStatus() != StatusChamado.RESOLVIDO) {
-            throw new OperacaoNaoPermitidaException(
-                "Só é possível encerrar um chamado RESOLVIDO (status atual: %s).".formatted(chamado.getStatus()));
-        }
+        exigirStatusResolvido(chamado);
+        Instant agora = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        exigirPrazoReaberturaEncerrado(chamado, agora);
+
         String justificativa = request == null ? null : textoOuNulo(request.justificativaSemCausaRaiz());
         VerificacaoEncerramentoResponse verificacao = verificador.verificar(
             chamado, registroContatoRepository.existsByChamadoId(chamadoId), justificativa);
@@ -57,7 +58,7 @@ public class EncerramentoService {
         Usuario autor = usuarioLogadoService.obterUsuarioLogado();
 
         chamado.setStatus(StatusChamado.FECHADO);
-        chamado.setFechadoEm(Instant.now().truncatedTo(ChronoUnit.MICROS));
+        chamado.setFechadoEm(agora);
 
         Map<String, Object> dados = new LinkedHashMap<>();
         dados.put("status_anterior", StatusChamado.RESOLVIDO.name());
@@ -75,6 +76,22 @@ public class EncerramentoService {
     private Chamado buscarChamado(UUID id) {
         return chamadoRepository.findDetalheById(id)
             .orElseThrow(() -> new RecursoNaoEncontradoException("Chamado não encontrado."));
+    }
+
+    private static void exigirStatusResolvido(Chamado chamado) {
+        if (chamado.getStatus() != StatusChamado.RESOLVIDO) {
+            throw new OperacaoNaoPermitidaException(
+                "Só é possível encerrar um chamado RESOLVIDO (status atual: %s).".formatted(chamado.getStatus()));
+        }
+    }
+
+    private static void exigirPrazoReaberturaEncerrado(Chamado chamado, Instant agora) {
+        Instant resolvidoEm = chamado.getResolvidoEm();
+        if (resolvidoEm == null || agora.isBefore(resolvidoEm.plus(ChamadoService.PRAZO_REABERTURA))) {
+            throw new OperacaoNaoPermitidaException(
+                "Só é possível encerrar o chamado após o prazo de %d dias para reabertura."
+                    .formatted(ChamadoService.PRAZO_REABERTURA.toDays()));
+        }
     }
 
     private static String textoOuNulo(String texto) {

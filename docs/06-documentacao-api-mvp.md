@@ -1022,7 +1022,7 @@ O encerramento só acontece depois de um checklist automático: o histórico pre
 
 **Regras:**
 
-* Só a partir de `RESOLVIDO`. O corpo é opcional; `justificativa_sem_causa_raiz` (até 500 caracteres) só é necessária quando o chamado não tem causa raiz.
+* Só a partir de `RESOLVIDO` e após o prazo de **7 dias** para reabertura (`resolvido_em <= agora - 7 dias`, RN20). O corpo é opcional; `justificativa_sem_causa_raiz` (até 500 caracteres) só é necessária quando o chamado não tem causa raiz.
 * Roda o mesmo checklist da seção 15.1. Com algum item pendente, responde `422` e lista cada pendência em `errors`.
 * Aprovado, o chamado vai para `FECHADO`, grava `fechado_em` (UTC) e o evento `CHAMADO_FECHADO` com o resultado da verificação para a M01: `status_anterior`, `itens_conformes`, `total_itens`, `itens_verificados` e, quando usada, `justificativa_sem_causa_raiz`.
 * `FECHADO` é final: não volta a nenhum status (a reabertura é a partir de `RESOLVIDO`, seção 8).
@@ -1038,5 +1038,6 @@ O detalhe atualizado do chamado (seção 5), com `status` `FECHADO`.
 | `justificativa_sem_causa_raiz` com mais de 500 caracteres | `400` | "Campo 'justificativa_sem_causa_raiz' deve ter no máximo 500 caracteres." |
 | Chamado inexistente | `404` | "Chamado não encontrado." |
 | Status diferente de `RESOLVIDO` | `422` | "Só é possível encerrar um chamado RESOLVIDO (status atual: EM_ATENDIMENTO)." |
+| Prazo de 7 dias para reabertura ainda em aberto | `422` | "Só é possível encerrar o chamado após o prazo de 7 dias para reabertura." |
 | Itens pendentes | `422` | Uma linha por pendência em `errors`, como "Atribua um responsável ao chamado." |
 | Sem token | `401` | — |

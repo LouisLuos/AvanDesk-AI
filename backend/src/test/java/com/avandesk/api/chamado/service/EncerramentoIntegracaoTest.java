@@ -24,6 +24,9 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -122,9 +125,13 @@ class EncerramentoIntegracaoTest {
     }
 
     @Test
-    void naoDeveEncerrarChamadoQueNaoEstaResolvido() {
+    void naoDeveEncerrarNemVerificarChamadoQueNaoEstaResolvido() {
         emTransacaoDesfeita(jdbc -> {
             ChamadoResponse chamado = chamadoService.registrar(request());
+
+            OperacaoNaoPermitidaException erroVerificacao = assertThrows(OperacaoNaoPermitidaException.class,
+                () -> encerramentoService.verificar(chamado.id()));
+            assertTrue(erroVerificacao.getMessage().contains("RESOLVIDO"));
 
             OperacaoNaoPermitidaException erro = assertThrows(OperacaoNaoPermitidaException.class,
                 () -> encerramentoService.fechar(chamado.id(), null));
@@ -135,10 +142,29 @@ class EncerramentoIntegracaoTest {
         });
     }
 
+    @Test
+    void naoDeveEncerrarChamadoResolvidoAntesDosSeteDiasDeReabertura() {
+        emTransacaoDesfeita(jdbc -> {
+            ChamadoResponse chamado = chamadoService.registrar(request());
+            chamadoService.resolver(chamado.id(), new ResolucaoRequest(
+                "Cabo trocado e impressora testada com etiqueta de amostra.", "Cabo de energia danificado", false));
+
+            OperacaoNaoPermitidaException erro = assertThrows(OperacaoNaoPermitidaException.class,
+                () -> encerramentoService.fechar(chamado.id(), null));
+            assertTrue(erro.getMessage().contains("7 dias para reabertura"));
+            assertEquals("RESOLVIDO", jdbc.queryForObject(
+                "SELECT status FROM chamados WHERE id = ?", String.class, chamado.id()));
+        });
+    }
+
     private UUID chamadoResolvido(String causaRaiz) {
         ChamadoResponse chamado = chamadoService.registrar(request());
         chamadoService.resolver(chamado.id(), new ResolucaoRequest(
             "Cabo trocado e impressora testada com etiqueta de amostra.", causaRaiz, false));
+        Instant resolvidoHaOitoDias = Instant.now().minus(Duration.ofDays(8));
+        jdbcTemplate.update("UPDATE chamados SET resolvido_em = ? WHERE id = ?",
+            Timestamp.from(resolvidoHaOitoDias), chamado.id());
+        entityManager.clear();
         return chamado.id();
     }
 

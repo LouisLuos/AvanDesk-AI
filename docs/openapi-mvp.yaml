@@ -1680,7 +1680,7 @@ paths:
   /chamados/{id}/fechar:
     post:
       summary: Encerrar o chamado resolvido (HU15)
-      description: "Só a partir de RESOLVIDO. Roda o checklist; aprovado, o chamado vai para FECHADO, grava fechado_em e o evento CHAMADO_FECHADO com status_anterior, itens_conformes, total_itens, itens_verificados e, quando usada, justificativa_sem_causa_raiz (M01)."
+      description: "Só a partir de RESOLVIDO e após o prazo de 7 dias para reabertura (RN20). Roda o checklist; aprovado, o chamado vai para FECHADO, grava fechado_em e o evento CHAMADO_FECHADO com status_anterior, itens_conformes, total_itens, itens_verificados e, quando usada, justificativa_sem_causa_raiz (M01)."
       tags:
         - Encerramento
       parameters:

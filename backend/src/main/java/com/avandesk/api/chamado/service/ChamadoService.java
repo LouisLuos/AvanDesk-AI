@@ -58,7 +58,7 @@ public class ChamadoService {
     private static final ZoneId FUSO_DO_CODIGO = ZoneId.of("America/Recife");
     private static final Duration LIMITE_INICIO_REGISTRO = Duration.ofHours(2);
     private static final Duration TOLERANCIA_RELOGIO = Duration.ofMinutes(1);
-    private static final Duration PRAZO_REABERTURA = Duration.ofDays(7);
+    public static final Duration PRAZO_REABERTURA = Duration.ofDays(7);
 
     private final ChamadoRepository chamadoRepository;
     private final RegistroContatoRepository registroContatoRepository;
