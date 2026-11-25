@@ -104,11 +104,23 @@ export class DetalheChamado implements OnInit {
   protected readonly slaItensDinamicos = computed<ItemSlaDetalhe[]>(() => {
     const item = this.chamado();
     if (!item) return [];
-    const agora = this.slaService.agora();
+
+    const finalizado =
+      item.status === 'RESOLVIDO' ||
+      item.status === 'FECHADO' ||
+      item.status === 'CANCELADO' ||
+      item.status === 'MESCLADO';
 
     const timestampAbertura = this.slaService.parseData(item.aberto_em_iso ?? item.aberto_em);
-    const dataAbertura = isNaN(timestampAbertura) ? agora : timestampAbertura;
-    const decorridoMinutos = Math.max(0, Math.floor((agora - dataAbertura) / 60000));
+
+    // Regra de auditoria: chamados finalizados congelam no instante de encerramento/cancelamento (não leem agora());
+    // chamados ativos (inclusive estourados) seguem incrementando via signal agora() até serem resolvidos ou cancelados.
+    const timestampReferencia = finalizado
+      ? this.obterTimestampFinalizacaoAuditoria(item, timestampAbertura)
+      : this.slaService.agora();
+
+    const dataAbertura = isNaN(timestampAbertura) ? timestampReferencia : timestampAbertura;
+    const decorridoMinutos = Math.max(0, Math.floor((timestampReferencia - dataAbertura) / 60000));
 
     // 1. Triagem
     const temTriagem = Boolean(item.prioridade || item.prioridade_final || item.prioridade_sugerida);
@@ -120,8 +132,20 @@ export class DetalheChamado implements OnInit {
       triagemTexto = 'Cumprida';
       triagemProgresso = 100;
       triagemEstilo = 'bg-[#22c55e]';
+    } else if (item.status === 'CANCELADO') {
+      triagemTexto = 'Encerrada (cancelado)';
+      triagemProgresso = 0;
+      triagemEstilo = 'bg-[#94a3b8]';
+    } else if (item.status === 'MESCLADO') {
+      triagemTexto = 'Incorporada ao principal';
+      triagemProgresso = 0;
+      triagemEstilo = 'bg-[#94a3b8]';
+    } else if (item.status === 'RESOLVIDO' || item.status === 'FECHADO') {
+      triagemTexto = `Finalizado sem triagem (${this.slaService.formatarTempo(decorridoMinutos)})`;
+      triagemProgresso = 100;
+      triagemEstilo = 'bg-[#22c55e]';
     } else if (decorridoMinutos > 15) {
-      triagemTexto = `Estourada · +${decorridoMinutos - 15} min`;
+      triagemTexto = `Estourada · +${this.slaService.formatarTempo(decorridoMinutos - 15)}`;
       triagemProgresso = 100;
       triagemEstilo = 'bg-[#dc2626]';
     } else if (triagemProgresso >= 80) {
@@ -141,8 +165,20 @@ export class DetalheChamado implements OnInit {
       respTexto = 'Respondido pelo suporte';
       respProgresso = 100;
       respEstilo = 'bg-[#22c55e]';
+    } else if (item.status === 'CANCELADO') {
+      respTexto = 'Encerrada (cancelado)';
+      respProgresso = 0;
+      respEstilo = 'bg-[#94a3b8]';
+    } else if (item.status === 'MESCLADO') {
+      respTexto = 'Incorporada ao principal';
+      respProgresso = 0;
+      respEstilo = 'bg-[#94a3b8]';
+    } else if (item.status === 'RESOLVIDO' || item.status === 'FECHADO') {
+      respTexto = `Encerrado em ${this.slaService.formatarTempo(decorridoMinutos)}`;
+      respProgresso = 100;
+      respEstilo = 'bg-[#22c55e]';
     } else if (decorridoMinutos > 15) {
-      respTexto = `Estourada · +${decorridoMinutos - 15} min`;
+      respTexto = `Estourada · +${this.slaService.formatarTempo(decorridoMinutos - 15)}`;
       respProgresso = 100;
       respEstilo = 'bg-[#dc2626]';
     } else if (respProgresso >= 80) {
@@ -169,9 +205,17 @@ export class DetalheChamado implements OnInit {
     let resolBarra = Math.min(100, Math.max(5, resolProgresso));
 
     if (item.status === 'RESOLVIDO' || item.status === 'FECHADO') {
-      resolTexto = 'Cumprida com sucesso';
+      resolTexto = `Cumprida em ${this.slaService.formatarTempo(decorridoMinutos)}`;
       resolBarra = 100;
       resolEstilo = 'bg-[#22c55e]';
+    } else if (item.status === 'CANCELADO') {
+      resolTexto = `Cancelado após ${this.slaService.formatarTempo(decorridoMinutos)}`;
+      resolBarra = 0;
+      resolEstilo = 'bg-[#94a3b8]';
+    } else if (item.status === 'MESCLADO') {
+      resolTexto = 'Incorporado ao chamado principal';
+      resolBarra = 0;
+      resolEstilo = 'bg-[#94a3b8]';
     } else if (item.status === 'AGUARDANDO') {
       resolTexto = 'Pausado (aguardando retorno)';
       resolEstilo = 'bg-[#9aa2b1]';
@@ -209,6 +253,40 @@ export class DetalheChamado implements OnInit {
       },
     ];
   });
+
+  /**
+   * Obtém o instante imutável de encerramento/cancelamento para congelar o contador de auditoria.
+   * Nunca retorna Date.now() para status finalizados.
+   */
+  private obterTimestampFinalizacaoAuditoria(item: ChamadoDetalhe, timestampAbertura: number): number {
+    if (item.status === 'RESOLVIDO' || item.status === 'FECHADO') {
+      const resolvido = this.slaService.parseData(item.resolvido_em_iso ?? item.resolvido_em);
+      if (!isNaN(resolvido)) return resolvido;
+    }
+
+    const tiposAlvo =
+      item.status === 'CANCELADO'
+        ? ['CHAMADO_CANCELADO']
+        : item.status === 'MESCLADO'
+          ? ['CHAMADO_MESCLADO']
+          : ['CHAMADO_RESOLVIDO', 'CHAMADO_FECHADO'];
+
+    const historico = item.historico ?? [];
+    for (let i = historico.length - 1; i >= 0; i--) {
+      const ev = historico[i];
+      if (tiposAlvo.includes(ev.tipo)) {
+        const ts = this.slaService.parseData(ev.ocorridoEmIso ?? ev.dataCompleta);
+        if (!isNaN(ts)) return ts;
+      }
+    }
+
+    for (let i = historico.length - 1; i >= 0; i--) {
+      const ts = this.slaService.parseData(historico[i].ocorridoEmIso ?? historico[i].dataCompleta);
+      if (!isNaN(ts)) return ts;
+    }
+
+    return isNaN(timestampAbertura) ? 0 : timestampAbertura;
+  }
 
   // Estados do Modal de Resolução (HU06)
   protected readonly modalResolucaoAberto = signal(false);

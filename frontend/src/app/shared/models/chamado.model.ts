@@ -344,6 +344,7 @@ export type SituacaoSla =
   | 'ESTOURADO'
   | 'PAUSADO'
   | 'CUMPRIDO'
+  | 'CANCELADO'
   | 'INCORPORADO';
 
 export interface SlaChamado {
@@ -369,6 +370,7 @@ export interface ChamadoResumo {
   categoria: ItemLista | null;
   canal_origem: CanalOrigem;
   status: StatusChamado;
+  motivo_espera?: MotivoEspera | null;
   /** Prioridade final; nula enquanto não houver triagem. */
   prioridade: PrioridadeChamado | null;
   prioridade_final?: PrioridadeChamado | null;
@@ -378,6 +380,7 @@ export interface ChamadoResumo {
   /** Nulo quando o chamado não tem responsável ("Não atribuído"). */
   responsavel: ResponsavelChamado | null;
   aberto_em: string;
+  resolvido_em?: string | null;
   /** Último evento do histórico; sem eventos, a data de abertura. */
   atualizado_em: string;
 }
@@ -410,6 +413,8 @@ export interface FilaChamados {
   total_paginas: number;
   /** Contagem com os mesmos filtros, menos o de status. Sempre traz os 9 status. */
   totais_por_status: Record<StatusChamado, number>;
+  /** Quantos chamados ativos da consulta (sem status) ultrapassaram o prazo de SLA. */
+  total_estourados?: number;
 }
 
 /** Chamados abertos por unidade numa janela de dias. Unidades sem chamados não aparecem. */

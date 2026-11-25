@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,8 +66,10 @@ public class FilaChamadosService {
             .map(chamado -> ChamadoResumoResponse.de(chamado, atualizacoes.get(chamado.getId())))
             .toList();
 
+        Specification<Chamado> filtroSemStatus = ChamadoSpecification.de(filtroFinal.semStatus());
         return new FilaChamadosResponse(itens, pagina, tamanho, resultado.getTotalElements(),
-            resultado.getTotalPages(), totaisPorStatus(filtroFinal));
+            resultado.getTotalPages(), totaisPorStatus(filtroSemStatus),
+            chamadoRepository.contarEstourados(filtroSemStatus));
     }
 
     private static void validarPaginacao(int pagina, int tamanho) {
@@ -107,9 +110,8 @@ public class FilaChamadosService {
     }
 
     /** Conta com os mesmos filtros, menos o de status, para os cartões continuarem mostrando todos os status. */
-    private Map<StatusChamado, Long> totaisPorStatus(FiltroChamados filtro) {
-        Map<StatusChamado, Long> contagem = chamadoRepository.contarPorStatus(
-            ChamadoSpecification.de(filtro.semStatus()));
+    private Map<StatusChamado, Long> totaisPorStatus(Specification<Chamado> filtroSemStatus) {
+        Map<StatusChamado, Long> contagem = chamadoRepository.contarPorStatus(filtroSemStatus);
         return comTodosOsStatus(contagem);
     }
 
@@ -122,6 +124,6 @@ public class FilaChamadosService {
     }
 
     private static FilaChamadosResponse paginaVazia(int pagina, int tamanho) {
-        return new FilaChamadosResponse(List.of(), pagina, tamanho, 0, 0, comTodosOsStatus(Map.of()));
+        return new FilaChamadosResponse(List.of(), pagina, tamanho, 0, 0, comTodosOsStatus(Map.of()), 0L);
     }
 }

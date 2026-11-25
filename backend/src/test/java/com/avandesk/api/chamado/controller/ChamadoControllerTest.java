@@ -258,12 +258,12 @@ class ChamadoControllerTest {
             id, "LUM-2026-000162", "Impressora de etiquetas parada",
             new UnidadeResumoResponse(UUID.randomUUID(), "U.03 Boa Viagem"),
             new CategoriaResponse(UUID.randomUUID(), "Equipamento de apoio"),
-            CanalOrigem.LIGACAO, StatusChamado.ABERTO, null, null,
-            Instant.parse("2026-10-29T12:00:00Z"), Instant.parse("2026-10-29T12:30:00Z"));
+            CanalOrigem.LIGACAO, StatusChamado.ABERTO, null, null, null,
+            Instant.parse("2026-10-29T12:00:00Z"), null, Instant.parse("2026-10-29T12:30:00Z"));
         Map<StatusChamado, Long> totais = new EnumMap<>(StatusChamado.class);
         totais.put(StatusChamado.ABERTO, 1L);
         when(filaChamadosService.listar(any(), eq(false), eq(0), eq(20)))
-            .thenReturn(new FilaChamadosResponse(List.of(linha), 0, 20, 1, 1, totais));
+            .thenReturn(new FilaChamadosResponse(List.of(linha), 0, 20, 1, 1, totais, 3L));
 
         mockMvc.perform(get("/api/v1/chamados"))
             .andExpect(status().isOk())
@@ -275,7 +275,8 @@ class ChamadoControllerTest {
             .andExpect(jsonPath("$.data.itens[0].atualizado_em").value("2026-10-29T12:30:00Z"))
             .andExpect(jsonPath("$.data.total_itens").value(1))
             .andExpect(jsonPath("$.data.total_paginas").value(1))
-            .andExpect(jsonPath("$.data.totais_por_status.ABERTO").value(1));
+            .andExpect(jsonPath("$.data.totais_por_status.ABERTO").value(1))
+            .andExpect(jsonPath("$.data.total_estourados").value(3));
     }
 
     @Test
@@ -523,6 +524,6 @@ class ChamadoControllerTest {
     }
 
     private static FilaChamadosResponse paginaVazia() {
-        return new FilaChamadosResponse(List.of(), 0, 20, 0, 0, new EnumMap<>(StatusChamado.class));
+        return new FilaChamadosResponse(List.of(), 0, 20, 0, 0, new EnumMap<>(StatusChamado.class), 0L);
     }
 }

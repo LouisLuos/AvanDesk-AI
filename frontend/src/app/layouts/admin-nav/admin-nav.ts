@@ -49,7 +49,7 @@ interface AbaAdmin {
 })
 export class AdminNav {
   protected readonly abas: ReadonlyArray<AbaAdmin> = [
-    { rotulo: 'Painel da Administração', id: 'aba-painel' },
+    { rotulo: 'Painel da Administração', id: 'aba-painel', rota: '/admin/painel' },
     { rotulo: 'Unidades', id: 'aba-unidades', rota: '/admin/unidades' },
     { rotulo: 'Analistas', id: 'aba-analistas', rota: '/admin/analistas' },
     { rotulo: 'Fornecedores Externos', id: 'aba-fornecedores' },
