@@ -556,7 +556,7 @@ Move o chamado pelo ciclo de vida (diagrama v3 da seção 6 da análise de domí
 * Ao sair de `AGUARDANDO`, `motivo_espera` volta a `null`.
 * **Espera por fornecedor (HU07):** não passa por aqui. O chamado entra em `AGUARDANDO` com motivo `FORNECEDOR` só pelo escalonamento e sai só pelo registro do retorno (seção 12). Assim todo chamado que aguarda fornecedor tem um escalonamento aberto, com fornecedor e data de envio, e o tempo em terceiros (M05) não perde nenhum período. **Mudou na HU07:** antes este endpoint aceitava `FORNECEDOR`.
 * **Reabertura (RN20):** no MVP quem reabre é o analista, quando o solicitante avisa que o problema voltou. Depois de 7 dias da resolução, um novo relato vira um novo chamado. Ao reabrir, `resolvido_em` volta a `null`; a resolução anterior continua no chamado e no histórico. O responsável não muda.
-* `RESOLVIDO`, `FECHADO` e `MESCLADO` têm operação própria (seção 9, HU15 e seção 13) e não são definidos por aqui.
+* `RESOLVIDO`, `FECHADO` e `MESCLADO` têm operação própria (seções 9, 15 e 13) e não são definidos por aqui.
 * Campos que não servem para a transição pedida são ignorados.
 
 ### Response: `200 OK`
@@ -976,7 +976,83 @@ No detalhe do principal, os contatos recebidos aparecem em `registros_contato` c
 
 ---
 
-## 15. Painel da Administração e Métricas de SLA (HU08)
+## 15. Encerrar o Chamado com Verificação de Rastreabilidade (HU15)
+
+O encerramento só acontece depois de um checklist automático: o histórico precisa ter os seis itens de rastreabilidade (métrica M01).
+
+### 15.1. Conferir o checklist
+
+* **Endpoint:** `GET /chamados/{id}/verificacao-encerramento`
+* **Autenticação:** Bearer Token
+
+```json
+{
+  "status_code": 200,
+  "message": "Verificação de encerramento concluída",
+  "data": {
+    "aprovado": false,
+    "itens_conformes": 5,
+    "total_itens": 6,
+    "itens": [
+      { "codigo": "PROBLEMA_E_CATEGORIA", "descricao": "Problema e categoria descritos", "ok": true, "pendencia": null },
+      { "codigo": "UNIDADE", "descricao": "Unidade associada", "ok": true, "pendencia": null },
+      { "codigo": "RESPONSAVEL", "descricao": "Responsável identificado", "ok": true, "pendencia": null },
+      { "codigo": "CONTATO", "descricao": "Ao menos um contato registrado", "ok": true, "pendencia": null },
+      { "codigo": "CAUSA_RAIZ_OU_JUSTIFICATIVA", "descricao": "Causa raiz ou justificativa preenchida", "ok": false, "pendencia": "Informe a causa raiz na resolução ou justifique, com pelo menos 15 caracteres, por que não há causa raiz." },
+      { "codigo": "RESOLUCAO", "descricao": "Resolução detalhada", "ok": true, "pendencia": null }
+    ]
+  },
+  "errors": null
+}
+```
+
+**Os seis itens:**
+
+| Código | Conforme quando |
+| :--- | :--- |
+| `PROBLEMA_E_CATEGORIA` | descrição com pelo menos 10 caracteres e categoria informada |
+| `UNIDADE` | o chamado tem unidade |
+| `RESPONSAVEL` | o chamado tem responsável |
+| `CONTATO` | há ao menos um registro de contato |
+| `CAUSA_RAIZ_OU_JUSTIFICATIVA` | há causa raiz (HU06) ou, no encerramento, `justificativa_sem_causa_raiz` com pelo menos 15 caracteres |
+| `RESOLUCAO` | resolução com pelo menos 10 caracteres |
+
+### 15.2. Encerrar
+
+* **Endpoint:** `POST /chamados/{id}/fechar`
+* **Autenticação:** Bearer Token
+
+```json
+{
+  "justificativa_sem_causa_raiz": "Falha intermitente, sem causa identificada."
+}
+```
+
+**Regras:**
+
+* Só a partir de `RESOLVIDO` e após o prazo de **7 dias** para reabertura (`resolvido_em <= agora - 7 dias`, RN20). O corpo é opcional; `justificativa_sem_causa_raiz` (até 500 caracteres) só é necessária quando o chamado não tem causa raiz.
+* Roda o mesmo checklist da seção 15.1. Com algum item pendente, responde `422` e lista cada pendência em `errors`.
+* Aprovado, o chamado vai para `FECHADO`, grava `fechado_em` (UTC) e o evento `CHAMADO_FECHADO` com o resultado da verificação para a M01: `status_anterior`, `itens_conformes`, `total_itens`, `itens_verificados` e, quando usada, `justificativa_sem_causa_raiz`.
+* `FECHADO` é final: não volta a nenhum status (a reabertura é a partir de `RESOLVIDO`, seção 8).
+
+### Response: `200 OK`
+
+O detalhe atualizado do chamado (seção 5), com `status` `FECHADO`.
+
+### Erros
+
+| Situação | Status | Mensagem |
+| :--- | :---: | :--- |
+| `justificativa_sem_causa_raiz` com mais de 500 caracteres | `400` | "Campo 'justificativa_sem_causa_raiz' deve ter no máximo 500 caracteres." |
+| Chamado inexistente | `404` | "Chamado não encontrado." |
+| Status diferente de `RESOLVIDO` | `422` | "Só é possível encerrar um chamado RESOLVIDO (status atual: EM_ATENDIMENTO)." |
+| Prazo de 7 dias para reabertura ainda em aberto | `422` | "Só é possível encerrar o chamado após o prazo de 7 dias para reabertura." |
+| Itens pendentes | `422` | Uma linha por pendência em `errors`, como "Atribua um responsável ao chamado." |
+| Sem token | `401` | — |
+
+---
+
+## 16. Painel da Administração e Métricas de SLA (HU08)
 
 Fornece os indicadores executivos agregados da operação (sem exposição de dados clínicos ou anexos, respeitando a RN06) e dispara os alertas da Seção 9.7.
 

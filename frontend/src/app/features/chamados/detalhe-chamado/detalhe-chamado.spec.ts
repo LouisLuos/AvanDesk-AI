@@ -15,6 +15,8 @@ import {
   FilaChamados,
   STATUS_CHAMADO,
   StatusChamado,
+  CodigoItemVerificacao,
+  VerificacaoEncerramento,
 } from '../../../shared/models/chamado.model';
 import {
   calcularMinutosEmTerceiros,
@@ -1189,6 +1191,167 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
       const el = fixture.nativeElement as HTMLElement;
       expect(el.querySelector('#card-chamados-mesclados')?.textContent).toContain('LUM-2026-000101');
       expect(el.textContent).toContain('Origem: LUM-2026-000101');
+    });
+  });
+
+  describe('Encerramento com verificação de rastreabilidade (HU15)', () => {
+    const resolvido: ChamadoDetalhe = {
+      ...mockDetalhe,
+      status: 'RESOLVIDO',
+      resolucao: 'Cabo trocado e impressora testada com etiqueta de amostra.',
+      causa_raiz: null,
+    };
+
+    function itens(pendentes: Partial<Record<CodigoItemVerificacao, string>> = {}): VerificacaoEncerramento {
+      const base: Array<[CodigoItemVerificacao, string]> = [
+        ['PROBLEMA_E_CATEGORIA', 'Problema e categoria descritos'],
+        ['UNIDADE', 'Unidade associada'],
+        ['RESPONSAVEL', 'Responsável identificado'],
+        ['CONTATO', 'Ao menos um contato registrado'],
+        ['CAUSA_RAIZ_OU_JUSTIFICATIVA', 'Causa raiz ou justificativa preenchida'],
+        ['RESOLUCAO', 'Resolução detalhada'],
+      ];
+      const lista = base.map(([codigo, descricao]) => ({
+        codigo,
+        descricao,
+        ok: !pendentes[codigo],
+        pendencia: pendentes[codigo] ?? null,
+      }));
+      const conformes = lista.filter((i) => i.ok).length;
+      return { aprovado: conformes === 6, itens_conformes: conformes, total_itens: 6, itens: lista };
+    }
+
+    function abrir(verificacao: VerificacaoEncerramento): HTMLElement {
+      vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(resolvido));
+      vi.spyOn(chamadoService, 'verificarEncerramento').mockReturnValue(of(verificacao));
+      fixture = TestBed.createComponent(DetalheChamado);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+      const elemento = fixture.nativeElement as HTMLElement;
+      (elemento.querySelector('#btn-encerrar-chamado') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      return elemento;
+    }
+
+    const botaoConfirmar = (el: HTMLElement) =>
+      el.querySelector('#btn-confirmar-encerramento') as HTMLButtonElement;
+
+    it('mostra o botão de encerrar só para chamado resolvido', () => {
+      vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(mockDetalhe));
+      const emAtendimento = TestBed.createComponent(DetalheChamado);
+      emAtendimento.detectChanges();
+      expect((emAtendimento.nativeElement as HTMLElement).querySelector('#btn-encerrar-chamado')).toBeNull();
+
+      const elemento = abrir(itens());
+      expect(chamadoService.verificarEncerramento).toHaveBeenCalledWith('chm-127');
+      expect(elemento.querySelector('#modal-encerramento-titulo')?.textContent).toContain('Encerrar chamado');
+    });
+
+    it('mostra os seis itens e libera o encerramento quando todos estão conformes', () => {
+      const elemento = abrir(itens());
+
+      const linhas = elemento.querySelectorAll('#checklist-encerramento li');
+      expect(linhas).toHaveLength(6);
+      expect(Array.from(linhas).every((li) => li.getAttribute('data-ok') === 'true')).toBe(true);
+      expect(elemento.querySelector('#resumo-verificacao')?.textContent).toContain('pode ser encerrado');
+      expect(elemento.querySelector('#campo-justificativa-sem-causa-raiz')).toBeNull();
+      expect(botaoConfirmar(elemento).disabled).toBe(false);
+    });
+
+    it('aponta as pendências e bloqueia o encerramento', () => {
+      const elemento = abrir(itens({ RESPONSAVEL: 'Atribua um responsável ao chamado.' }));
+
+      const responsavel = elemento.querySelector('[data-item="RESPONSAVEL"]');
+      expect(responsavel?.getAttribute('data-ok')).toBe('false');
+      expect(responsavel?.textContent).toContain('Atribua um responsável ao chamado.');
+      expect(elemento.querySelector('#resumo-verificacao')?.textContent).toContain('Resolva as pendências');
+      expect(botaoConfirmar(elemento).disabled).toBe(true);
+    });
+
+    it('sem causa raiz, libera com justificativa de 15 caracteres e a envia no encerramento', () => {
+      const elemento = abrir(
+        itens({ CAUSA_RAIZ_OU_JUSTIFICATIVA: 'Informe a causa raiz na resolução ou justifique.' }),
+      );
+      const fecharSpy = vi
+        .spyOn(chamadoService, 'fechar')
+        .mockReturnValue(of({ ...resolvido, status: 'FECHADO' }));
+      const campo = elemento.querySelector('#campo-justificativa-sem-causa-raiz') as HTMLTextAreaElement;
+      expect(campo).not.toBeNull();
+
+      campo.value = 'Sem causa';
+      campo.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(botaoConfirmar(elemento).disabled).toBe(true);
+
+      campo.value = 'Falha intermitente, sem causa identificada.';
+      campo.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(
+        elemento.querySelector('[data-item="CAUSA_RAIZ_OU_JUSTIFICATIVA"]')?.getAttribute('data-ok'),
+      ).toBe('true');
+      expect(botaoConfirmar(elemento).disabled).toBe(false);
+
+      botaoConfirmar(elemento).click();
+      fixture.detectChanges();
+
+      expect(fecharSpy).toHaveBeenCalledWith('chm-127', {
+        justificativa_sem_causa_raiz: 'Falha intermitente, sem causa identificada.',
+      });
+    });
+
+    it('encerra, avisa e atualiza o chamado para fechado', () => {
+      const elemento = abrir(itens());
+      const fecharSpy = vi
+        .spyOn(chamadoService, 'fechar')
+        .mockReturnValue(of({ ...resolvido, status: 'FECHADO' }));
+      const toastSpy = vi.spyOn(toastService, 'sucesso');
+
+      botaoConfirmar(elemento).click();
+      fixture.detectChanges();
+
+      expect(fecharSpy).toHaveBeenCalledWith('chm-127', {});
+      expect(toastSpy).toHaveBeenCalledWith('Chamado encerrado.');
+      expect(component['chamado']()?.status).toBe('FECHADO');
+      expect(component['modalEncerramentoAberto']()).toBe(false);
+      expect(elemento.querySelector('#btn-encerrar-chamado')).toBeNull();
+    });
+
+    it('mostra as pendências que o servidor devolver e mantém o modal aberto', () => {
+      const elemento = abrir(itens());
+      vi.spyOn(chamadoService, 'fechar').mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 422,
+              error: {
+                message: 'Operação não permitida',
+                errors: ['Registre ao menos um contato do solicitante.'],
+              },
+            }),
+        ),
+      );
+
+      botaoConfirmar(elemento).click();
+      fixture.detectChanges();
+
+      expect(elemento.querySelector('#erros-encerramento')?.textContent).toContain(
+        'Registre ao menos um contato do solicitante.',
+      );
+      expect(component['modalEncerramentoAberto']()).toBe(true);
+    });
+
+    it('chama GET /verificacao-encerramento e POST /fechar no backend', () => {
+      chamadoService.verificarEncerramento('chm-127').subscribe();
+      httpMock
+        .expectOne((r) => r.url.endsWith('/chamados/chm-127/verificacao-encerramento') && r.method === 'GET')
+        .flush({ status_code: 200, message: 'ok', data: itens(), errors: null });
+
+      chamadoService
+        .fechar('chm-127', { justificativa_sem_causa_raiz: 'Falha intermitente sem causa.' })
+        .subscribe();
+      const req = httpMock.expectOne((r) => r.url.endsWith('/chamados/chm-127/fechar') && r.method === 'POST');
+      expect(req.request.body).toEqual({ justificativa_sem_causa_raiz: 'Falha intermitente sem causa.' });
+      req.flush({ status_code: 200, message: 'ok', data: { ...resolvido, status: 'FECHADO' }, errors: null });
     });
   });
 

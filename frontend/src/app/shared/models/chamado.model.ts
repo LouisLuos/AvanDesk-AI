@@ -461,3 +461,29 @@ export interface PrioridadeRequest {
   prioridade_final?: PrioridadeChamado;
   justificativa_prioridade?: string | null;
 }
+
+export type CodigoItemVerificacao =
+  | 'PROBLEMA_E_CATEGORIA'
+  | 'UNIDADE'
+  | 'RESPONSAVEL'
+  | 'CONTATO'
+  | 'CAUSA_RAIZ_OU_JUSTIFICATIVA'
+  | 'RESOLUCAO';
+
+export interface ItemVerificacao {
+  codigo: CodigoItemVerificacao;
+  descricao: string;
+  ok: boolean;
+  pendencia: string | null;
+}
+
+export interface VerificacaoEncerramento {
+  aprovado: boolean;
+  itens_conformes: number;
+  total_itens: number;
+  itens: ItemVerificacao[];
+}
+
+export interface FechamentoRequest {
+  justificativa_sem_causa_raiz?: string;
+}

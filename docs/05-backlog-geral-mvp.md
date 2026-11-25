@@ -504,17 +504,17 @@ flowchart TD
 **História:** Como analista de suporte, quero encerrar um chamado resolvido e saber se o registro está completo, para garantir que fique rastreável.
 
 **Critérios de aceite**
-- [ ] Só encerra chamado em `RESOLVIDO`.
-- [ ] Verifica: problema, unidade, responsável, ao menos um contato, evolução de status e resolução.
-- [ ] Indica o que está pendente quando falta algo.
-- [ ] Registra o encerramento no histórico (`CHAMADO_FECHADO`) e grava `fechado_em`.
-- [ ] Armazena o resultado da verificação para a métrica M01.
+- [x] Só encerra chamado em `RESOLVIDO` (após o prazo de 7 dias para reabertura da RN20).
+- [x] Verifica: problema, unidade, responsável, ao menos um contato, evolução de status e resolução.
+- [x] Indica o que está pendente quando falta algo.
+- [x] Registra o encerramento no histórico (`CHAMADO_FECHADO`) e grava `fechado_em`.
+- [x] Armazena o resultado da verificação para a métrica M01.
 
 **Tarefas técnicas**
-- [ ] **[BE]** Verificador de rastreabilidade e endpoint de encerramento.
-- [ ] **[FE]** Checklist visual de pendências antes de encerrar.
-- [ ] **[QA]** Teste de bloqueio de encerramento incompleto: tentar fechar chamado sem resolução ou sem histórico de transição e validar recusa detalhada.
-- [ ] **[QA]** Teste de conformidade M01: validação de gravação do score de rastreabilidade e timestamp `fechado_em` no encerramento aprovado.
+- [x] **[BE]** Verificador de rastreabilidade e endpoint de encerramento.
+- [x] **[FE]** Checklist visual de pendências antes de encerrar.
+- [x] **[QA]** Teste de bloqueio de encerramento incompleto: tentar fechar chamado sem resolução ou sem histórico de transição e validar recusa detalhada.
+- [x] **[QA]** Teste de conformidade M01: validação de gravação do score de rastreabilidade e timestamp `fechado_em` no encerramento aprovado.
 
 ### 🏷️ [T-PRIV] Anexos com privacidade e auditoria (LGPD)
 
