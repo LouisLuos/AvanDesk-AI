@@ -272,7 +272,7 @@ components:
                 additionalProperties: true
     ChamadoResumoResponse:
       type: object
-      description: "Uma linha da fila de chamados (HU14). Ainda sem SLA: o cálculo do prazo é de outra HU."
+      description: "Uma linha da fila de chamados (HU14)."
       properties:
         id:
           type: string
@@ -303,6 +303,11 @@ components:
         status:
           type: string
           enum: [ABERTO, EM_TRIAGEM, EM_ATENDIMENTO, AGUARDANDO, RESOLVIDO, REABERTO, FECHADO, CANCELADO, MESCLADO]
+        motivo_espera:
+          type: string
+          nullable: true
+          enum: [FORNECEDOR, SOLICITANTE, PECA_EQUIPAMENTO]
+          description: "Motivo da espera quando o status é AGUARDANDO; nulo nos outros status."
         prioridade:
           type: string
           nullable: true
@@ -323,6 +328,11 @@ components:
           type: string
           format: date-time
           example: "2026-10-29T12:00:00Z"
+        resolvido_em:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Data da resolução atual (HU06). Nula enquanto não for resolvido e de novo quando for reaberto."
         atualizado_em:
           type: string
           format: date-time
@@ -366,6 +376,11 @@ components:
             FECHADO: 0
             CANCELADO: 0
             MESCLADO: 0
+        total_estourados:
+          type: integer
+          format: int64
+          description: "Chamados em andamento que atendem aos filtros (ignorando o de status) e já passaram do prazo: 15 min sem prioridade ou em triagem, 2 h ALTA, 8 h MEDIA, 24 h BAIXA, contados da abertura e descontando a espera pelo solicitante. Os que estão aguardando o solicitante não entram."
+          example: 3
     ItemListaResponse:
       type: object
       description: "Item das listas do formulário de registro (categorias e sistemas/equipamentos)."
@@ -621,6 +636,151 @@ components:
           type: string
           format: uuid
           description: "Chamado principal, que recebe os contatos do duplicado. Diferente do {id} do caminho. Para achar pelo protocolo, use GET /chamados?codigo=."
+    DashboardMetricasResponse:
+      type: object
+      description: "Indicadores executivos de SLA, metas de processo e comparativo entre unidades (HU08 / Seção 9.7)."
+      properties:
+        periodo:
+          type: object
+          properties:
+            inicio:
+              type: string
+              format: date-time
+            fim:
+              type: string
+              format: date-time
+            inicio_periodo_anterior:
+              type: string
+              format: date-time
+            fim_periodo_anterior:
+              type: string
+              format: date-time
+            unidade_id_filtro:
+              type: string
+              format: uuid
+              nullable: true
+        kpis:
+          type: object
+          properties:
+            chamados_abertos:
+              type: object
+              properties:
+                total_atual: { type: integer, format: int64, example: 182 }
+                total_periodo_anterior: { type: integer, format: int64, example: 168 }
+                variacao_percentual: { type: number, nullable: true, example: 8.33 }
+            tempo_resolucao:
+              type: object
+              properties:
+                mediano_segundos: { type: number, example: 10080 }
+                medio_segundos: { type: number, example: 9840 }
+                p90_segundos: { type: number, example: 16200 }
+                diferenca_mediana_segundos_anterior: { type: number, nullable: true, example: -720 }
+                diferenca_media_segundos_anterior: { type: number, nullable: true, example: -600 }
+            chamados_rastreaveis:
+              type: object
+              properties:
+                percentual: { type: number, example: 91.0 }
+                meta_inicial_percentual: { type: number, example: 90.0 }
+                dentro_da_meta: { type: boolean, example: true }
+                total_avaliados: { type: integer, format: int64, example: 100 }
+                total_conformes: { type: integer, format: int64, example: 91 }
+            dentro_da_meta_sla:
+              type: object
+              properties:
+                percentual: { type: number, example: 84.0 }
+                meta_inicial_percentual: { type: number, example: 80.0 }
+                dentro_da_meta: { type: boolean, example: true }
+                total_avaliados: { type: integer, format: int64, example: 100 }
+                total_conformes: { type: integer, format: int64, example: 84 }
+        indicadores_processo:
+          type: object
+          properties:
+            tt_medio_segundos: { type: number }
+            tpr_medio_segundos: { type: number }
+            tr_medio_segundos: { type: number }
+            tr_p90_segundos: { type: number }
+            m06_taxa_reabertura_percentual: { type: number }
+            m07_taxa_duplicidade_percentual: { type: number }
+            m07_total_duplicados: { type: integer, format: int64 }
+            m11_tempo_registro_medio_segundos: { type: number }
+            m08_percentual_divergencia_prioridade: { type: number }
+            m12_incidentes_privacidade: { type: integer, format: int64 }
+        alertas:
+          type: object
+          properties:
+            alerta_divergencia_prioridade_m08: { type: boolean }
+            alerta_tempo_registro_m11: { type: boolean }
+            alerta_critico_privacidade_m12: { type: boolean }
+        chamados_por_unidade:
+          type: array
+          items:
+            type: object
+            properties:
+              unidade_id: { type: string, format: uuid }
+              unidade_nome: { type: string }
+              unidade_identificacao: { type: string }
+              total_chamados: { type: integer, format: int64 }
+              chamados_resolvidos: { type: integer, format: int64 }
+              percentual_dentro_da_meta: { type: number }
+              tempo_medio_atendimento_segundos: { type: number }
+        chamados_por_responsavel:
+          type: array
+          description: "Distribuição de chamados em aberto (em andamento) por analista responsável (M02)."
+          items:
+            type: object
+            properties:
+              responsavel_id: { type: string, format: uuid, nullable: true }
+              responsavel_nome: { type: string }
+              total_em_aberto: { type: integer, format: int64 }
+              total_alta_prioridade: { type: integer, format: int64 }
+        sla_por_prioridade:
+          type: array
+          items:
+            type: object
+            properties:
+              prioridade: { type: string, enum: [ALTA, MEDIA, BAIXA] }
+              rotulo: { type: string }
+              meta_segundos: { type: integer, format: int64 }
+              total_avaliados: { type: integer, format: int64 }
+              total_dentro_da_meta: { type: integer, format: int64 }
+              percentual_dentro_da_meta: { type: number }
+              abaixo_da_meta_inicial: { type: boolean }
+        problemas_recorrentes:
+          type: array
+          items:
+            type: object
+            properties:
+              problema: { type: string }
+              ocorrencias: { type: integer, format: int64 }
+              ultima_ocorrencia: { type: string, format: date-time }
+              unidades_mais_afetadas:
+                type: array
+                items: { type: string }
+        tempo_em_terceiros:
+          type: array
+          items:
+            type: object
+            properties:
+              fornecedor: { type: string }
+              total_escalonamentos: { type: integer, format: int64 }
+              escalonamentos_concluidos: { type: integer, format: int64 }
+              tempo_medio_retorno_segundos: { type: number }
+        volume_por_categoria:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              nome: { type: string }
+              total_chamados: { type: integer, format: int64 }
+        volume_por_equipamento:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              nome: { type: string }
+              total_chamados: { type: integer, format: int64 }
 security:
   - bearerAuth: []
 paths:
@@ -1837,3 +1997,54 @@ paths:
           description: Perfil diferente de Liderança de TI
         '404':
           description: Analista não encontrado
+  /dashboard/metricas:
+    get:
+      summary: Consultar indicadores executivos de SLA, alertas 9.7 e comparativo de unidades (HU08)
+      description: Restrito ao perfil LIDERANCA_TI (RN06). Sem inicio/fim, considera os últimos 30 dias.
+      tags:
+        - Dashboard
+      parameters:
+        - in: query
+          name: inicio
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: fim
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: unidade_id
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Métricas recuperadas com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/DashboardMetricasResponse'
+        '400':
+          description: Período inválido (data inicial posterior à data final)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Token ausente ou inválido
+        '403':
+          description: Perfil diferente de Liderança de TI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'

@@ -1,0 +1,16 @@
+# =============================================
+# application-demo.yml
+# Perfil dedicado para simulação operacional (60 dias / 180 chamados / 14 unidades / 7 analistas)
+# Uso local: ./mvnw spring-boot:run -Dspring-boot.run.profiles=demo
+# Uso Docker/Nuvem: SPRING_PROFILES_ACTIVE=demo
+# =============================================
+
+spring:
+  jpa:
+    show-sql: false
+
+nexo:
+  # Segrega toda a simulação (e novos chamados abertos ao vivo na demo) de REAL e TESTE
+  origem-dado: SIMULADO
+  seed:
+    simulacao-habilitada: true

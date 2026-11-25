@@ -399,7 +399,7 @@ Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 e
 
 ## 6. Listar e Buscar Chamados na Fila (HU14)
 
-Lista os chamados de forma paginada, **do mais recente para o mais antigo** (`aberto_em DESC`, com `id` para desempatar). A ordem é fixa: o cliente não escolhe o campo. Todos os filtros são opcionais e **se somam** (cada filtro informado restringe mais o resultado). A resposta também traz os totais por status para os cartões do topo da tela.
+Lista os chamados de forma paginada, **do mais recente para o mais antigo** (`aberto_em DESC`, com `id` para desempatar). A ordem é fixa: o cliente não escolhe o campo. Todos os filtros são opcionais e **se somam** (cada filtro informado restringe mais o resultado). A resposta também traz os totais por status e o total de chamados com o prazo estourado, para os cartões do topo da tela.
 
 * **Endpoint:** `GET /chamados` (ex.: `GET /chamados?meus=true&status=EM_ATENDIMENTO`)
 * **Autenticação:** Bearer Token (Analista de Suporte ou Liderança de TI)
@@ -436,9 +436,11 @@ Lista os chamados de forma paginada, **do mais recente para o mais antigo** (`ab
         "categoria": { "id": "c4e0a000-0002-4000-8000-000000000002", "nome": "Equipamento de apoio" },
         "canal_origem": "LIGACAO",
         "status": "ABERTO",
+        "motivo_espera": null,
         "prioridade": null,
         "responsavel": null,
         "aberto_em": "2026-10-29T12:00:00Z",
+        "resolvido_em": null,
         "atualizado_em": "2026-10-29T12:30:00Z"
       }
     ],
@@ -449,18 +451,24 @@ Lista os chamados de forma paginada, **do mais recente para o mais antigo** (`ab
     "totais_por_status": {
       "ABERTO": 12, "EM_TRIAGEM": 5, "EM_ATENDIMENTO": 9, "AGUARDANDO": 4, "RESOLVIDO": 1,
       "REABERTO": 0, "FECHADO": 0, "CANCELADO": 0, "MESCLADO": 0
-    }
+    },
+    "total_estourados": 3
   },
   "errors": null
 }
 ```
 
 * **`titulo`:** primeira linha da descrição, com até 80 caracteres (cortada com `…`).
+* **`motivo_espera`:** `FORNECEDOR`, `SOLICITANTE` ou `PECA_EQUIPAMENTO` quando o chamado está em `AGUARDANDO`; `null` nos outros status.
 * **`prioridade`:** prioridade final; `null` enquanto não houver triagem.
 * **`responsavel`:** `null` quando o chamado não tem responsável ("Não atribuído").
+* **`resolvido_em`:** data da resolução atual (HU06); `null` enquanto o chamado não for resolvido e de novo quando for reaberto.
 * **`atualizado_em`:** data do último evento do histórico; sem eventos, a data de abertura.
 * **`totais_por_status`:** contagem com os mesmos filtros, **menos o de status**, para os cartões continuarem mostrando todos os status. Os 9 status sempre aparecem, mesmo com zero.
-* **SLA:** ainda não vem na resposta. O cálculo de prazo é de outra HU; a tela exibe "—".
+* **`total_estourados`:** quantos chamados com os mesmos filtros (**menos o de status**) já passaram do prazo:
+  * Entram só os chamados em andamento (`ABERTO`, `EM_TRIAGEM`, `EM_ATENDIMENTO`, `AGUARDANDO` e `REABERTO`). Os que estão em `AGUARDANDO` com motivo `SOLICITANTE` ficam de fora, porque o relógio está parado.
+  * Prazo, contado a partir de `aberto_em`: 15 min sem prioridade ou em `EM_TRIAGEM`; 2 h para `ALTA`, 8 h para `MEDIA` e 24 h para `BAIXA`.
+  * Do tempo corrido sai o tempo em que o chamado esperou o solicitante: de cada `CHAMADO_AGUARDANDO` com motivo `SOLICITANTE` até o próximo evento que muda o status. Esperas por `FORNECEDOR` ou `PECA_EQUIPAMENTO` continuam contando (RN07).
 
 ### Erros
 
@@ -965,3 +973,39 @@ No detalhe do principal, os contatos recebidos aparecem em `registros_contato` c
 ## 14. Evolução do Ciclo de Atendimento (HU04 — Planejado)
 
 * **`PATCH /chamados/{id}/prioridade`** (`HU04`): registra a triagem estruturada pela Matriz 3D (`severidade`, `urgencia`, `impacto_operacional`).
+
+---
+
+## 15. Painel da Administração e Métricas de SLA (HU08)
+
+Fornece os indicadores executivos agregados da operação (sem exposição de dados clínicos ou anexos, respeitando a RN06) e dispara os alertas da Seção 9.7.
+
+* **Endpoint:** `GET /dashboard/metricas`
+* **Autenticação:** Bearer Token (apenas **Liderança de TI** — `@PreAuthorize("hasRole('LIDERANCA_TI')")`)
+
+### Query Parameters
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+| :--- | :--- | :---: | :--- |
+| `inicio` | `date-time` (UTC) | Não | Início da janela analisada. Padrão: 30 dias antes de `fim`. |
+| `fim` | `date-time` (UTC) | Não | Fim da janela analisada. Padrão: instante atual (`now`). |
+| `unidade_id` | `uuid` | Não | Filtra KPIs, SLA por prioridade, recorrências, terceiros, categorias e equipamentos por unidade. O comparativo `chamados_por_unidade` mantém todas as unidades ativas. |
+
+### Regras de Cálculo (Seção 9.7 e SLA)
+
+* Segregação de dados: considera estritamente registros cujo `origem_dado` coincide com `nexo.origem-dado` (`REAL` em produção, `TESTE` em desenvolvimento).
+* **TR (Tempo de Resolução líquido) e P90:** desconta o tempo em que o chamado permaneceu em `AGUARDANDO` com `motivo_espera = SOLICITANTE` (considerando na janela `LEAD()` apenas eventos que alteram o estado do relógio de SLA); esperas por `FORNECEDOR` (RN07) ou `PECA_EQUIPAMENTO` continuam contando no SLA. Expõe mediana (`P50`), média e percentil 90 (`P90`).
+* **Métricas M01–M12 consolidadas:** `M01` (rastreabilidade), `M02` (`chamados_por_responsavel` em aberto + P1), `M03` (TT, TPR, TR, P90), `M04` (SLA geral e P1/P2/P3), `M05` (`tempo_em_terceiros`), `M06` (taxa de reabertura), `M07` (taxa e volume de chamados mesclados/duplicados), `M08` (divergência de prioridade), `M11` (tempo médio de registro) e `M12` (incidentes de privacidade).
+* **Metas de referência por prioridade:** `ALTA` (P1) ≤ 2h (`7200s`), `MEDIA` (P2) ≤ 8h (`28800s`), `BAIXA` (P3) ≤ 24h (`86400s`).
+* **Alertas automáticos:**
+  * `alerta_divergencia_prioridade_m08`: `true` quando M08 > `30%`.
+  * `alerta_tempo_registro_m11`: `true` quando M11 > `60s`.
+  * `alerta_critico_privacidade_m12`: `true` quando M12 > `0` (`ANEXO_VISUALIZADO` por perfil `LIDERANCA_TI` ou marcado como violação).
+
+### Erros
+
+| Caso | Status | Descrição |
+| :--- | :---: | :--- |
+| `inicio` posterior a `fim` | `400` | `"A data inicial do filtro não pode ser posterior à data final."` |
+| Perfil diferente de Liderança de TI | `403` | `"Acesso negado para o perfil do usuário."` |
+| Sem token | `401` | — |

@@ -12,6 +12,7 @@ import java.util.Map;
  * @param pagina          número da página, começando em 0
  * @param totaisPorStatus quantos chamados de cada status atendem aos filtros, ignorando o filtro de
  *                        status (cartões do topo da tela). Todos os status aparecem, mesmo com zero.
+ * @param totalEstourados quantos chamados ativos que atendem aos filtros (sem status) ultrapassaram o SLA.
  */
 public record FilaChamadosResponse(
     List<ChamadoResumoResponse> itens,
@@ -19,6 +20,7 @@ public record FilaChamadosResponse(
     int tamanho,
     long totalItens,
     int totalPaginas,
-    Map<StatusChamado, Long> totaisPorStatus
+    Map<StatusChamado, Long> totaisPorStatus,
+    long totalEstourados
 ) {
 }

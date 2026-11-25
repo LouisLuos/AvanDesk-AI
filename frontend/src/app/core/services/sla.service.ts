@@ -2,7 +2,6 @@ import { Injectable, signal } from '@angular/core';
 import {
   MotivoEspera,
   PrioridadeChamado,
-  SituacaoSla,
   SlaChamado,
   StatusChamado,
 } from '../../shared/models/chamado.model';
@@ -13,17 +12,22 @@ export interface DadosCalculoSla {
   prioridade?: PrioridadeChamado | null;
   motivo_espera?: MotivoEspera | null;
   resolvido_em?: string | null;
+  /** Instante explícito de finalização/cancelamento (ex.: fechado_em ou evento CHAMADO_CANCELADO). */
+  encerrado_em?: string | null;
+  /** Último evento registrado no chamado (fallback congelado para auditoria, nunca Date.now()). */
+  atualizado_em?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
 export class SlaService {
   /**
-   * Signal de timestamp atualizado periodicamente para reatividade contínua.
+   * Signal de timestamp atualizado periodicamente para reatividade contínua
+   * apenas dos chamados ativos (em andamento).
    */
   readonly agora = signal<number>(Date.now());
 
   constructor() {
-    // Atualiza a cada 30 segundos para manter os cronômetros e barras sincronizados
+    // Atualiza a cada 30 segundos para manter os cronômetros e barras dos chamados ativos sincronizados
     if (typeof window !== 'undefined') {
       setInterval(() => {
         this.agora.set(Date.now());
@@ -54,8 +58,15 @@ export class SlaService {
 
   /**
    * Calcula o SLA e a situação da barra em relação à meta de tempo em saúde (HU04 / HU14).
+   *
+   * Regras de auditoria do relógio:
+   * - RESOLVIDO / FECHADO: congela no instante da finalização (resolvido_em -> encerrado_em -> atualizado_em), nunca usa agora().
+   * - CANCELADO: congela no instante do cancelamento (encerrado_em -> atualizado_em), nunca entra como estourado nem usa agora().
+   * - MESCLADO: incorporado ao chamado principal, relógio encerrado.
+   * - Em andamento (ABERTO, EM_TRIAGEM, EM_ATENDIMENTO, REABERTO): relógio segue avançando continuamente via agora(),
+   *   inclusive quando estourado, até ser resolvido ou cancelado.
    */
-  calcularSla(dados: DadosCalculoSla, timestampAtual = this.agora()): SlaChamado {
+  calcularSla(dados: DadosCalculoSla, timestampAtual?: number): SlaChamado {
     const status = dados.status;
 
     if (status === 'MESCLADO') {
@@ -67,21 +78,50 @@ export class SlaService {
     }
 
     const dataAbertura = this.parseData(dados.aberto_em);
+
+    if (status === 'CANCELADO') {
+      const dataCancelamento = this.obterTimestampCongelado(dados.encerrado_em, dados.atualizado_em);
+      if (!isNaN(dataAbertura) && !isNaN(dataCancelamento)) {
+        const decorridoCancelamento = Math.max(0, Math.floor((dataCancelamento - dataAbertura) / 60000));
+        return {
+          situacao: 'CANCELADO',
+          rotulo: `Cancelado · ${this.formatarTempo(decorridoCancelamento)}`,
+          progresso: 0,
+        };
+      }
+      return {
+        situacao: 'CANCELADO',
+        rotulo: 'Cancelado',
+        progresso: 0,
+      };
+    }
+
+    if (status === 'RESOLVIDO' || status === 'FECHADO') {
+      const dataFinalizacao = this.obterTimestampCongelado(
+        dados.resolvido_em,
+        dados.encerrado_em,
+        dados.atualizado_em,
+      );
+      if (!isNaN(dataAbertura) && !isNaN(dataFinalizacao)) {
+        const decorridoResolucao = Math.max(0, Math.floor((dataFinalizacao - dataAbertura) / 60000));
+        return {
+          situacao: 'CUMPRIDO',
+          rotulo: `Cumprido · ${this.formatarTempo(decorridoResolucao)}`,
+          progresso: 100,
+        };
+      }
+      return {
+        situacao: 'CUMPRIDO',
+        rotulo: 'Cumprido',
+        progresso: 100,
+      };
+    }
+
     if (isNaN(dataAbertura)) {
       return {
         situacao: 'DENTRO_DA_META',
         rotulo: 'Dentro da meta',
         progresso: 10,
-      };
-    }
-
-    if (status === 'RESOLVIDO' || status === 'FECHADO') {
-      const dataResolvido = dados.resolvido_em ? this.parseData(dados.resolvido_em) : timestampAtual;
-      const decorridoResolucao = Math.max(0, Math.floor((dataResolvido - dataAbertura) / 60000));
-      return {
-        situacao: 'CUMPRIDO',
-        rotulo: `Cumprido · ${this.formatarTempo(decorridoResolucao)}`,
-        progresso: 100,
       };
     }
 
@@ -98,7 +138,9 @@ export class SlaService {
       };
     }
 
-    const decorridoMinutos = Math.max(0, Math.floor((timestampAtual - dataAbertura) / 60000));
+    // Somente chamados ativos consomem o signal reativo agora(), mantendo o contador crescendo até resolução/cancelamento
+    const agora = timestampAtual ?? this.agora();
+    const decorridoMinutos = Math.max(0, Math.floor((agora - dataAbertura) / 60000));
 
     // Sem prioridade ou Em Triagem inicial (Meta: 15 min de triagem)
     if (!dados.prioridade || status === 'EM_TRIAGEM') {
@@ -109,7 +151,7 @@ export class SlaService {
       if (decorridoMinutos > metaTriagemMin) {
         return {
           situacao: 'ESTOURADO',
-          rotulo: `Estourado · +${decorridoMinutos - metaTriagemMin} min`,
+          rotulo: `Estourado · +${this.formatarTempo(decorridoMinutos - metaTriagemMin)}`,
           progresso: 100,
         };
       }
@@ -156,6 +198,16 @@ export class SlaService {
       rotulo: `Dentro da meta · ${this.formatarTempo(restantes)}`,
       progresso: Math.max(5, progresso),
     };
+  }
+
+  private obterTimestampCongelado(...candidatos: Array<string | null | undefined>): number {
+    for (const candidato of candidatos) {
+      const parsed = this.parseData(candidato);
+      if (!isNaN(parsed)) {
+        return parsed;
+      }
+    }
+    return NaN;
   }
 
   private obterMetaResolucaoMinutos(prioridade: PrioridadeChamado): number {

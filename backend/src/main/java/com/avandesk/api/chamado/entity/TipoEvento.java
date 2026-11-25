@@ -1,5 +1,8 @@
 package com.avandesk.api.chamado.entity;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 public enum TipoEvento {
     CHAMADO_ABERTO,
     REGISTRO_DE_CONTATO_RECEBIDO,
@@ -20,5 +23,12 @@ public enum TipoEvento {
     CHAMADO_MESCLADO,
     NOTIFICACAO_ENVIADA,
     ANEXO_VISUALIZADO,
-    ANOTACAO_ADICIONADA
+    ANOTACAO_ADICIONADA;
+
+    /** Eventos que mudam o status do chamado. Os demais podem acontecer sem tirar o chamado da espera. */
+    public static final Set<TipoEvento> MUDANCAS_DE_STATUS = EnumSet.of(
+        TRIAGEM_INICIADA, CHAMADO_TRIADO, CHAMADO_AGUARDANDO, RETORNO_RECEBIDO, CHAMADO_ESCALADO,
+        CHAMADO_RESOLVIDO, CHAMADO_REABERTO, ATENDIMENTO_RETOMADO, CHAMADO_FECHADO,
+        CHAMADO_CANCELADO, CHAMADO_MESCLADO
+    );
 }

@@ -46,7 +46,15 @@ export const routes: Routes = [
             outlet: 'subnav',
             loadComponent: () => import('./layouts/admin-nav/admin-nav').then((m) => m.AdminNav),
           },
-          { path: '', pathMatch: 'full', redirectTo: 'unidades' },
+          { path: '', pathMatch: 'full', redirectTo: 'painel' },
+          {
+            path: 'painel',
+            title: 'Painel da Administração | Nexo',
+            loadComponent: () =>
+              import('./features/dashboard/painel-administracao/painel-administracao').then(
+                (m) => m.PainelAdministracao,
+              ),
+          },
           {
             path: 'unidades',
             title: 'Unidades | Nexo',

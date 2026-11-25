@@ -485,17 +485,17 @@ flowchart TD
 - Dados simulados ou de teste não entram nas métricas oficiais (filtro por `origem_dado`).
 
 **Critérios de aceite**
-- [ ] Ver chamados em aberto e seus responsáveis.
-- [ ] Consultar informações agregadas por unidade.
-- [ ] Identificar problemas recorrentes.
-- [ ] As informações vêm só dos chamados registrados na plataforma.
+- [x] Ver chamados em aberto e seus responsáveis (`chamados_por_responsavel` — M02).
+- [x] Consultar informações agregadas por unidade (tabela comparativa com volume, tempo médio de atendimento e % dentro da meta).
+- [x] Identificar problemas recorrentes.
+- [x] As informações vêm só dos chamados registrados na plataforma.
 
 **Tarefas técnicas**
-- [ ] **[BE]** Consultas agregadas das métricas M01–M12.
-- [ ] **[FE]** Dashboard em `features/dashboard/` (pasta ainda vazia).
-- [ ] **[QA]** Teste de segregação de dados: validar que consultas de métricas oficiais filtram estritamente `origem_dado = 'REAL'` e descartam `SIMULADO` e `TESTE`.
-- [ ] **[QA]** Teste matemático das métricas: validar cálculos de TT, TPR, TR, percentil 90 e taxa de reabertura contra base de dados de controle (oráculo de teste).
-- [ ] **[QA]** Teste de filtros agregados por período e unidade hospitalar.
+- [x] **[BE]** Consultas agregadas das métricas M01–M12 (`DashboardRepository`, `DashboardService`, `GET /api/v1/dashboard/metricas`, migration `V9__indices_analiticos_dashboard.sql`).
+- [x] **[FE]** Dashboard em `features/dashboard/painel-administracao/` (KPIs, filtros por unidade e período livre/preset, tabela comparativa das 14 filiais, gráficos por categoria/equipamento/responsável, alertas 9.7 e exportação CSV).
+- [x] **[QA]** Teste de segregação de dados: validar que consultas de métricas oficiais filtram estritamente `origem_dado` e descartam `SIMULADO` (`DashboardIntegracaoTest`).
+- [x] **[QA]** Teste matemático das métricas: validar cálculos de TT, TPR, TR (com desconto de pausa `SOLICITANTE` imune a eventos informativos), percentil 90 (`P90`), taxa de reabertura (`M06`), duplicidade (`M07`) e `M02` contra base de dados real (`DashboardIntegracaoTest`, `DashboardServiceTest`).
+- [x] **[QA]** Teste de filtros agregados por período (preset e personalizado) e unidade hospitalar (`DashboardControllerTest`, `painel-administracao.spec.ts`).
 
 ### 🏷️ [HU15] Encerrar chamado com verificação de rastreabilidade
 
