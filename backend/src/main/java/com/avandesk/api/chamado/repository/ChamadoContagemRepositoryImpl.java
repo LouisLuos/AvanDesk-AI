@@ -4,6 +4,7 @@ import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.MotivoEspera;
 import com.avandesk.api.chamado.entity.Prioridade;
 import com.avandesk.api.chamado.entity.StatusChamado;
+import com.avandesk.api.chamado.entity.TipoEvento;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Tuple;
@@ -32,6 +33,8 @@ class ChamadoContagemRepositoryImpl implements ChamadoContagemRepository {
     private static final long META_MEDIA_SEGUNDOS = 480L * 60L;
     private static final long META_BAIXA_SEGUNDOS = 1440L * 60L;
     private static final int TAMANHO_LOTE_IDS = 1000;
+    private static final List<String> TIPOS_MUDANCA_STATUS =
+        TipoEvento.MUDANCAS_DE_STATUS.stream().map(Enum::name).toList();
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -146,6 +149,7 @@ class ChamadoContagemRepositoryImpl implements ChamadoContagemRepository {
                        LEAD(e.ocorrido_em) OVER (PARTITION BY e.chamado_id ORDER BY e.ocorrido_em ASC) AS proximo_evento_em
                 FROM eventos_historico e
                 WHERE e.chamado_id IN (:ids)
+                  AND e.tipo IN (:tiposMudancaStatus)
             ) ev
             WHERE ev.tipo = 'CHAMADO_AGUARDANDO'
               AND ev.motivo_espera = 'SOLICITANTE'
@@ -157,6 +161,7 @@ class ChamadoContagemRepositoryImpl implements ChamadoContagemRepository {
             @SuppressWarnings("unchecked")
             List<Object[]> linhas = entityManager.createNativeQuery(sql)
                 .setParameter("ids", lote)
+                .setParameter("tiposMudancaStatus", TIPOS_MUDANCA_STATUS)
                 .getResultList();
             for (Object[] linha : linhas) {
                 UUID id = linha[0] instanceof UUID uuid ? uuid : UUID.fromString(linha[0].toString());

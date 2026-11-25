@@ -272,7 +272,7 @@ components:
                 additionalProperties: true
     ChamadoResumoResponse:
       type: object
-      description: "Uma linha da fila de chamados (HU14). Ainda sem SLA: o cálculo do prazo é de outra HU."
+      description: "Uma linha da fila de chamados (HU14)."
       properties:
         id:
           type: string
@@ -303,6 +303,11 @@ components:
         status:
           type: string
           enum: [ABERTO, EM_TRIAGEM, EM_ATENDIMENTO, AGUARDANDO, RESOLVIDO, REABERTO, FECHADO, CANCELADO, MESCLADO]
+        motivo_espera:
+          type: string
+          nullable: true
+          enum: [FORNECEDOR, SOLICITANTE, PECA_EQUIPAMENTO]
+          description: "Motivo da espera quando o status é AGUARDANDO; nulo nos outros status."
         prioridade:
           type: string
           nullable: true
@@ -323,6 +328,11 @@ components:
           type: string
           format: date-time
           example: "2026-10-29T12:00:00Z"
+        resolvido_em:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Data da resolução atual (HU06). Nula enquanto não for resolvido e de novo quando for reaberto."
         atualizado_em:
           type: string
           format: date-time
@@ -366,6 +376,11 @@ components:
             FECHADO: 0
             CANCELADO: 0
             MESCLADO: 0
+        total_estourados:
+          type: integer
+          format: int64
+          description: "Chamados em andamento que atendem aos filtros (ignorando o de status) e já passaram do prazo: 15 min sem prioridade ou em triagem, 2 h ALTA, 8 h MEDIA, 24 h BAIXA, contados da abertura e descontando a espera pelo solicitante. Os que estão aguardando o solicitante não entram."
+          example: 3
     ItemListaResponse:
       type: object
       description: "Item das listas do formulário de registro (categorias e sistemas/equipamentos)."

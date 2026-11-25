@@ -399,7 +399,7 @@ Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 e
 
 ## 6. Listar e Buscar Chamados na Fila (HU14)
 
-Lista os chamados de forma paginada, **do mais recente para o mais antigo** (`aberto_em DESC`, com `id` para desempatar). A ordem é fixa: o cliente não escolhe o campo. Todos os filtros são opcionais e **se somam** (cada filtro informado restringe mais o resultado). A resposta também traz os totais por status para os cartões do topo da tela.
+Lista os chamados de forma paginada, **do mais recente para o mais antigo** (`aberto_em DESC`, com `id` para desempatar). A ordem é fixa: o cliente não escolhe o campo. Todos os filtros são opcionais e **se somam** (cada filtro informado restringe mais o resultado). A resposta também traz os totais por status e o total de chamados com o prazo estourado, para os cartões do topo da tela.
 
 * **Endpoint:** `GET /chamados` (ex.: `GET /chamados?meus=true&status=EM_ATENDIMENTO`)
 * **Autenticação:** Bearer Token (Analista de Suporte ou Liderança de TI)
@@ -436,9 +436,11 @@ Lista os chamados de forma paginada, **do mais recente para o mais antigo** (`ab
         "categoria": { "id": "c4e0a000-0002-4000-8000-000000000002", "nome": "Equipamento de apoio" },
         "canal_origem": "LIGACAO",
         "status": "ABERTO",
+        "motivo_espera": null,
         "prioridade": null,
         "responsavel": null,
         "aberto_em": "2026-10-29T12:00:00Z",
+        "resolvido_em": null,
         "atualizado_em": "2026-10-29T12:30:00Z"
       }
     ],
@@ -449,18 +451,24 @@ Lista os chamados de forma paginada, **do mais recente para o mais antigo** (`ab
     "totais_por_status": {
       "ABERTO": 12, "EM_TRIAGEM": 5, "EM_ATENDIMENTO": 9, "AGUARDANDO": 4, "RESOLVIDO": 1,
       "REABERTO": 0, "FECHADO": 0, "CANCELADO": 0, "MESCLADO": 0
-    }
+    },
+    "total_estourados": 3
   },
   "errors": null
 }
 ```
 
 * **`titulo`:** primeira linha da descrição, com até 80 caracteres (cortada com `…`).
+* **`motivo_espera`:** `FORNECEDOR`, `SOLICITANTE` ou `PECA_EQUIPAMENTO` quando o chamado está em `AGUARDANDO`; `null` nos outros status.
 * **`prioridade`:** prioridade final; `null` enquanto não houver triagem.
 * **`responsavel`:** `null` quando o chamado não tem responsável ("Não atribuído").
+* **`resolvido_em`:** data da resolução atual (HU06); `null` enquanto o chamado não for resolvido e de novo quando for reaberto.
 * **`atualizado_em`:** data do último evento do histórico; sem eventos, a data de abertura.
 * **`totais_por_status`:** contagem com os mesmos filtros, **menos o de status**, para os cartões continuarem mostrando todos os status. Os 9 status sempre aparecem, mesmo com zero.
-* **SLA:** ainda não vem na resposta. O cálculo de prazo é de outra HU; a tela exibe "—".
+* **`total_estourados`:** quantos chamados com os mesmos filtros (**menos o de status**) já passaram do prazo:
+  * Entram só os chamados em andamento (`ABERTO`, `EM_TRIAGEM`, `EM_ATENDIMENTO`, `AGUARDANDO` e `REABERTO`). Os que estão em `AGUARDANDO` com motivo `SOLICITANTE` ficam de fora, porque o relógio está parado.
+  * Prazo, contado a partir de `aberto_em`: 15 min sem prioridade ou em `EM_TRIAGEM`; 2 h para `ALTA`, 8 h para `MEDIA` e 24 h para `BAIXA`.
+  * Do tempo corrido sai o tempo em que o chamado esperou o solicitante: de cada `CHAMADO_AGUARDANDO` com motivo `SOLICITANTE` até o próximo evento que muda o status. Esperas por `FORNECEDOR` ou `PECA_EQUIPAMENTO` continuam contando (RN07).
 
 ### Erros
 
