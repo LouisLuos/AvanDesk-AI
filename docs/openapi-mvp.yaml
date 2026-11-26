@@ -161,8 +161,16 @@ components:
             nome:
               type: string
               nullable: true
+            email:
+              type: string
+              format: email
+              nullable: true
+            telefone:
+              type: string
+              nullable: true
             contato:
               type: string
+              description: "E-mail do solicitante ou, nos cadastros antigos sem e-mail, o telefone."
         responsavel:
           type: object
           nullable: true
@@ -234,6 +242,13 @@ components:
                 type: object
                 properties:
                   nome:
+                    type: string
+                    nullable: true
+                  email:
+                    type: string
+                    format: email
+                    nullable: true
+                  telefone:
                     type: string
                     nullable: true
                   contato:
@@ -534,14 +549,21 @@ components:
         solicitante:
           type: object
           description: "Quem relatou. Padrão: o solicitante do chamado, que não muda."
-          required: [contato]
+          required: [email]
           properties:
             nome:
               type: string
               maxLength: 120
-            contato:
+            email:
               type: string
+              format: email
               maxLength: 254
+              description: "Obrigatório (HU16); gravado em minúsculas."
+              example: "paula.lima@lumen.com.br"
+            telefone:
+              type: string
+              maxLength: 20
+              description: "Opcional; vira E.164 (+55 quando vem sem DDI)."
               example: "+5581987650000"
         identificador_externo:
           type: string
@@ -1230,15 +1252,21 @@ paths:
                   enum: [LIGACAO, PRESENCIAL, WHATSAPP, EMAIL]
                 solicitante:
                   type: object
-                  required: [contato]
+                  required: [email]
                   properties:
                     nome:
                       type: string
                       maxLength: 120
-                    contato:
+                    email:
                       type: string
+                      format: email
                       maxLength: 254
-                      description: "Telefone (vira E.164; +55 quando vem sem DDI) ou e-mail (gravado em minúsculas)."
+                      description: "Obrigatório (HU16): recebe o código do chamado e as mudanças de status. Gravado em minúsculas."
+                      example: "recepcao.bvg@lumen.com.br"
+                    telefone:
+                      type: string
+                      maxLength: 20
+                      description: "Opcional, complementar: vira E.164 (+55 quando vem sem DDI)."
                       example: "+5581999999999"
                 descricao:
                   type: string

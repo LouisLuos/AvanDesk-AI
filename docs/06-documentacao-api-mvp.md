@@ -260,7 +260,8 @@ Cria um novo chamado estruturado a partir de uma solicitação recebida por um d
   "canal_origem": "LIGACAO",
   "solicitante": {
     "nome": "Mariana Alves",
-    "contato": "+5581988771234"
+    "email": "mariana.alves@lumen.com.br",
+    "telefone": "+5581988771234"
   },
   "descricao": "Impressora de etiquetas da coleta parou de imprimir. Há pacientes aguardando na recepção.",
   "categoria_id": "c4e0a000-0002-4000-8000-000000000002",
@@ -271,8 +272,10 @@ Cria um novo chamado estruturado a partir de uma solicitação recebida por um d
 
 **Regras:**
 
-* Obrigatórios: `unidade_id`, `canal_origem`, `solicitante.contato`, `descricao` (10 a 2000 caracteres) e `categoria_id`.
-* `solicitante.contato`: com `@` é tratado como e-mail e gravado em minúsculas; sem `@` é telefone (10 a 13 dígitos) e convertido para E.164 (`+55` acrescentado quando ausente). Um contato já conhecido reaproveita o mesmo solicitante (`RN13`).
+* Obrigatórios: `unidade_id`, `canal_origem`, `solicitante.email`, `descricao` (10 a 2000 caracteres) e `categoria_id`.
+* `solicitante.email` (HU16): obrigatório, validado no formato de e-mail (`nome@dominio.tld`, até 254 caracteres) e gravado em minúsculas. É por ele que o solicitante é reconhecido: um e-mail já conhecido reaproveita o mesmo solicitante (`RN13`) e só completa o nome e o telefone se eles estiverem vazios, sem sobrescrever o que já existe. É para ele que vão as notificações da seção 8.1.
+* `solicitante.telefone`: opcional, complementar. Precisa ter 10 a 13 dígitos e é convertido para E.164 (`+55` acrescentado quando ausente).
+* Sem `solicitante.email`: `400` com `"Campo 'solicitante.email' é obrigatório."`. E-mail fora do formato: `400` com `"Campo 'solicitante.email' deve ser um e-mail válido."`.
 * Unidade, categoria e sistema/equipamento precisam existir (`404 Not Found` caso contrário) e estar ativos (`400 Bad Request` se inativos).
 * `registro_iniciado_em` no futuro ou de mais de 2 h antes da abertura é descartado silenciosamente (gravado como `NULL`), sem recusar o chamado.
 * O registro grava, numa única transação, o chamado, o registro de contato inicial e os eventos `CHAMADO_ABERTO` e `REGISTRO_DE_CONTATO_RECEBIDO` tendo como `autor_id` o usuário autenticado no token JWT.
@@ -337,7 +340,9 @@ Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 e
     },
     "solicitante": {
       "nome": "Mariana Alves",
-      "contato": "+5581988771234"
+      "email": "mariana.alves@lumen.com.br",
+      "telefone": "+5581988771234",
+      "contato": "mariana.alves@lumen.com.br"
     },
     "responsavel": null,
     "prioridade": null,
@@ -585,6 +590,25 @@ Mesmo formato do `GET /chamados/{id}` (seção 5), com `"message": "Status do ch
 
 > **Registro com "atribuir a mim":** o `POST /chamados` (seção 4) aceita o campo opcional `"atribuir_a_mim": true`. Quem registra vira o responsável e o chamado passa por `ABERTO`, `EM_TRIAGEM` e `EM_ATENDIMENTO` na mesma operação, com os eventos `TRIAGEM_INICIADA`, `CHAMADO_ATRIBUIDO` e `CHAMADO_TRIADO`. Se quem registra não é analista ativo, responde `422`.
 
+### 8.1 Notificações por e-mail ao solicitante (HU16)
+
+Não há endpoint: os e-mails saem sozinhos depois que a transação que mudou o chamado é confirmada.
+
+| Quando | E-mail | Conteúdo |
+| :--- | :--- | :--- |
+| `POST /chamados` (seção 4) | Abertura | Código `LUM-AAAA-NNNNNN`, unidade, categoria, data de abertura, status atual e orientação |
+| O chamado termina a operação em `EM_TRIAGEM`, `EM_ATENDIMENTO`, `AGUARDANDO` ou `RESOLVIDO`, vindo de outro status (status, resolução, escalonamento ou retorno de fornecedor) | Mudança de status | Código, unidade, status anterior, novo status, data da mudança e orientação conforme o status (em `AGUARDANDO`, conforme o motivo) |
+
+* **Um e-mail por chamado em cada operação.** No registro com `atribuir_a_mim` sai só o de abertura, já com `EM_ATENDIMENTO`. Se a operação passa por mais de um status, o e-mail mostra o status do início e o do fim.
+* **Sem dados sensíveis:** o e-mail não leva a descrição do problema, notas internas nem o nome do analista (LGPD). O HTML é montado pelo Thymeleaf, que escapa todo dado vindo do banco; cada e-mail também tem uma versão em texto puro.
+* **Entrega resiliente:** na mesma transação da mudança, a notificação é gravada em `notificacoes_email` como `PENDENTE`. Depois do commit, o envio roda em outra thread (`@Async` + `@TransactionalEventListener(AFTER_COMMIT)`, pela porta `NotificacaoPort` e o adaptador `SmtpEmailAdapter`). Uma falha no SMTP **não** desfaz a mudança do chamado: a notificação fica `FALHOU`, com o erro registrado em log e na própria linha, e uma rotina tenta de novo depois de 1, 5 e 30 minutos. Na 4ª falha ela vira `ESGOTADA` e gera log de erro. Se o envio imediato nem chegar a acontecer (por exemplo, a API reiniciou), a rotina pega a notificação pendente depois de 2 minutos.
+* **Histórico:** cada envio que dá certo grava `NOTIFICACAO_ENVIADA` em `eventos_historico`, sem autor e com `dados` = `{ "notificacao_id", "canal": "EMAIL", "modelo", "status_anterior", "status_novo" }`. O endereço de e-mail não vai para o histórico. Esse evento não encerra pausas de SLA.
+* **Não recebem e-mail:** chamados `SIMULADO` e solicitantes antigos cadastrados só com telefone.
+* **Configuração:**
+  * SMTP: `spring.mail.*`, por `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_AUTH` e `SMTP_STARTTLS` em produção, com timeouts de 5 s.
+  * Notificações: `nexo.notificacoes.email.habilitado` (`NEXO_NOTIFICACOES_EMAIL_HABILITADO`), `.remetente` (`NEXO_EMAIL_REMETENTE`, obrigatório em produção) e `.intervalo-reenvio` (`NEXO_EMAIL_INTERVALO_REENVIO`, padrão `PT1M`).
+  * Em desenvolvimento, a API envia para `localhost:1025` e o Mailpit do `docker-compose` mostra os e-mails em `http://localhost:8025`.
+
 ---
 
 ## 9. Registrar a Resolução do Chamado (HU06)
@@ -653,7 +677,7 @@ Inclui uma nova ligação, mensagem, e-mail ou visita num chamado que já existe
   "direcao": "RECEBIDO",
   "conteudo": "Gestora da unidade avisou que a impressora voltou a falhar.",
   "ocorrido_em": "2026-11-03T13:10:00Z",
-  "solicitante": { "nome": "Paula Lima", "contato": "+5581987650000" },
+  "solicitante": { "nome": "Paula Lima", "email": "paula.lima@lumen.com.br", "telefone": "+5581987650000" },
   "identificador_externo": "wamid.HBgM..."
 }
 ```
@@ -670,7 +694,7 @@ Mínimo:
 | `conteudo` | sim | até 2000 caracteres |
 | `direcao` | não | `RECEBIDO` (padrão) ou `ENVIADO` |
 | `ocorrido_em` | não | padrão: agora; não pode estar no futuro (1 min de tolerância) nem antes do minuto da abertura |
-| `solicitante` | não | `{nome?, contato}`, mesma regra do registro (RN13); padrão: o solicitante do chamado |
+| `solicitante` | não | `{nome?, email, telefone?}`, com o e-mail obrigatório (HU16) e a mesma regra do registro (RN13); padrão: o solicitante do chamado |
 | `identificador_externo` | não | até 255 caracteres; único por canal (RN16) |
 
 **Regras:**
