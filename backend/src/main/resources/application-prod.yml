@@ -54,3 +54,9 @@ nexo:
       habilitado: ${NEXO_NOTIFICACOES_EMAIL_HABILITADO:true}
       remetente: ${NEXO_EMAIL_REMETENTE}
       intervalo-reenvio: ${NEXO_EMAIL_INTERVALO_REENVIO:PT1M}
+  solicitantes:
+    restringir-dominio-email: ${NEXO_SOLICITANTES_RESTRINGIR_DOMINIO_EMAIL:false}
+    dominios-permitidos: ${NEXO_SOLICITANTES_DOMINIOS_PERMITIDOS:lumen.com.br}
+    validade-token-verificacao: ${NEXO_SOLICITANTES_VALIDADE_TOKEN:PT24H}
+    intervalo-reenvio: ${NEXO_SOLICITANTES_INTERVALO_REENVIO:PT60S}
+    url-verificacao: ${NEXO_SOLICITANTES_URL_VERIFICACAO}

@@ -95,6 +95,101 @@ Encerra o contexto de segurança da requisição atual e confirma o encerramento
 }
 ```
 
+### 1.3. Conta do Solicitante: Auto-Cadastro e Verificação de E-mail (HU17)
+
+Colaboradores das unidades criam a própria conta com o perfil `SOLICITANTE`. A conta nasce `PENDENTE_VERIFICACAO` e só entra depois de confirmar o e-mail pelo link enviado. Os quatro endpoints abaixo são públicos (sem login e sem CSRF).
+
+**Acesso do perfil `SOLICITANTE`:** só `GET /api/v1/auth/me` e `POST /api/v1/auth/logout`. O resto da API interna exige `ANALISTA_SUPORTE`, `LIDERANCA_TI` ou `ADMIN` e responde `403` ao solicitante. O módulo do solicitante chega na HU18.
+
+**Política de domínio (configurável):**
+
+| Propriedade | Variável em produção | Padrão | Efeito |
+| :--- | :--- | :--- | :--- |
+| `nexo.solicitantes.restringir-dominio-email` | `NEXO_SOLICITANTES_RESTRINGIR_DOMINIO_EMAIL` | `false` | Com `true`, só aceita os domínios da lista abaixo |
+| `nexo.solicitantes.dominios-permitidos` | `NEXO_SOLICITANTES_DOMINIOS_PERMITIDOS` | `lumen.com.br` | Lista separada por vírgula, com ou sem `@` |
+| `nexo.solicitantes.validade-token-verificacao` | `NEXO_SOLICITANTES_VALIDADE_TOKEN` | `PT24H` | Validade do link |
+| `nexo.solicitantes.intervalo-reenvio` | `NEXO_SOLICITANTES_INTERVALO_REENVIO` | `PT60S` | Espera mínima entre dois links |
+| `nexo.solicitantes.url-verificacao` | `NEXO_SOLICITANTES_URL_VERIFICACAO` | `http://localhost:4200/verificar-email` | Página do front que recebe o `?token=` |
+
+#### 1.3.1. Criar Conta
+
+* **Endpoint:** `POST /api/v1/auth/registrar`
+
+```json
+{
+  "nome": "Mariana Alves",
+  "email": "mariana.alves@gmail.com",
+  "unidade_id": "a1f0c3e2-0001-4000-8000-000000000001",
+  "senha": "Coleta#2026ok"
+}
+```
+
+* `email`: formato `nome@dominio.tld`, gravado em minúsculas; sujeito à política de domínio.
+* `unidade_id`: unidade padrão, precisa existir e estar ativa (a lista vem do `GET /api/v1/auth/unidades`).
+* `senha`: 10 a 72 caracteres, com letra maiúscula, minúscula, número e símbolo. É gravada só em BCrypt.
+* O link de verificação sai por e-mail depois do commit. No banco fica só o hash SHA-256 do token (256 bits aleatórios), nunca o token.
+
+**Response `201 Created`:**
+
+```json
+{
+  "status_code": 201,
+  "message": "Conta criada. Enviamos um link de confirmação para o seu e-mail.",
+  "data": {
+    "email": "mariana.alves@gmail.com",
+    "status_conta": "PENDENTE_VERIFICACAO",
+    "verificacao_expira_em": "2026-11-27T18:00:00Z"
+  },
+  "errors": null
+}
+```
+
+| Situação | Status | Mensagem |
+| :--- | :---: | :--- |
+| Campo ausente ou e-mail fora do formato | `400` | `Campo 'email' deve ser um e-mail válido.` |
+| Senha fraca | `400` | `A senha precisa ter uma letra maiúscula, ter um símbolo (ex.: ! @ # $ %).` (lista o que falta) |
+| Domínio recusado (restrição ligada) | `400` | `Use o seu e-mail corporativo (@lumen.com.br) para criar a conta.` |
+| Unidade inativa / inexistente | `400` / `404` | `Unidade inativa não pode receber novos chamados.` / `Unidade não encontrada.` |
+| E-mail já cadastrado | `409` | `Já existe uma conta com este e-mail. Entre com ela ou peça um novo link de verificação.` |
+
+#### 1.3.2. Confirmar E-mail
+
+* **Endpoint:** `POST /api/v1/auth/verificar-email` com `{ "token": "<token do link>" }`
+
+Ativa a conta e vincula o solicitante ao usuário. Se a equipe já abriu chamados com esse e-mail, o solicitante existente passa a apontar para o usuário (`solicitantes.usuario_id`) e todos esses chamados ficam vinculados; se não, o solicitante é criado. O link só vale uma vez.
+
+```json
+{
+  "status_code": 200,
+  "message": "E-mail confirmado. A sua conta está ativa.",
+  "data": { "email": "mariana.alves@gmail.com", "chamados_vinculados": 2 },
+  "errors": null
+}
+```
+
+Recusas respondem `422`, com a mensagem em `message` e o motivo em `errors[0]`:
+
+| `errors[0]` | Quando | Mensagem |
+| :--- | :--- | :--- |
+| `TOKEN_INVALIDO` | Token que não existe | `Link de verificação inválido. Confira se copiou o endereço inteiro ou peça um novo link.` |
+| `TOKEN_UTILIZADO` | Link já usado | `Este link já foi usado e a sua conta já está confirmada. É só entrar.` |
+| `TOKEN_SUBSTITUIDO` | Um link mais novo foi enviado | `Este link foi substituído por um mais novo. Use o último e-mail que enviamos.` |
+| `TOKEN_EXPIRADO` | Passou das 24 h | `Este link expirou. Peça um novo link de verificação.` |
+
+#### 1.3.3. Reenviar o Link
+
+* **Endpoint:** `POST /api/v1/auth/reenviar-verificacao` com `{ "email": "mariana.alves@gmail.com" }`
+* Responde sempre `202 Accepted` com `"Se houver uma conta pendente com este e-mail, enviamos um novo link de confirmação."`, exista ou não a conta, para não revelar e-mails cadastrados.
+* Só envia para conta `SOLICITANTE` pendente e só se o último link tiver mais de 60 s. O novo link invalida os anteriores (`TOKEN_SUBSTITUIDO`).
+
+#### 1.3.4. Unidades para o Cadastro
+
+* **Endpoint:** `GET /api/v1/auth/unidades`: `id` e `nome` das unidades ativas, em ordem alfabética.
+
+#### 1.3.5. Login de Conta Pendente
+
+O `POST /auth/login` de uma conta `PENDENTE_VERIFICACAO` responde `403` com `"Confirme o seu e-mail para entrar. Se o link expirou, peça um novo na tela de verificação."` e `errors: ["CONTA_NAO_VERIFICADA"]`. A recusa só acontece depois de a senha conferir; senha errada continua `401` com a mensagem genérica.
+
 ---
 
 ## 2. Gestão de Unidades Diagnósticas (HU11)

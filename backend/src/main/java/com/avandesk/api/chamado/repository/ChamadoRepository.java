@@ -27,6 +27,8 @@ public interface ChamadoRepository extends JpaRepository<Chamado, UUID>, JpaSpec
 
     long countByOrigemDado(OrigemDado origemDado);
 
+    long countBySolicitanteId(UUID solicitanteId);
+
     @EntityGraph(attributePaths = {
         "unidade", "solicitante", "categoria", "sistemaEquipamento", "responsavel", "chamadoPrincipal"
     })

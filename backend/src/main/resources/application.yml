@@ -60,6 +60,12 @@ nexo:
       habilitado: true
       remetente: nao-responda@lumen.local
       intervalo-reenvio: PT1M
+  solicitantes:
+    restringir-dominio-email: false
+    dominios-permitidos: lumen.local,lumen.com.br
+    validade-token-verificacao: PT24H
+    intervalo-reenvio: PT60S
+    url-verificacao: http://localhost:4200/verificar-email
 
 springdoc:
   api-docs:

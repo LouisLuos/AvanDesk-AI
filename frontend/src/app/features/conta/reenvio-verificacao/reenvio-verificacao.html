@@ -1,0 +1,39 @@
+<div class="flex flex-col gap-3">
+  @if (!emailConhecido()) {
+    <div>
+      <label for="email-reenvio" class="mb-1.5 block text-xs font-semibold text-[#363b47]">E-mail da conta</label>
+      <input
+        id="email-reenvio"
+        type="email"
+        [value]="email()"
+        (input)="atualizarEmail($any($event.target).value)"
+        placeholder="seu.email@gmail.com"
+        autocomplete="email"
+        class="h-10 w-full rounded-md border border-[#e2e5ec] bg-white px-3 text-xs text-[#14161b] outline-none transition placeholder:text-[#9aa2b1] focus:border-[#2d5bff] focus:ring-2 focus:ring-[#e8edff]"
+      />
+    </div>
+  }
+
+  <button
+    type="button"
+    id="btn-reenviar-verificacao"
+    (click)="reenviar()"
+    [disabled]="!podeReenviar()"
+    class="inline-flex h-10 w-full items-center justify-center rounded-md border border-[#2d5bff] bg-white px-4 text-xs font-semibold text-[#2d5bff] transition hover:bg-[#eef2ff] disabled:cursor-not-allowed disabled:border-[#e2e5ec] disabled:text-[#9aa2b1] disabled:hover:bg-white"
+  >
+    @if (enviando()) {
+      Enviando...
+    } @else if (segundosRestantes() > 0) {
+      Reenviar link em {{ segundosRestantes() }} s
+    } @else {
+      Reenviar link de confirmação
+    }
+  </button>
+
+  @if (aviso()) {
+    <p id="aviso-reenvio" class="text-[11px] text-[#16794a]" role="status">{{ aviso() }}</p>
+  }
+  @if (erro()) {
+    <p class="text-[11px] font-medium text-[#dc2626]" role="alert">{{ erro() }}</p>
+  }
+</div>
