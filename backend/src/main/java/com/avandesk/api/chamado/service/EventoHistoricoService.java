@@ -6,6 +6,7 @@ import com.avandesk.api.chamado.entity.TipoEvento;
 import com.avandesk.api.chamado.repository.EventoHistoricoRepository;
 import com.avandesk.api.usuario.entity.Usuario;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,12 +30,14 @@ public class EventoHistoricoService {
         Comparator.comparing(EventoHistorico::getOcorridoEm).thenComparing(EventoHistorico::getTipo);
 
     private final EventoHistoricoRepository eventoHistoricoRepository;
+    private final ApplicationEventPublisher publicadorDeEventos;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public EventoHistorico registrar(Chamado chamado, TipoEvento tipo, Usuario autor, Map<String, Object> dados) {
-        EventoHistorico evento = new EventoHistorico(
-            chamado, tipo, Instant.now(), autor, dados, chamado.getOrigemDado());
-        return eventoHistoricoRepository.save(evento);
+        EventoHistorico evento = eventoHistoricoRepository.save(new EventoHistorico(
+            chamado, tipo, Instant.now(), autor, dados, chamado.getOrigemDado()));
+        publicadorDeEventos.publishEvent(new EventoHistoricoRegistrado(chamado, tipo, autor, evento.getOcorridoEm()));
+        return evento;
     }
 
     /** Linha do tempo do chamado em ordem cronológica (do mais antigo para o mais novo). */

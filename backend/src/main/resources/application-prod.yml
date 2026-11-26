@@ -24,6 +24,18 @@ spring:
     # Sem db/seed: dados essenciais carregados via migrations versionadas
     locations: classpath:db/migration
 
+  mail:
+    host: ${SMTP_HOST}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${SMTP_STARTTLS:true}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
 nexo:
   origem-dado: REAL
   jwt:
@@ -37,3 +49,8 @@ nexo:
   usuarios:
     # Lista separada por vírgula, ex.: lumen.local,lumendiagnosticos.com.br
     dominios-email: ${NEXO_DOMINIOS_EMAIL:lumen.local}
+  notificacoes:
+    email:
+      habilitado: ${NEXO_NOTIFICACOES_EMAIL_HABILITADO:true}
+      remetente: ${NEXO_EMAIL_REMETENTE}
+      intervalo-reenvio: ${NEXO_EMAIL_INTERVALO_REENVIO:PT1M}

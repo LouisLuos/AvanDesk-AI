@@ -1,0 +1,13 @@
+[# th:if="${nome != null}"]Olá, [(${nome})].[/][# th:unless="${nome != null}"]Olá.[/]
+
+Recebemos o seu chamado no suporte de TI.
+
+Código: [(${codigo})]
+Unidade: [(${unidade})]
+Categoria: [(${categoria})]
+Aberto em: [(${abertoEm})]
+Status: [(${statusNovo})]
+
+[(${orientacao})]
+
+Esta é uma mensagem automática do Nexo. Não responda a este e-mail.
