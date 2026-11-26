@@ -25,6 +25,7 @@ import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 import org.springframework.messaging.converter.StringMessageConverter;
+import org.springframework.util.MimeTypeUtils;
 
 import java.lang.reflect.Type;
 import java.time.Duration;
@@ -61,9 +62,16 @@ class TempoRealStompE2ETest {
         cliente.stop();
     }
 
+    private static final class ConversorDeJsonParaTexto extends StringMessageConverter {
+
+        ConversorDeJsonParaTexto() {
+            addSupportedMimeTypes(MimeTypeUtils.APPLICATION_JSON);
+        }
+    }
+
     @Test
     void deveEntregarAMensagemPublicadaAoClienteConectadoComTicketEmMenosDe500ms() throws Exception {
-        cliente.setMessageConverter(new StringMessageConverter());
+        cliente.setMessageConverter(new ConversorDeJsonParaTexto());
         Usuario analista = usuarioRepository.findByEmail("analista1@lumen.local").orElseThrow();
         StompSession sessao = conectar("Bearer " + jwtService.gerarTicketTempoReal(analista, Duration.ofSeconds(60)));
         BlockingQueue<String> recebidas = new LinkedBlockingQueue<>();
@@ -78,7 +86,7 @@ class TempoRealStompE2ETest {
                 recebidas.add((String) payload);
             }
         });
-        Thread.sleep(200);
+        Thread.sleep(500);
 
         long inicio = System.nanoTime();
         eventoTempoRealPort.publicar(mensagem("LUM-2026-009999"));
