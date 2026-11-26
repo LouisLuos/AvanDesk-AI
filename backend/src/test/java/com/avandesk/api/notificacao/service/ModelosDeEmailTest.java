@@ -23,7 +23,7 @@ class ModelosDeEmailTest {
     private static final Instant ATUALIZADO_EM = Instant.parse("2026-11-26T14:30:00Z");
     private static final String DESCRICAO_SENSIVEL = "Prontuário do paciente José, CPF 123.456.789-00, não abre.";
 
-    private final ModelosDeEmail modelos = new ModelosDeEmail();
+    private final ModelosDeEmail modelos = new ModelosDeEmail(new MotorDeModelosEmail());
 
     @Test
     void deveMontarAAberturaComCodigoUnidadeCategoriaEData() {

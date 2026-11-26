@@ -6,25 +6,22 @@ import com.avandesk.api.chamado.entity.StatusChamado;
 import com.avandesk.api.notificacao.entity.ModeloNotificacao;
 import com.avandesk.api.notificacao.entity.NotificacaoEmail;
 import com.avandesk.api.notificacao.port.MensagemEmail;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.context.Context;
-import org.thymeleaf.templatemode.TemplateMode;
-import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.EnumMap;
-import java.util.Locale;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
+
+import static com.avandesk.api.notificacao.service.MotorDeModelosEmail.PORTUGUES;
 
 @Component
+@RequiredArgsConstructor
 public class ModelosDeEmail {
 
-    private static final Locale PORTUGUES = Locale.forLanguageTag("pt-BR");
     private static final ZoneId FUSO = ZoneId.of("America/Recife");
     private static final DateTimeFormatter DATA_E_HORA = DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm", PORTUGUES);
     private static final Map<StatusChamado, String> ROTULOS = new EnumMap<>(StatusChamado.class);
@@ -41,31 +38,31 @@ public class ModelosDeEmail {
         ROTULOS.put(StatusChamado.MESCLADO, "Mesclado");
     }
 
-    private final TemplateEngine motor = criarMotor();
+    private final MotorDeModelosEmail motor;
 
     public MensagemEmail montar(NotificacaoEmail notificacao) {
         Chamado chamado = notificacao.getChamado();
         boolean abertura = notificacao.getModelo() == ModeloNotificacao.ABERTURA;
         String rotuloNovo = ROTULOS.get(notificacao.getStatusNovo());
 
-        Context contexto = new Context(PORTUGUES);
-        contexto.setVariable("nome", chamado.getSolicitante().getNome());
-        contexto.setVariable("codigo", chamado.getCodigo());
-        contexto.setVariable("unidade", chamado.getUnidade().getNome());
-        contexto.setVariable("categoria", chamado.getCategoria() == null ? "Não informada" : chamado.getCategoria().getNome());
-        contexto.setVariable("abertoEm", formatar(chamado.getAbertoEm()));
-        contexto.setVariable("atualizadoEm", formatar(notificacao.getCriadaEm()));
-        contexto.setVariable("statusAnterior",
+        Map<String, Object> variaveis = new HashMap<>();
+        variaveis.put("nome", chamado.getSolicitante().getNome());
+        variaveis.put("codigo", chamado.getCodigo());
+        variaveis.put("unidade", chamado.getUnidade().getNome());
+        variaveis.put("categoria", chamado.getCategoria() == null ? "Não informada" : chamado.getCategoria().getNome());
+        variaveis.put("abertoEm", formatar(chamado.getAbertoEm()));
+        variaveis.put("atualizadoEm", formatar(notificacao.getCriadaEm()));
+        variaveis.put("statusAnterior",
             notificacao.getStatusAnterior() == null ? null : ROTULOS.get(notificacao.getStatusAnterior()));
-        contexto.setVariable("statusNovo", rotuloNovo);
-        contexto.setVariable("orientacao", orientacao(notificacao, chamado.getCodigo()));
+        variaveis.put("statusNovo", rotuloNovo);
+        variaveis.put("orientacao", orientacao(notificacao, chamado.getCodigo()));
 
         String modelo = abertura ? "abertura" : "mudanca-status";
         String assunto = abertura
             ? "[Nexo] Chamado %s registrado".formatted(chamado.getCodigo())
             : "[Nexo] Chamado %s: %s".formatted(chamado.getCodigo(), rotuloNovo);
         return new MensagemEmail(chamado.getSolicitante().getEmail(), assunto,
-            motor.process("email/" + modelo + ".txt", contexto), motor.process("email/" + modelo + ".html", contexto));
+            motor.processar("email/" + modelo + ".txt", variaveis), motor.processar("email/" + modelo + ".html", variaveis));
     }
 
     static String orientacao(NotificacaoEmail notificacao, String codigo) {
@@ -102,24 +99,5 @@ public class ModelosDeEmail {
 
     private static String formatar(Instant instante) {
         return instante == null ? null : DATA_E_HORA.format(instante.atZone(FUSO));
-    }
-
-    private static TemplateEngine criarMotor() {
-        TemplateEngine motor = new TemplateEngine();
-        motor.addTemplateResolver(resolvedor(TemplateMode.HTML, "*.html", 1));
-        motor.addTemplateResolver(resolvedor(TemplateMode.TEXT, "*.txt", 2));
-        return motor;
-    }
-
-    private static ClassLoaderTemplateResolver resolvedor(TemplateMode modo, String padrao, int ordem) {
-        ClassLoaderTemplateResolver resolvedor = new ClassLoaderTemplateResolver();
-        resolvedor.setPrefix("templates/");
-        resolvedor.setTemplateMode(modo);
-        resolvedor.setResolvablePatterns(Set.of(padrao));
-        resolvedor.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        resolvedor.setCheckExistence(true);
-        resolvedor.setCacheable(true);
-        resolvedor.setOrder(ordem);
-        return resolvedor;
     }
 }
