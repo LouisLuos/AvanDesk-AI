@@ -65,13 +65,13 @@
             id="usuario"
             type="text"
             formControlName="usuario"
-            placeholder="nome.sobrenome"
+            placeholder="nome.sobrenome ou seu e-mail"
             autocomplete="username"
             class="h-10 w-full rounded-md border border-[#e2e5ec] bg-white px-3 text-xs text-[#14161b] placeholder:text-[#9aa2b1] outline-none transition focus:border-[#2d5bff] focus:ring-2 focus:ring-[#e8edff]"
             [class.border-[#dc2626]]="invalido('usuario')"
           />
           @if (invalido('usuario')) {
-            <p class="mt-1 text-[11px] font-medium text-[#dc2626]">Informe seu usuário corporativo.</p>
+            <p class="mt-1 text-[11px] font-medium text-[#dc2626]">Informe seu usuário corporativo ou e-mail.</p>
           }
         </div>
 
@@ -157,7 +157,11 @@
         </button>
       </form>
 
-      <footer class="mt-8 text-center">
+      <footer class="mt-8 flex flex-col gap-2 text-center">
+        <p class="text-xs text-[#363b47]">
+          Trabalha em uma unidade e quer acompanhar seus chamados?
+          <a routerLink="/cadastro" id="link-criar-conta" class="font-semibold text-[#2d5bff] hover:underline">Criar conta</a>
+        </p>
         <p class="text-xs text-[#6b7280]">
           Problemas para acessar? Fale com a Liderança de TI.
         </p>
