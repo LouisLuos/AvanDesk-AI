@@ -120,6 +120,21 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    @DisplayName("HU25: Não deve aceitar o ticket de tempo real como token das rotas REST")
+    void deveIgnorarTicketDeTempoReal() throws ServletException, IOException {
+        MockHttpServletRequest request = requisicaoComToken("ticket-tempo-real");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(jwtService.isTokenValido("ticket-tempo-real")).thenReturn(true);
+        when(jwtService.ehTicketTempoReal("ticket-tempo-real")).thenReturn(true);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
     @DisplayName("HU10: Não deve autenticar analista desativado, mesmo com token ainda válido")
     void deveIgnorarTokenDeAnalistaDesativado() throws ServletException, IOException {
         MockHttpServletRequest request = requisicaoComToken("token-de-desativado");
