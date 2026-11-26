@@ -36,6 +36,12 @@ import {
 } from '../../../shared/models/chamado.model';
 import { EventoTempoReal } from '../../../shared/models/tempo-real.model';
 import { extrairMensagensErro } from '../../../shared/utils/api-error';
+import {
+  emailValido,
+  normalizarEmail,
+  normalizarTelefone,
+  telefoneValido,
+} from '../../../shared/utils/contato';
 
 const TAMANHO_MINIMO_JUSTIFICATIVA_ENCERRAMENTO = 15;
 
@@ -429,7 +435,8 @@ export class DetalheChamado implements OnInit {
   protected readonly novoContatoConteudo = signal('');
   protected readonly novoContatoOutroSolicitante = signal(false);
   protected readonly novoContatoNome = signal('');
-  protected readonly novoContatoIdentificador = signal('');
+  protected readonly novoContatoEmail = signal('');
+  protected readonly novoContatoTelefone = signal('');
   protected readonly salvandoContato = signal(false);
   protected readonly erroContato = signal<string | null>(null);
 
@@ -652,8 +659,12 @@ export class DetalheChamado implements OnInit {
     this.novoContatoNome.set(texto);
   }
 
-  protected atualizarIdentificadorContato(texto: string): void {
-    this.novoContatoIdentificador.set(texto);
+  protected atualizarEmailContato(texto: string): void {
+    this.novoContatoEmail.set(texto);
+  }
+
+  protected atualizarTelefoneContato(texto: string): void {
+    this.novoContatoTelefone.set(texto);
   }
 
   protected limparFormularioContato(): void {
@@ -662,7 +673,8 @@ export class DetalheChamado implements OnInit {
     this.novoContatoConteudo.set('');
     this.novoContatoOutroSolicitante.set(false);
     this.novoContatoNome.set('');
-    this.novoContatoIdentificador.set('');
+    this.novoContatoEmail.set('');
+    this.novoContatoTelefone.set('');
     this.erroContato.set(null);
   }
 
@@ -695,15 +707,22 @@ export class DetalheChamado implements OnInit {
     };
 
     if (this.novoContatoOutroSolicitante()) {
-      const identificador = this.novoContatoIdentificador().trim();
-      if (!identificador) {
-        this.erroContato.set('Informe o telefone ou e-mail do interlocutor.');
-        this.toast.erro('Informe o telefone ou e-mail do interlocutor.');
+      const email = this.novoContatoEmail().trim();
+      const telefone = this.novoContatoTelefone().trim();
+      const problema = !emailValido(email)
+        ? 'Informe um e-mail válido do interlocutor.'
+        : telefone && !telefoneValido(telefone)
+          ? 'Informe o telefone do interlocutor com DDD (10 a 13 dígitos).'
+          : null;
+      if (problema) {
+        this.erroContato.set(problema);
+        this.toast.erro(problema);
         return;
       }
       payload.solicitante = {
         nome: this.novoContatoNome().trim() || undefined,
-        contato: identificador,
+        email: normalizarEmail(email),
+        ...(telefone ? { telefone: normalizarTelefone(telefone) } : {}),
       };
     }
 

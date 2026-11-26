@@ -75,7 +75,7 @@ class TempoRealIntegracaoTest {
 
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             chamadoService.registrar(new ChamadoRequest(unidade.getId(), CanalOrigem.LIGACAO,
-                new SolicitanteRequest("Teste HU25", "hu25.it@lumen.local"),
+                new SolicitanteRequest("Teste HU25", "hu25.it@lumen.local", null),
                 "Impressora de etiquetas da coleta não imprime.", categoriaId, null, null, true));
             status.setRollbackOnly();
         });

@@ -11,10 +11,9 @@ export const CANAIS_ORIGEM: ReadonlyArray<{ valor: CanalOrigem; rotulo: string }
 ];
 
 export interface Solicitante {
-  /** Opcional no lofi ("se informado") — omitido do payload quando vazio. */
   nome?: string;
-  /** Telefone em E.164 (+5581999999999) ou e-mail. */
-  contato: string;
+  email: string;
+  telefone?: string;
 }
 
 /** Item das listas do formulário: GET /categorias e GET /sistemas-equipamentos. */

@@ -28,6 +28,14 @@ spring:
   jackson:
     property-naming-strategy: SNAKE_CASE
 
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:1025}
+    properties:
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
 server:
   port: 8080
 
@@ -47,6 +55,17 @@ nexo:
   usuarios:
     # Domínios aceitos no e-mail corporativo dos analistas (HU10)
     dominios-email: lumen.local
+  notificacoes:
+    email:
+      habilitado: true
+      remetente: nao-responda@lumen.local
+      intervalo-reenvio: PT1M
+  solicitantes:
+    restringir-dominio-email: false
+    dominios-permitidos: lumen.local,lumen.com.br
+    validade-token-verificacao: PT24H
+    intervalo-reenvio: PT60S
+    url-verificacao: http://localhost:4200/verificar-email
 
 springdoc:
   api-docs:

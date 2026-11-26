@@ -2,6 +2,7 @@ package com.avandesk.api.core.config;
 
 import com.avandesk.api.core.dto.ApiResponse;
 import com.avandesk.api.temporeal.config.WebSocketConfig;
+import com.avandesk.api.usuario.entity.PerfilUsuario;
 import com.avandesk.api.usuario.security.JwtAuthenticationFilter;
 import com.avandesk.api.usuario.service.JwtService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -47,6 +48,12 @@ import java.util.List;
 @Import({JwtService.class, JwtAuthenticationFilter.class})
 public class SecurityConfig {
 
+    private static final List<String> ROTAS_PUBLICAS_DA_CONTA = List.of(
+        "/api/v1/auth/registrar",
+        "/api/v1/auth/unidades",
+        "/api/v1/auth/verificar-email",
+        "/api/v1/auth/reenviar-verificacao");
+
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Value("${nexo.cors.allowed-origins:http://localhost:4200}")
@@ -60,7 +67,8 @@ public class SecurityConfig {
             }
             String uri = request.getRequestURI();
             if ("/api/v1/auth/login".equals(uri) || "/auth/login".equals(uri)
-                || "/api/v1/auth/logout".equals(uri) || "/auth/logout".equals(uri)) {
+                || "/api/v1/auth/logout".equals(uri) || "/auth/logout".equals(uri)
+                || ROTAS_PUBLICAS_DA_CONTA.contains(uri)) {
                 return false;
             }
             Cookie[] cookies = request.getCookies();
@@ -104,7 +112,9 @@ public class SecurityConfig {
                     "/auth/logout",
                     WebSocketConfig.ENDPOINT
                 ).permitAll()
-                .anyRequest().authenticated()
+                .requestMatchers(ROTAS_PUBLICAS_DA_CONTA.toArray(String[]::new)).permitAll()
+                .requestMatchers("/api/v1/auth/me", "/auth/me").authenticated()
+                .anyRequest().hasAnyRole(PerfilUsuario.PERFIS_DA_EQUIPE)
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

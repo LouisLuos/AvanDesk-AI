@@ -1,5 +1,6 @@
 package com.avandesk.api.chamado.service;
 
+import com.avandesk.api.chamado.dto.SolicitanteRequest;
 import com.avandesk.api.chamado.entity.Solicitante;
 import com.avandesk.api.chamado.repository.SolicitanteRepository;
 import com.avandesk.api.core.exception.RegraNegocioException;
@@ -7,50 +8,57 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Locale;
-import java.util.Optional;
 import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 public class SolicitanteService {
 
-    private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$");
+    private static final Pattern EMAIL = Pattern.compile(SolicitanteRequest.FORMATO_EMAIL);
     private static final Pattern TELEFONE_E164 = Pattern.compile("^\\+[1-9]\\d{7,14}$");
-    private static final String CONTATO_INVALIDO =
-        "Contato deve ser um telefone no formato E.164 (ex.: +5581999999999) ou um e-mail.";
+    private static final String EMAIL_INVALIDO = "Informe um e-mail válido para o solicitante (ex.: recepcao@lumen.com.br).";
+    private static final String TELEFONE_INVALIDO =
+        "Telefone do solicitante deve ter DDD e número, no formato E.164 (ex.: +5581999999999).";
 
     private final SolicitanteRepository solicitanteRepository;
 
-    public Solicitante identificarOuCriar(String nome, String contato) {
+    public Solicitante identificarOuCriar(String nome, String email, String telefone) {
         String nomeInformado = nome == null || nome.isBlank() ? null : nome.trim();
-        String texto = contato.trim();
+        String emailNormalizado = normalizarEmail(email);
+        String telefoneNormalizado = telefone == null || telefone.isBlank() ? null : normalizarTelefone(telefone);
+        return solicitanteRepository.findByEmail(emailNormalizado)
+            .map(existente -> completar(existente, nomeInformado, telefoneNormalizado))
+            .orElseGet(() -> criar(nomeInformado, telefoneNormalizado, emailNormalizado));
+    }
 
-        if (texto.contains("@")) {
-            String email = texto.toLowerCase(Locale.ROOT);
-            if (!EMAIL.matcher(email).matches()) {
-                throw new RegraNegocioException(CONTATO_INVALIDO);
-            }
-            return solicitanteRepository.findByEmail(email)
-                .orElseGet(() -> criar(nomeInformado, null, email));
+    private static String normalizarEmail(String email) {
+        String normalizado = email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+        if (normalizado.length() > 254 || !EMAIL.matcher(normalizado).matches()) {
+            throw new RegraNegocioException(EMAIL_INVALIDO);
         }
-
-        String telefone = normalizarTelefone(texto);
-        Optional<Solicitante> existente = nomeInformado == null
-            ? solicitanteRepository.findFirstByTelefoneAndNomeIsNull(telefone)
-            : solicitanteRepository.findFirstByTelefoneAndNomeIgnoreCase(telefone, nomeInformado);
-        return existente.orElseGet(() -> criar(nomeInformado, telefone, null));
+        return normalizado;
     }
 
     private static String normalizarTelefone(String texto) {
         String digitos = texto.replaceAll("\\D", "");
         if (digitos.length() < 10 || digitos.length() > 13) {
-            throw new RegraNegocioException(CONTATO_INVALIDO);
+            throw new RegraNegocioException(TELEFONE_INVALIDO);
         }
         String telefone = digitos.length() <= 11 ? "+55" + digitos : "+" + digitos;
         if (!TELEFONE_E164.matcher(telefone).matches()) {
-            throw new RegraNegocioException(CONTATO_INVALIDO);
+            throw new RegraNegocioException(TELEFONE_INVALIDO);
         }
         return telefone;
+    }
+
+    private static Solicitante completar(Solicitante existente, String nome, String telefone) {
+        if (existente.getNome() == null && nome != null) {
+            existente.setNome(nome);
+        }
+        if (existente.getTelefone() == null && telefone != null) {
+            existente.setTelefone(telefone);
+        }
+        return existente;
     }
 
     private Solicitante criar(String nome, String telefone, String email) {

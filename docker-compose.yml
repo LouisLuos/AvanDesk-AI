@@ -30,9 +30,21 @@ services:
       SPRING_DATASOURCE_USERNAME: avandesk
       SPRING_DATASOURCE_PASSWORD: avandesk_dev
       PORT: 8080
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  mailpit:
+    image: axllent/mailpit:v1.20.5
+    container_name: avandesk-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
   frontend:
     build:

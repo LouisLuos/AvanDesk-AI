@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -37,7 +38,16 @@ class TempoRealControllerTest {
     private UsuarioRepository usuarioRepository;
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "SOLICITANTE")
+    void naoDeveEmitirTicketParaOSolicitante() throws Exception {
+        mockMvc.perform(get("/api/v1/tempo-real/ticket"))
+            .andExpect(status().isForbidden());
+
+        verifyNoInteractions(ticketTempoRealService);
+    }
+
+    @Test
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveEmitirOTicketParaQuemEstaLogado() throws Exception {
         when(ticketTempoRealService.emitir())
             .thenReturn(new TicketTempoRealResponse("ticket-jwt", Instant.parse("2026-11-26T13:01:00Z")));

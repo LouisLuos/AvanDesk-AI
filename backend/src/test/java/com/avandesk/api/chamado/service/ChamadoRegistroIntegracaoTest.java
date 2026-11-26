@@ -22,6 +22,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -142,9 +143,37 @@ class ChamadoRegistroIntegracaoTest {
         });
     }
 
+    @Test
+    void deveGravarOEmailEmMinusculasEReaproveitarOSolicitantePeloEmail() {
+        emTransacaoDesfeita(jdbc -> {
+            String email = "Recepcao." + UUID.randomUUID() + "@Lumen.Local";
+            chamadoService.registrar(request(new SolicitanteRequest("Recepção IT", email, null)));
+            chamadoService.registrar(request(new SolicitanteRequest(null, email.toUpperCase(), "(81) 98888-7777")));
+            entityManager.flush();
+
+            List<Map<String, Object>> solicitantes = jdbc.queryForList(
+                "SELECT nome, telefone FROM solicitantes WHERE email = ?", email.toLowerCase());
+            assertEquals(1, solicitantes.size());
+            assertEquals("Recepção IT", solicitantes.getFirst().get("nome"));
+            assertEquals("+5581988887777", solicitantes.getFirst().get("telefone"));
+            assertEquals(2L, jdbc.queryForObject("""
+                    SELECT count(*) FROM chamados c JOIN solicitantes s ON s.id = c.solicitante_id
+                    WHERE s.email = ?""", Long.class, email.toLowerCase()));
+        });
+    }
+
+    @Test
+    void deveRecusarNoBancoUmSolicitanteNovoSemEmail() {
+        emTransacaoDesfeita(jdbc -> assertThrows(DataAccessException.class, () -> jdbc.update(
+            "INSERT INTO solicitantes (nome, telefone) VALUES ('Sem e-mail', '+5581977776666')")));
+    }
+
     private ChamadoRequest request(String contato) {
-        return new ChamadoRequest(unidade.getId(), CanalOrigem.LIGACAO,
-            new SolicitanteRequest("Teste de Integração", contato),
+        return request(new SolicitanteRequest("Teste de Integração", contato, null));
+    }
+
+    private ChamadoRequest request(SolicitanteRequest solicitante) {
+        return new ChamadoRequest(unidade.getId(), CanalOrigem.LIGACAO, solicitante,
             "Impressora de etiquetas da coleta não imprime.", categoriaId, null, null, null);
     }
 

@@ -65,7 +65,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private Optional<Usuario> buscarUsuarioAtivo(String token) {
         try {
-            return usuarioRepository.findById(jwtService.obterUsuarioId(token)).filter(Usuario::isAtivo);
+            return usuarioRepository.findById(jwtService.obterUsuarioId(token)).filter(Usuario::podeEntrar);
         } catch (IllegalArgumentException tokenSemId) {
             return Optional.empty();
         }

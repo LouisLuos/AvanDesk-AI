@@ -40,6 +40,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return responder(HttpStatus.UNAUTHORIZED, "E-mail ou senha inválidos.", null);
     }
 
+    @ExceptionHandler(ContaNaoVerificadaException.class)
+    public ResponseEntity<ApiResponse<Void>> tratarContaNaoVerificada(ContaNaoVerificadaException ex) {
+        return responder(HttpStatus.FORBIDDEN, ex.getMessage(), List.of("CONTA_NAO_VERIFICADA"));
+    }
+
+    @ExceptionHandler(TokenVerificacaoInvalidoException.class)
+    public ResponseEntity<ApiResponse<Void>> tratarTokenVerificacaoInvalido(TokenVerificacaoInvalidoException ex) {
+        return responder(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), List.of(ex.getMotivo().name()));
+    }
+
     /** Recusa do @PreAuthorize: sem este handler cairia no tratamento genérico e viraria 500. */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> tratarAcessoNegado(AccessDeniedException ex) {

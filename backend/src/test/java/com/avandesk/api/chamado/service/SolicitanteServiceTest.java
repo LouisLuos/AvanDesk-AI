@@ -5,7 +5,9 @@ import com.avandesk.api.chamado.repository.SolicitanteRepository;
 import com.avandesk.api.core.exception.RegraNegocioException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -20,6 +22,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class SolicitanteServiceTest {
@@ -30,101 +33,86 @@ class SolicitanteServiceTest {
     @InjectMocks
     private SolicitanteService solicitanteService;
 
-    // ---------- e-mail ----------
-
     @Test
-    void deveReaproveitarSolicitanteExistentePeloEmailEmMinusculas() {
-        Solicitante existente = new Solicitante();
-        when(solicitanteRepository.findByEmail("recepcao.bvg@lumen.local")).thenReturn(Optional.of(existente));
-
-        Solicitante encontrado = solicitanteService.identificarOuCriar("Recepção", "  Recepcao.BVG@Lumen.local ");
-
-        assertSame(existente, encontrado);
-        verify(solicitanteRepository, never()).save(any());
-    }
-
-    @Test
-    void deveCriarSolicitantePeloEmailQuandoNaoExiste() {
+    void deveCriarSolicitanteComEmailEmMinusculasETelefoneEmE164() {
         when(solicitanteRepository.findByEmail("recepcao.bvg@lumen.local")).thenReturn(Optional.empty());
         when(solicitanteRepository.save(any(Solicitante.class))).thenAnswer(invocacao -> invocacao.getArgument(0));
 
-        Solicitante criado = solicitanteService.identificarOuCriar("  Recepção Boa Viagem ", "recepcao.bvg@lumen.local");
+        Solicitante criado = solicitanteService.identificarOuCriar(
+            "  Recepção Boa Viagem ", "  Recepcao.BVG@Lumen.local ", "(81) 99999-9999");
 
         assertEquals("Recepção Boa Viagem", criado.getNome());
         assertEquals("recepcao.bvg@lumen.local", criado.getEmail());
+        assertEquals("+5581999999999", criado.getTelefone());
+    }
+
+    @Test
+    void deveCriarSolicitanteSemTelefoneQuandoNaoInformado() {
+        when(solicitanteRepository.findByEmail("coleta@lumen.local")).thenReturn(Optional.empty());
+        when(solicitanteRepository.save(any(Solicitante.class))).thenAnswer(invocacao -> invocacao.getArgument(0));
+
+        Solicitante criado = solicitanteService.identificarOuCriar(null, "coleta@lumen.local", "   ");
+
+        assertNull(criado.getNome());
         assertNull(criado.getTelefone());
     }
 
     @Test
-    void deveRecusarEmailInvalido() {
-        RegraNegocioException erro = assertThrows(RegraNegocioException.class,
-            () -> solicitanteService.identificarOuCriar(null, "recepcao@lumen"));
-
-        assertEquals("Contato deve ser um telefone no formato E.164 (ex.: +5581999999999) ou um e-mail.",
-            erro.getMessage());
-        verify(solicitanteRepository, never()).save(any());
-    }
-
-    // ---------- telefone ----------
-
-    @Test
-    void deveAcrescentar55QuandoTelefoneVemSemDdi() {
-        when(solicitanteRepository.findFirstByTelefoneAndNomeIsNull("+5581999999999")).thenReturn(Optional.empty());
-        when(solicitanteRepository.save(any(Solicitante.class))).thenAnswer(invocacao -> invocacao.getArgument(0));
-
-        Solicitante criado = solicitanteService.identificarOuCriar("  ", "(81) 99999-9999");
-
-        assertEquals("+5581999999999", criado.getTelefone());
-        assertNull(criado.getNome());
-        assertNull(criado.getEmail());
-    }
-
-    @Test
     void deveManterDdiQuandoTelefoneJaVemCompleto() {
-        when(solicitanteRepository.findFirstByTelefoneAndNomeIsNull("+5581999999999")).thenReturn(Optional.empty());
+        when(solicitanteRepository.findByEmail("coleta@lumen.local")).thenReturn(Optional.empty());
         when(solicitanteRepository.save(any(Solicitante.class))).thenAnswer(invocacao -> invocacao.getArgument(0));
 
-        Solicitante criado = solicitanteService.identificarOuCriar(null, "+55 81 99999-9999");
+        Solicitante criado = solicitanteService.identificarOuCriar(null, "coleta@lumen.local", "+55 81 99999-9999");
 
         assertEquals("+5581999999999", criado.getTelefone());
     }
 
     @Test
-    void deveReaproveitarSolicitantePeloTelefoneENome() {
-        // Um telefone pode ser de mais de um solicitante (aparelho compartilhado, RN13): o nome desempata.
+    void deveReaproveitarSolicitantePeloEmailECompletarOQueFalta() {
         Solicitante existente = new Solicitante();
-        when(solicitanteRepository.findFirstByTelefoneAndNomeIgnoreCase("+5581999999999", "Recepção"))
-            .thenReturn(Optional.of(existente));
+        existente.setEmail("recepcao.bvg@lumen.local");
+        when(solicitanteRepository.findByEmail("recepcao.bvg@lumen.local")).thenReturn(Optional.of(existente));
 
-        Solicitante encontrado = solicitanteService.identificarOuCriar("Recepção", "81999999999");
+        Solicitante encontrado = solicitanteService.identificarOuCriar(
+            "Recepção", "Recepcao.BVG@lumen.local", "81999999999");
 
         assertSame(existente, encontrado);
+        assertEquals("Recepção", encontrado.getNome());
+        assertEquals("+5581999999999", encontrado.getTelefone());
         verify(solicitanteRepository, never()).save(any());
     }
 
     @Test
-    void deveCriarNovoSolicitanteQuandoTelefoneJaExisteComOutroNome() {
-        when(solicitanteRepository.findFirstByTelefoneAndNomeIgnoreCase("+5581999999999", "Coleta"))
-            .thenReturn(Optional.empty());
-        when(solicitanteRepository.save(any(Solicitante.class))).thenAnswer(invocacao -> invocacao.getArgument(0));
+    void naoDeveSobrescreverNomeNemTelefoneDoSolicitanteExistente() {
+        Solicitante existente = new Solicitante();
+        existente.setNome("Recepção Boa Viagem");
+        existente.setTelefone("+5581988887777");
+        existente.setEmail("recepcao.bvg@lumen.local");
+        when(solicitanteRepository.findByEmail("recepcao.bvg@lumen.local")).thenReturn(Optional.of(existente));
 
-        solicitanteService.identificarOuCriar("Coleta", "81999999999");
+        solicitanteService.identificarOuCriar("Outro Nome", "recepcao.bvg@lumen.local", "81999999999");
 
-        ArgumentCaptor<Solicitante> salvo = ArgumentCaptor.forClass(Solicitante.class);
-        verify(solicitanteRepository).save(salvo.capture());
-        assertEquals("Coleta", salvo.getValue().getNome());
-        assertEquals("+5581999999999", salvo.getValue().getTelefone());
+        assertEquals("Recepção Boa Viagem", existente.getNome());
+        assertEquals("+5581988887777", existente.getTelefone());
     }
 
-    @Test
-    void deveRecusarTelefoneComPoucosDigitos() {
-        assertThrows(RegraNegocioException.class, () -> solicitanteService.identificarOuCriar(null, "9999-9999"));
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   ", "recepcao@lumen", "recepcao.lumen.local", "recep cao@lumen.local", "@lumen.local"})
+    void deveRecusarEmailAusenteOuInvalido(String email) {
+        RegraNegocioException erro = assertThrows(RegraNegocioException.class,
+            () -> solicitanteService.identificarOuCriar("Recepção", email, null));
 
-        verify(solicitanteRepository, never()).save(any());
+        assertEquals("Informe um e-mail válido para o solicitante (ex.: recepcao@lumen.com.br).", erro.getMessage());
+        verifyNoInteractions(solicitanteRepository);
     }
 
-    @Test
-    void deveRecusarContatoQueNaoEEmailNemTelefone() {
-        assertThrows(RegraNegocioException.class, () -> solicitanteService.identificarOuCriar(null, "abc"));
+    @ParameterizedTest
+    @ValueSource(strings = {"9999-9999", "abc", "+55 81 99999-9999 12345"})
+    void deveRecusarTelefoneInvalido(String telefone) {
+        assertThrows(RegraNegocioException.class,
+            () -> solicitanteService.identificarOuCriar(null, "coleta@lumen.local", telefone));
+
+        verifyNoInteractions(solicitanteRepository);
     }
 }

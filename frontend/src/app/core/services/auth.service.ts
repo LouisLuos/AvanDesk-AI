@@ -47,17 +47,17 @@ export class AuthService {
     this.usuarioSignal.set(usuario);
   }
 
+  emailDeLogin(usuario: string): string {
+    return usuario.includes('@') ? usuario.toLowerCase() : `${usuario}@lumen.local`;
+  }
+
   /**
    * Realiza login na plataforma consumindo POST /api/v1/auth/login (HU09 / HU26).
    * O JWT é gerenciado pelo servidor via cookie HttpOnly; apenas o perfil fica em memória.
    */
   login(dados: LoginRequest): Observable<LoginResponse> {
-    const email = dados.usuario.includes('@')
-      ? dados.usuario
-      : `${dados.usuario}@lumen.local`;
-
     const payload = {
-      email,
+      email: this.emailDeLogin(dados.usuario),
       senha: dados.senha,
     };
 
