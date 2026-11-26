@@ -1009,7 +1009,7 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
         prioridade_final: 'MEDIA',
         justificativa_prioridade: null,
       });
-      expect(toastSpy).toHaveBeenCalledWith('Prioridade definida com sucesso!');
+      expect(toastSpy).toHaveBeenCalledWith('Triagem e prioridade salvas com sucesso!');
     });
   });
 
