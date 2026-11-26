@@ -392,6 +392,7 @@ class DashboardIntegracaoTest {
             Solicitante s = new Solicitante();
             s.setNome("Solicitante Dashboard Teste");
             s.setTelefone("+5581911112222");
+            s.setEmail("dashboard." + UUID.randomUUID() + "@lumen.local");
             return solicitanteRepository.save(s);
         }
     }

@@ -444,6 +444,7 @@ class FilaChamadosIntegracaoTest {
             Solicitante novo = new Solicitante();
             novo.setNome("Solicitante de Teste da Fila");
             novo.setTelefone("+5581900000000");
+            novo.setEmail("fila." + UUID.randomUUID() + "@lumen.local");
             return solicitanteRepository.save(novo);
         }
     }

@@ -70,7 +70,7 @@ class ChamadoControllerTest {
           "unidade_id": "%s",
           "canal_origem": "LIGACAO",
           "categoria_id": "%s",
-          "solicitante": { "nome": "Recepção Boa Viagem", "contato": "81999999999" },
+          "solicitante": { "nome": "Recepção Boa Viagem", "email": "Recepcao.BVG@Lumen.local", "telefone": "81999999999" },
           "descricao": "Impressora de etiquetas da coleta não imprime.",
           "registro_iniciado_em": "2026-10-22T14:29:15Z"
         }
@@ -128,7 +128,8 @@ class ChamadoControllerTest {
             new UnidadeResumoResponse(unidadeId, "U.03 Boa Viagem"),
             new CategoriaResponse(categoriaId, "Equipamento de apoio"),
             null,
-            new SolicitanteResponse("Recepção Boa Viagem", "+5581999999999"),
+            new SolicitanteResponse("Recepção Boa Viagem", "recepcao.bvg@lumen.local", "+5581999999999",
+                "recepcao.bvg@lumen.local"),
             null,
             null,
             null,
@@ -149,7 +150,8 @@ class ChamadoControllerTest {
                 DirecaoContato.RECEBIDO,
                 "Impressora de etiquetas da coleta não imprime.",
                 abertoEm,
-                new SolicitanteResponse("Recepção Boa Viagem", "+5581999999999"),
+                new SolicitanteResponse("Recepção Boa Viagem", "recepcao.bvg@lumen.local", "+5581999999999",
+                    "recepcao.bvg@lumen.local"),
                 "Analista Dev Um",
                 null
             )),
@@ -174,6 +176,9 @@ class ChamadoControllerTest {
             .andExpect(jsonPath("$.data.canal_origem").value("LIGACAO"))
             .andExpect(jsonPath("$.data.unidade.nome").value("U.03 Boa Viagem"))
             .andExpect(jsonPath("$.data.responsavel").value(nullValue()))
+            .andExpect(jsonPath("$.data.solicitante.email").value("recepcao.bvg@lumen.local"))
+            .andExpect(jsonPath("$.data.solicitante.telefone").value("+5581999999999"))
+            .andExpect(jsonPath("$.data.solicitante.contato").value("recepcao.bvg@lumen.local"))
             .andExpect(jsonPath("$.data.registros_contato[0].id").value(contatoId.toString()))
             .andExpect(jsonPath("$.data.historico[0].id_evento").value(eventoId.toString()))
             .andExpect(jsonPath("$.data.historico[0].tipo").value("CHAMADO_ABERTO"));
@@ -227,6 +232,46 @@ class ChamadoControllerTest {
             .andExpect(jsonPath("$.errors[0]").value("Campo 'descricao' deve ter entre 10 e 2000 caracteres."));
 
         verifyNoInteractions(chamadoService);
+    }
+
+    @Test
+    @WithMockUser
+    void deveRecusarChamadoSemEmailDoSolicitante() throws Exception {
+        String semEmail = CORPO_VALIDO.replace("\"email\": \"Recepcao.BVG@Lumen.local\", ", "");
+
+        mockMvc.perform(post("/api/v1/chamados").contentType(MediaType.APPLICATION_JSON).content(semEmail))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.errors[0]").value("Campo 'solicitante.email' é obrigatório."));
+
+        verifyNoInteractions(chamadoService);
+    }
+
+    @Test
+    @WithMockUser
+    void deveRecusarEmailDoSolicitanteForaDoFormato() throws Exception {
+        String emailInvalido = CORPO_VALIDO.replace("Recepcao.BVG@Lumen.local", "recepcao@lumen");
+
+        mockMvc.perform(post("/api/v1/chamados").contentType(MediaType.APPLICATION_JSON).content(emailInvalido))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.errors[0]").value("Campo 'solicitante.email' deve ser um e-mail válido."));
+
+        verifyNoInteractions(chamadoService);
+    }
+
+    @Test
+    @WithMockUser
+    void deveEntregarOEmailEmMinusculasEOTelefoneComplementarAoServico() throws Exception {
+        when(chamadoService.registrar(any(ChamadoRequest.class))).thenReturn(new ChamadoResponse(
+            UUID.randomUUID(), "LUM-2026-000001", StatusChamado.ABERTO, Instant.parse("2026-10-22T14:30:00Z"),
+            OrigemDado.TESTE));
+
+        mockMvc.perform(post("/api/v1/chamados").contentType(MediaType.APPLICATION_JSON).content(CORPO_VALIDO))
+            .andExpect(status().isCreated());
+
+        ArgumentCaptor<ChamadoRequest> enviado = ArgumentCaptor.forClass(ChamadoRequest.class);
+        verify(chamadoService).registrar(enviado.capture());
+        assertEquals("recepcao.bvg@lumen.local", enviado.getValue().solicitante().email());
+        assertEquals("81999999999", enviado.getValue().solicitante().telefone());
     }
 
     @Test

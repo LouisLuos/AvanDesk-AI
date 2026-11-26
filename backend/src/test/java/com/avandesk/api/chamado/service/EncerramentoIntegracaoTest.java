@@ -177,7 +177,7 @@ class EncerramentoIntegracaoTest {
 
     private ChamadoRequest request() {
         return new ChamadoRequest(unidade.getId(), CanalOrigem.LIGACAO,
-            new SolicitanteRequest("Teste HU15", "hu15.it@lumen.local"),
+            new SolicitanteRequest("Teste HU15", "hu15.it@lumen.local", null),
             "Impressora de etiquetas da coleta não imprime.", categoriaId, null, null, true);
     }
 }

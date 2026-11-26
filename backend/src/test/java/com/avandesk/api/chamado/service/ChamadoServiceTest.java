@@ -223,7 +223,7 @@ class ChamadoServiceTest {
         prepararCenarioValido(124L);
 
         ChamadoRequest requestComPrioridade = new ChamadoRequest(unidadeId, CanalOrigem.LIGACAO,
-            new SolicitanteRequest("Recepção Boa Viagem", "81999999999"), "Descrição do chamado.", categoriaId, null,
+            new SolicitanteRequest("Recepção Boa Viagem", "recepcao.bvg@lumen.local", "81999999999"), "Descrição do chamado.", categoriaId, null,
             Prioridade.ALTA, null, null);
 
         chamadoService.registrar(requestComPrioridade);
@@ -597,7 +597,7 @@ class ChamadoServiceTest {
         when(unidadeService.obterAtivaParaNovoChamado(unidadeId)).thenReturn(unidade);
         when(categoriaService.obterAtivaParaNovoChamado(categoriaId)).thenReturn(categoria);
         when(usuarioLogadoService.obterUsuarioLogado()).thenReturn(autor);
-        when(solicitanteService.identificarOuCriar("Recepção Boa Viagem", "81999999999")).thenReturn(solicitante);
+        when(solicitanteService.identificarOuCriar("Recepção Boa Viagem", "recepcao.bvg@lumen.local", "81999999999")).thenReturn(solicitante);
         when(chamadoRepository.proximoNumeroCodigo()).thenReturn(numeroCodigo);
         when(chamadoRepository.save(any(Chamado.class))).thenAnswer(invocacao -> {
             Chamado chamado = invocacao.getArgument(0);
@@ -613,7 +613,7 @@ class ChamadoServiceTest {
 
     private ChamadoRequest request(String descricao, Instant registroIniciadoEm) {
         return new ChamadoRequest(unidadeId, CanalOrigem.LIGACAO,
-            new SolicitanteRequest("Recepção Boa Viagem", "81999999999"), descricao, categoriaId, null,
+            new SolicitanteRequest("Recepção Boa Viagem", "recepcao.bvg@lumen.local", "81999999999"), descricao, categoriaId, null,
             registroIniciadoEm, null);
     }
 

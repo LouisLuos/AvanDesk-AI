@@ -86,7 +86,7 @@ public class ChamadoService {
             usuarioService.obterAnalistaAtivo(autor.getId());
         }
         Solicitante solicitante = solicitanteService.identificarOuCriar(
-            request.solicitante().nome(), request.solicitante().contato());
+            request.solicitante().nome(), request.solicitante().email(), request.solicitante().telefone());
 
 
         Instant abertoEm = Instant.now().truncatedTo(ChronoUnit.MICROS);
@@ -148,7 +148,8 @@ public class ChamadoService {
         }
         Solicitante solicitante = request.solicitante() == null
             ? chamado.getSolicitante()
-            : solicitanteService.identificarOuCriar(request.solicitante().nome(), request.solicitante().contato());
+            : solicitanteService.identificarOuCriar(
+                request.solicitante().nome(), request.solicitante().email(), request.solicitante().telefone());
         DirecaoContato direcao = request.direcao() == null ? DirecaoContato.RECEBIDO : request.direcao();
         Usuario autor = usuarioLogadoService.obterUsuarioLogado();
 
