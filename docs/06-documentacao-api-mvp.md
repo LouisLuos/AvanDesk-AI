@@ -1085,3 +1085,73 @@ Fornece os indicadores executivos agregados da operação (sem exposição de da
 | `inicio` posterior a `fim` | `400` | `"A data inicial do filtro não pode ser posterior à data final."` |
 | Perfil diferente de Liderança de TI | `403` | `"Acesso negado para o perfil do usuário."` |
 | Sem token | `401` | — |
+
+---
+
+## 17. Atualização em Tempo Real da Fila e do Detalhe (HU25)
+
+A fila e o detalhe recebem as mudanças dos chamados por WebSocket com STOMP, sem recarregar a página.
+
+### 17.1. Pedir o ticket de conexão
+
+* **Endpoint:** `GET /tempo-real/ticket`
+* **Autenticação:** sessão normal (cookie ou Bearer Token)
+
+```json
+{
+  "status_code": 200,
+  "message": "Ticket de tempo real emitido",
+  "data": {
+    "ticket": "eyJhbGciOiJIUzI1NiJ9...",
+    "expira_em": "2026-11-26T13:01:00Z"
+  },
+  "errors": null
+}
+```
+
+* JWT curto (60 s) que só vale no `CONNECT` do STOMP; as rotas REST recusam esse ticket.
+* Peça um ticket novo a cada conexão e reconexão. Em produção o front fala direto com o backend no WebSocket (a Vercel não repassa WebSocket), e o cookie de sessão não vai junto; por isso o ticket.
+
+### 17.2. Conectar e assinar
+
+* **Endpoint WebSocket:** `/api/v1/ws` (STOMP sobre WebSocket puro, sem SockJS). Origens aceitas: as mesmas do CORS (`nexo.cors.allowed-origins`).
+* **CONNECT:** header `Authorization: Bearer <ticket>`. Sem ticket, com ticket expirado, adulterado, com o token de sessão no lugar do ticket ou de usuário inativo, a conexão é recusada com frame `ERROR`.
+* **SUBSCRIBE:** só `/topic/chamados`. O cliente não envia mensagens (`SEND` é recusado).
+
+### 17.3. Mensagens em `/topic/chamados`
+
+```json
+{
+  "tipo": "CHAMADO_CRIADO",
+  "chamado": {
+    "id": "c22f357c-96a0-4fe1-868e-e7a874190f5d",
+    "codigo": "LUM-2026-000061",
+    "titulo": "Impressora de etiquetas parada na coleta",
+    "unidade": { "id": "a1f0c3e2-0006-4000-8000-000000000006", "nome": "Sede Administrativa" },
+    "categoria": { "id": "5886391a-e0aa-461c-b8f2-704dc2f744b4", "nome": "Equipamento de apoio" },
+    "canal_origem": "LIGACAO",
+    "status": "EM_ATENDIMENTO",
+    "motivo_espera": null,
+    "prioridade": "ALTA",
+    "responsavel": { "id": "…", "nome": "Analista Dev Um" },
+    "aberto_em": "2026-11-26T13:00:00Z",
+    "resolvido_em": null,
+    "atualizado_em": "2026-11-26T13:00:01Z"
+  },
+  "autor": { "id": "…", "nome": "Analista Dev Um" },
+  "ocorrido_em": "2026-11-26T13:00:01Z"
+}
+```
+
+* `chamado` tem o mesmo formato de um item da fila (seção 6).
+* **Uma mensagem por chamado e por operação**, enviada **só depois do commit** (rollback não publica). Quando a operação grava vários eventos no histórico, vale o tipo mais relevante:
+
+| `tipo` | Quando |
+| :--- | :--- |
+| `CHAMADO_CRIADO` | registro do chamado (`CHAMADO_ABERTO`), inclusive com "atribuir a mim" |
+| `CHAMADO_ATRIBUIDO` | assumir ou reatribuir |
+| `STATUS_ALTERADO` | qualquer evento que muda o status (triagem, espera, retorno, escalonamento, resolução, reabertura, encerramento, cancelamento, mesclagem) |
+| `CHAMADO_ATUALIZADO` | demais mudanças (contato, prioridade, vínculo de relato) |
+
+* O broker é em memória: vale para **uma instância** do backend. Com mais de uma, é preciso um broker externo.
+* No front, a fila recarrega a página atual e destaca o que mudou; o detalhe recarrega quando outro analista mexe no chamado aberto; um `CHAMADO_CRIADO` com prioridade `ALTA` de outra pessoa mostra o banner de P1 (som opcional, desligado por padrão). A reconexão usa backoff exponencial de 1 s a 30 s.
