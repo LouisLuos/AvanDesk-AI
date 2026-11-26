@@ -63,8 +63,6 @@ export class ChamadoService {
 
   /**
    * GET /chamados/totais-por-unidade — chamados abertos por unidade nos últimos `dias` (HU11).
-   * Ainda não existe no backend (virá do `contarPorUnidadeDesde`); até lá a requisição falha
-   * e quem chama deve tratar a contagem como indisponível.
    */
   totaisPorUnidade(dias = 30): Observable<TotalChamadosPorUnidade[]> {
     const params = new HttpParams().set('dias', dias);

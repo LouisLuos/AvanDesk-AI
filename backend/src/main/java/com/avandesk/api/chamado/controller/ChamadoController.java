@@ -11,6 +11,7 @@ import com.avandesk.api.chamado.dto.ResolucaoRequest;
 import com.avandesk.api.chamado.dto.ResponsavelRequest;
 import com.avandesk.api.chamado.dto.StatusRequest;
 import com.avandesk.api.chamado.dto.TotalPorResponsavelResponse;
+import com.avandesk.api.chamado.dto.TotalPorUnidadeResponse;
 import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.Prioridade;
 import com.avandesk.api.chamado.entity.StatusChamado;
@@ -88,6 +89,17 @@ public class ChamadoController {
     public ResponseEntity<ApiResponse<List<TotalPorResponsavelResponse>>> totaisPorResponsavel() {
         List<TotalPorResponsavelResponse> totais = filaChamadosService.totaisPorResponsavel();
         return ResponseEntity.ok(ApiResponse.sucesso(HttpStatus.OK, "Totais por responsável recuperados", totais));
+    }
+
+    @GetMapping("/totais-por-unidade")
+    @Operation(summary = "Conta os chamados abertos em cada unidade nos últimos dias (HU11)",
+        description = "Considera chamados abertos nos últimos N dias (padrão 30, máximo 365). "
+            + "Unidades sem chamados no período não aparecem. Responde 200; 400 se 'dias' estiver fora do limite.")
+    public ResponseEntity<ApiResponse<List<TotalPorUnidadeResponse>>> totaisPorUnidade(
+        @RequestParam(name = "dias", defaultValue = "" + FilaChamadosService.DIAS_PADRAO_UNIDADE) int dias
+    ) {
+        List<TotalPorUnidadeResponse> totais = filaChamadosService.totaisPorUnidade(dias);
+        return ResponseEntity.ok(ApiResponse.sucesso(HttpStatus.OK, "Totais por unidade recuperados", totais));
     }
 
     @GetMapping("/{id}")

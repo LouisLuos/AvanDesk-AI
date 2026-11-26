@@ -4,6 +4,7 @@ import com.avandesk.api.chamado.dto.ChamadoResumoResponse;
 import com.avandesk.api.chamado.dto.FilaChamadosResponse;
 import com.avandesk.api.chamado.dto.FiltroChamados;
 import com.avandesk.api.chamado.dto.TotalPorResponsavelResponse;
+import com.avandesk.api.chamado.dto.TotalPorUnidadeResponse;
 import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.StatusChamado;
 import com.avandesk.api.chamado.repository.ChamadoRepository;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +39,8 @@ public class FilaChamadosService {
 
     public static final int TAMANHO_PADRAO = 20;
     public static final int TAMANHO_MAXIMO = 100;
+    public static final int DIAS_PADRAO_UNIDADE = 30;
+    public static final int DIAS_MAXIMO_UNIDADE = 365;
 
     /** Ordem fixa: o cliente não escolhe o campo, para não ordenar por qualquer coluna. */
     private static final Sort MAIS_RECENTES_PRIMEIRO =
@@ -106,6 +110,19 @@ public class FilaChamadosService {
     public List<TotalPorResponsavelResponse> totaisPorResponsavel() {
         return chamadoRepository.contarEmAndamentoPorResponsavel().entrySet().stream()
             .map(total -> new TotalPorResponsavelResponse(total.getKey(), total.getValue()))
+            .toList();
+    }
+
+    /** Chamados abertos em cada unidade nos últimos {@code dias} dias, para a gestão de unidades (HU11). */
+    @Transactional(readOnly = true)
+    public List<TotalPorUnidadeResponse> totaisPorUnidade(int dias) {
+        if (dias < 1 || dias > DIAS_MAXIMO_UNIDADE) {
+            throw new RegraNegocioException(
+                "O parâmetro 'dias' deve estar entre 1 e %d.".formatted(DIAS_MAXIMO_UNIDADE));
+        }
+        Instant desde = Instant.now().minus(dias, ChronoUnit.DAYS);
+        return chamadoRepository.contarPorUnidadeDesde(desde).entrySet().stream()
+            .map(total -> new TotalPorUnidadeResponse(total.getKey(), total.getValue()))
             .toList();
     }
 
