@@ -13,6 +13,7 @@ import com.avandesk.api.chamado.dto.RegistroContatoResponse;
 import com.avandesk.api.chamado.dto.ResolucaoRequest;
 import com.avandesk.api.chamado.dto.SolicitanteResponse;
 import com.avandesk.api.chamado.dto.StatusRequest;
+import com.avandesk.api.chamado.dto.TotalPorUnidadeResponse;
 import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.DirecaoContato;
 import com.avandesk.api.chamado.entity.OrigemDado;
@@ -521,6 +522,21 @@ class ChamadoControllerTest {
             .andExpect(jsonPath("$.status_code").value(400));
 
         verifyNoInteractions(chamadoService);
+    }
+
+    @Test
+    @WithMockUser
+    void deveRetornarTotaisPorUnidadeEmSnakeCase() throws Exception {
+        UUID unidadeId = UUID.randomUUID();
+        when(filaChamadosService.totaisPorUnidade(30)).thenReturn(List.of(new TotalPorUnidadeResponse(unidadeId, 7L)));
+
+        mockMvc.perform(get("/api/v1/chamados/totais-por-unidade"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status_code").value(200))
+            .andExpect(jsonPath("$.data[0].unidade_id").value(unidadeId.toString()))
+            .andExpect(jsonPath("$.data[0].total").value(7));
+
+        verify(filaChamadosService).totaisPorUnidade(30);
     }
 
     private static FilaChamadosResponse paginaVazia() {

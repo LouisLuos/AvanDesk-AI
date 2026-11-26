@@ -457,6 +457,15 @@ components:
         total:
           type: integer
           example: 6
+    TotalPorUnidadeResponse:
+      type: object
+      properties:
+        unidade_id:
+          type: string
+          format: uuid
+        total:
+          type: integer
+          example: 12
     ResponsavelRequest:
       type: object
       required: [responsavel_id]
@@ -1303,6 +1312,43 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/TotalPorResponsavelResponse'
+  /chamados/totais-por-unidade:
+    get:
+      summary: Contar chamados abertos por unidade nos últimos dias (HU11)
+      description: >-
+        Conta os chamados com aberto_em a partir dos últimos N dias (padrão 30, máximo 365).
+        Unidades sem chamados no período não aparecem.
+      tags:
+        - Chamados
+      parameters:
+        - in: query
+          name: dias
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+      responses:
+        '200':
+          description: Totais por unidade
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TotalPorUnidadeResponse'
+        '400':
+          description: Parâmetro 'dias' fora do intervalo permitido (1 a 365)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
   /chamados/{id}:
     get:
       summary: Consultar o Chamado, Status, Responsável e Histórico (HU02 & HU05)

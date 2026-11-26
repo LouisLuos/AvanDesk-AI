@@ -206,4 +206,22 @@ class ChamadoContagemRepositoryImpl implements ChamadoContagemRepository {
         }
         return totais;
     }
+
+    @Override
+    public Map<UUID, Long> contarPorUnidadeDesde(Instant desde) {
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Tuple> query = cb.createTupleQuery();
+        Root<Chamado> root = query.from(Chamado.class);
+        Path<UUID> unidade = root.get("unidade").get("id");
+
+        query.multiselect(unidade, cb.count(root))
+            .where(cb.greaterThanOrEqualTo(root.get("abertoEm"), desde))
+            .groupBy(unidade);
+
+        Map<UUID, Long> totais = new HashMap<>();
+        for (Tuple linha : entityManager.createQuery(query).getResultList()) {
+            totais.put(linha.get(0, UUID.class), linha.get(1, Long.class));
+        }
+        return totais;
+    }
 }

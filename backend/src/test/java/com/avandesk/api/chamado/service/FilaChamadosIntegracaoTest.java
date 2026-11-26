@@ -6,6 +6,7 @@ import com.avandesk.api.chamado.dto.ChamadoResumoResponse;
 import com.avandesk.api.chamado.dto.FilaChamadosResponse;
 import com.avandesk.api.chamado.dto.FiltroChamados;
 import com.avandesk.api.chamado.dto.TotalPorResponsavelResponse;
+import com.avandesk.api.chamado.dto.TotalPorUnidadeResponse;
 import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.EventoHistorico;
@@ -314,6 +315,26 @@ class FilaChamadosIntegracaoTest {
             FilaChamadosResponse fila = listar(daUnidade(unidade), false, 0, 20);
 
             assertEquals(2L, fila.totalEstourados());
+        });
+    }
+
+    @Test
+    void deveContarChamadosPorUnidadeDentroDaJanelaDeDias() {
+        emTransacaoDesfeita(dados -> {
+            Unidade unidadeComChamados = dados.unidade();
+            Unidade unidadeSemChamadosRecentes = dados.unidade();
+
+            dados.chamado(unidadeComChamados, StatusChamado.ABERTO, AGORA.minus(2, ChronoUnit.DAYS));
+            dados.chamado(unidadeComChamados, StatusChamado.EM_ATENDIMENTO, AGORA.minus(10, ChronoUnit.DAYS));
+            dados.chamado(unidadeComChamados, StatusChamado.ABERTO, AGORA.minus(45, ChronoUnit.DAYS));
+            dados.chamado(unidadeSemChamadosRecentes, StatusChamado.ABERTO, AGORA.minus(35, ChronoUnit.DAYS));
+            entityManager.flush();
+
+            Map<UUID, Long> totais = filaChamadosService.totaisPorUnidade(30).stream()
+                .collect(Collectors.toMap(TotalPorUnidadeResponse::unidadeId, TotalPorUnidadeResponse::total));
+
+            assertEquals(2L, totais.get(unidadeComChamados.getId()));
+            assertNull(totais.get(unidadeSemChamadosRecentes.getId()));
         });
     }
 
