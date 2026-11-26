@@ -763,6 +763,12 @@ Cadastro, edição, desativação e reativação dos analistas de suporte (RF-02
 * **Endpoint:** `GET /chamados/totais-por-responsavel` (qualquer usuário autenticado)
 * **Response:** `200` com `[{ "responsavel_id": "…", "total": 6 }]`. Conta tudo o que não está `RESOLVIDO`, `FECHADO`, `CANCELADO` ou `MESCLADO`; responsáveis sem chamados não aparecem. A tela de analistas cruza com `GET /analistas` para a coluna "Chamados ativos".
 
+### Chamados abertos por unidade nos últimos dias (HU11)
+
+* **Endpoint:** `GET /chamados/totais-por-unidade?dias=30` (qualquer usuário autenticado)
+* **Query param:** `dias` (opcional, padrão `30`, entre `1` e `365`; fora do intervalo responde `400`).
+* **Response:** `200` com `[{ "unidade_id": "…", "total": 12 }]`. Conta os chamados com `aberto_em` nos últimos `dias` dias; unidades sem chamados no período não aparecem. A tela de unidades cruza com `GET /unidades` para a coluna "Chamados (30 d)".
+
 ---
 
 ## 12. Escalar Chamado para Fornecedor Externo (HU07)

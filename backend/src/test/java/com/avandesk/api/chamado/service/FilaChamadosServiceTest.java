@@ -3,6 +3,7 @@ package com.avandesk.api.chamado.service;
 import com.avandesk.api.chamado.dto.ChamadoResumoResponse;
 import com.avandesk.api.chamado.dto.FilaChamadosResponse;
 import com.avandesk.api.chamado.dto.FiltroChamados;
+import com.avandesk.api.chamado.dto.TotalPorUnidadeResponse;
 import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.StatusChamado;
@@ -170,6 +171,28 @@ class FilaChamadosServiceTest {
 
         assertTrue(fila.itens().isEmpty());
         verifyNoInteractions(eventoHistoricoRepository);
+    }
+
+    // ---------- totais por unidade ----------
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, -5, 366})
+    void deveRecusarDiasForaDoLimiteEmTotaisPorUnidade(int dias) {
+        RegraNegocioException erro = assertThrows(RegraNegocioException.class,
+            () -> filaChamadosService.totaisPorUnidade(dias));
+
+        assertEquals("O parâmetro 'dias' deve estar entre 1 e 365.", erro.getMessage());
+        verifyNoInteractions(chamadoRepository);
+    }
+
+    @Test
+    void deveConsultarEMapearTotaisPorUnidade() {
+        UUID unidadeId = UUID.randomUUID();
+        when(chamadoRepository.contarPorUnidadeDesde(any(Instant.class))).thenReturn(Map.of(unidadeId, 5L));
+
+        List<TotalPorUnidadeResponse> resultado = filaChamadosService.totaisPorUnidade(30);
+
+        assertEquals(List.of(new TotalPorUnidadeResponse(unidadeId, 5L)), resultado);
     }
 
     // ---------- apoio ----------
