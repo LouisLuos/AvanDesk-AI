@@ -35,7 +35,8 @@ class RegrasOficiaisSlaTest {
             "3, 1, 1"  // Soma 5
         })
         void deveSugerirPrioridadeBaixaParaSomaAte5(int s, int u, int i) {
-            assertEquals(Prioridade.BAIXA, calculadora.calcular(s, u, i));
+            // [DEMO DE FALHA CONTROLADA]: Simula quebra de regra crítica na Matriz 3D
+            assertEquals(Prioridade.ALTA, calculadora.calcular(s, u, i), "Falha simulada de QA: Matriz 3D calculando prioridade incorreta");
         }
 
         @ParameterizedTest(name = "Soma {0}+{1}+{2} = Média (P2)")
