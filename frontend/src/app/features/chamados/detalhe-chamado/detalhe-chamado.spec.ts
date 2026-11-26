@@ -483,7 +483,8 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
     expect(component['novoContatoOutroSolicitante']()).toBe(true);
 
     component['atualizarNomeContato']('Dr. Carlos Plantonista');
-    component['atualizarIdentificadorContato']('+5581987654321');
+    component['atualizarEmailContato']('Carlos.Plantao@Lumen.com.br');
+    component['atualizarTelefoneContato']('(81) 98765-4321');
     component['atualizarConteudoContato']('Médico informou urgência no setor de triagem.');
     component['registrarNovoContato']();
 
@@ -493,9 +494,27 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
       conteudo: 'Médico informou urgência no setor de triagem.',
       solicitante: {
         nome: 'Dr. Carlos Plantonista',
-        contato: '+5581987654321',
+        email: 'carlos.plantao@lumen.com.br',
+        telefone: '+5581987654321',
       },
     });
+  });
+
+  it('deve exigir e-mail válido do interlocutor alternativo (HU16)', () => {
+    vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(mockDetalhe));
+    const registrarSpy = vi.spyOn(chamadoService, 'registrarContato').mockReturnValue(of(mockDetalhe));
+
+    fixture = TestBed.createComponent(DetalheChamado);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    component['alternarOutroSolicitante']();
+    component['atualizarTelefoneContato']('+5581987654321');
+    component['atualizarConteudoContato']('Médico informou urgência no setor de triagem.');
+    component['registrarNovoContato']();
+
+    expect(registrarSpy).not.toHaveBeenCalled();
+    expect(component['erroContato']()).toBe('Informe um e-mail válido do interlocutor.');
   });
 
   it('deve exibir botão de Resolver para chamados EM_ATENDIMENTO ou AGUARDANDO (HU06)', () => {
