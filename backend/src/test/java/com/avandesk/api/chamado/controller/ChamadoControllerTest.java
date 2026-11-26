@@ -92,7 +92,7 @@ class ChamadoControllerTest {
     private UsuarioRepository usuarioRepository;
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveResponder201NoEnvelopePadraoAoRegistrar() throws Exception {
         UUID id = UUID.randomUUID();
         when(chamadoService.registrar(any(ChamadoRequest.class))).thenReturn(new ChamadoResponse(
@@ -109,7 +109,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveResponder200ComDetalheContatosEHistoricoEmSnakeCase() throws Exception {
         UUID id = UUID.randomUUID();
         UUID unidadeId = UUID.randomUUID();
@@ -185,7 +185,22 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "SOLICITANTE")
+    void deveNegarAApiInternaAoPerfilSolicitante() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(get("/api/v1/chamados/{id}", id))
+            .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/chamados"))
+            .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/chamados").contentType(MediaType.APPLICATION_JSON).content(CORPO_VALIDO))
+            .andExpect(status().isForbidden());
+
+        verifyNoInteractions(chamadoService, filaChamadosService);
+    }
+
+    @Test
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveResponder404QuandoChamadoNaoExistirAoDetalhar() throws Exception {
         UUID id = UUID.randomUUID();
         when(chamadoService.detalhar(id))
@@ -198,7 +213,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveRecusarChamadoSemUnidadeComAMensagemDoContrato() throws Exception {
         String semUnidade = CORPO_VALIDO.replaceFirst("\"unidade_id\": \"[^\"]+\",", "");
 
@@ -211,7 +226,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveRecusarCategoriaAusente() throws Exception {
         String semCategoria = CORPO_VALIDO.replaceFirst("\"categoria_id\": \"[^\"]+\",", "");
 
@@ -223,7 +238,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveRecusarDescricaoCurta() throws Exception {
         String descricaoCurta = CORPO_VALIDO.replace("Impressora de etiquetas da coleta não imprime.", "Quebrou");
 
@@ -235,7 +250,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveRecusarChamadoSemEmailDoSolicitante() throws Exception {
         String semEmail = CORPO_VALIDO.replace("\"email\": \"Recepcao.BVG@Lumen.local\", ", "");
 
@@ -247,7 +262,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveRecusarEmailDoSolicitanteForaDoFormato() throws Exception {
         String emailInvalido = CORPO_VALIDO.replace("Recepcao.BVG@Lumen.local", "recepcao@lumen");
 
@@ -259,7 +274,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveEntregarOEmailEmMinusculasEOTelefoneComplementarAoServico() throws Exception {
         when(chamadoService.registrar(any(ChamadoRequest.class))).thenReturn(new ChamadoResponse(
             UUID.randomUUID(), "LUM-2026-000001", StatusChamado.ABERTO, Instant.parse("2026-10-22T14:30:00Z"),
@@ -275,7 +290,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveRecusarCanalForaDaLista() throws Exception {
         String canalInvalido = CORPO_VALIDO.replace("\"LIGACAO\"", "\"OUTRO\"");
 
@@ -297,7 +312,7 @@ class ChamadoControllerTest {
     // ---------- fila de chamados (HU14) ----------
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveListarAFilaNoEnvelopePadraoEmSnakeCase() throws Exception {
         UUID id = UUID.randomUUID();
         ChamadoResumoResponse linha = new ChamadoResumoResponse(
@@ -326,7 +341,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveRepassarTodosOsFiltrosEStatusRepetidoAoServico() throws Exception {
         UUID unidadeId = UUID.randomUUID();
         UUID responsavelId = UUID.randomUUID();
@@ -352,7 +367,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveUsarPagina0Tamanho20ESemFiltrosPorPadrao() throws Exception {
         when(filaChamadosService.listar(any(), eq(false), eq(0), eq(20))).thenReturn(paginaVazia());
 
@@ -363,7 +378,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveRecusarStatusInexistenteCom400() throws Exception {
         mockMvc.perform(get("/api/v1/chamados").param("status", "XPTO"))
             .andExpect(status().isBadRequest())
@@ -374,7 +389,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveRecusarUnidadeQueNaoEUuidCom400() throws Exception {
         mockMvc.perform(get("/api/v1/chamados").param("unidade_id", "boa-viagem"))
             .andExpect(status().isBadRequest());
@@ -383,7 +398,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveDevolver400DoServicoQuandoOTamanhoEstaForaDoLimite() throws Exception {
         when(filaChamadosService.listar(any(), eq(false), eq(0), eq(500)))
             .thenThrow(new RegraNegocioException("O parâmetro 'size' deve estar entre 1 e 100."));
@@ -401,7 +416,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveAtribuirResponsavelComSucessoAoEnviarSnakeCase() throws Exception {
         UUID chamadoId = UUID.randomUUID();
         UUID analistaId = UUID.randomUUID();
@@ -420,7 +435,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveAlterarStatusComSucesso() throws Exception {
         UUID chamadoId = UUID.randomUUID();
         when(chamadoService.alterarStatus(eq(chamadoId), any(StatusRequest.class))).thenReturn(mock(ChamadoDetalheResponse.class));
@@ -438,7 +453,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveResolverChamadoComSucessoAoEnviarSnakeCase() throws Exception {
         UUID chamadoId = UUID.randomUUID();
         when(chamadoService.resolver(eq(chamadoId), any(ResolucaoRequest.class)))
@@ -464,7 +479,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveRecusarResolucaoComMenosDeDezCaracteresCom400() throws Exception {
         UUID chamadoId = UUID.randomUUID();
 
@@ -482,7 +497,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveDevolver422QuandoResolucaoNaoPermitidaPeloStatus() throws Exception {
         UUID chamadoId = UUID.randomUUID();
         when(chamadoService.resolver(eq(chamadoId), any(ResolucaoRequest.class)))
@@ -500,7 +515,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveRepassarMotivoReaberturaEmSnakeCaseAoReabrirChamado() throws Exception {
         UUID chamadoId = UUID.randomUUID();
         when(chamadoService.alterarStatus(eq(chamadoId), any(StatusRequest.class)))
@@ -525,7 +540,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveDefinirPrioridadeComSucesso() throws Exception {
         UUID chamadoId = UUID.randomUUID();
         when(chamadoService.definirPrioridade(eq(chamadoId), any(PrioridadeRequest.class)))
@@ -550,7 +565,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveRejeitarPrioridadeComNotasForaDoRange() throws Exception {
         UUID chamadoId = UUID.randomUUID();
 
@@ -570,7 +585,7 @@ class ChamadoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveRetornarTotaisPorUnidadeEmSnakeCase() throws Exception {
         UUID unidadeId = UUID.randomUUID();
         when(filaChamadosService.totaisPorUnidade(30)).thenReturn(List.of(new TotalPorUnidadeResponse(unidadeId, 7L)));

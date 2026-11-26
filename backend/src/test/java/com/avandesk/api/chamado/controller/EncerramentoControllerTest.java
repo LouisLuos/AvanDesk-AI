@@ -54,7 +54,7 @@ class EncerramentoControllerTest {
     private UsuarioRepository usuarioRepository;
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveDevolverOChecklistEmSnakeCase() throws Exception {
         UUID id = UUID.randomUUID();
         when(encerramentoService.verificar(id)).thenReturn(VerificacaoEncerramentoResponse.de(List.of(
@@ -76,7 +76,7 @@ class EncerramentoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveResponder404ParaChamadoInexistente() throws Exception {
         UUID id = UUID.randomUUID();
         when(encerramentoService.verificar(id)).thenThrow(new RecursoNaoEncontradoException("Chamado não encontrado."));
@@ -86,7 +86,7 @@ class EncerramentoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveEncerrarRepassandoAJustificativa() throws Exception {
         UUID id = UUID.randomUUID();
         when(encerramentoService.fechar(eq(id), any())).thenReturn(mock(ChamadoDetalheResponse.class));
@@ -102,7 +102,7 @@ class EncerramentoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveEncerrarSemCorpo() throws Exception {
         UUID id = UUID.randomUUID();
         when(encerramentoService.fechar(eq(id), isNull())).thenReturn(mock(ChamadoDetalheResponse.class));
@@ -112,7 +112,7 @@ class EncerramentoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveResponder422ListandoAsPendencias() throws Exception {
         UUID id = UUID.randomUUID();
         when(encerramentoService.fechar(eq(id), any())).thenThrow(new OperacaoNaoPermitidaException(
@@ -126,7 +126,7 @@ class EncerramentoControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ANALISTA_SUPORTE")
     void deveRecusarJustificativaMaiorQue500Caracteres() throws Exception {
         mockMvc.perform(post("/api/v1/chamados/{id}/fechar", UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"justificativa_sem_causa_raiz\": \"" + "x".repeat(501) + "\"}"))
