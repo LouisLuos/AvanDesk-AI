@@ -420,7 +420,7 @@ components:
           example: "analista1@lumen.local"
         perfil:
           type: string
-          enum: [ANALISTA_SUPORTE, LIDERANCA_TI]
+          enum: [ANALISTA_SUPORTE, LIDERANCA_TI, ADMIN, SOLICITANTE]
           example: ANALISTA_SUPORTE
     AnalistaRequest:
       type: object
@@ -904,6 +904,17 @@ paths:
                 message: "E-mail ou senha inválidos."
                 data: null
                 errors: null
+        '403':
+          description: Conta de solicitante ainda não verificada (HU17); só depois de a senha conferir
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 403
+                message: "Confirme o seu e-mail para entrar. Se o link expirou, peça um novo na tela de verificação."
+                data: null
+                errors: [CONTA_NAO_VERIFICADA]
   /auth/logout:
     post:
       summary: Encerrar sessão do usuário (HU09)
@@ -921,6 +932,174 @@ paths:
                 message: "Logout realizado com sucesso"
                 data: null
                 errors: null
+  /auth/registrar:
+    post:
+      summary: Criar a conta do solicitante (HU17)
+      description: "Público. Conta nasce PENDENTE_VERIFICACAO e recebe por e-mail um link válido por 24 h. Senha forte: 10 a 72 caracteres com maiúscula, minúscula, número e símbolo. Com nexo.solicitantes.restringir-dominio-email=true, só aceita os domínios permitidos."
+      tags:
+        - Conta do solicitante
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nome, email, unidade_id, senha]
+              properties:
+                nome:
+                  type: string
+                  maxLength: 120
+                  example: Mariana Alves
+                email:
+                  type: string
+                  format: email
+                  maxLength: 254
+                  example: mariana.alves@gmail.com
+                unidade_id:
+                  type: string
+                  format: uuid
+                senha:
+                  type: string
+                  minLength: 10
+                  maxLength: 72
+                  example: "Coleta#2026ok"
+      responses:
+        '201':
+          description: Conta criada e link de verificação enviado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+                      status_conta:
+                        type: string
+                        enum: [PENDENTE_VERIFICACAO, ATIVA]
+                      verificacao_expira_em:
+                        type: string
+                        format: date-time
+        '400':
+          description: Dados inválidos, senha fraca, domínio recusado ou unidade inativa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Unidade não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '409':
+          description: E-mail já cadastrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+  /auth/verificar-email:
+    post:
+      summary: Confirmar o e-mail pelo token do link (HU17)
+      description: "Público. Ativa a conta e vincula ao usuário os chamados abertos antes pela equipe com o mesmo e-mail."
+      tags:
+        - Conta do solicitante
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  maxLength: 100
+      responses:
+        '200':
+          description: E-mail confirmado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+                      chamados_vinculados:
+                        type: integer
+        '422':
+          description: "Token recusado; errors[0] traz o motivo"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Este link expirou. Peça um novo link de verificação."
+                data: null
+                errors: [TOKEN_EXPIRADO]
+  /auth/reenviar-verificacao:
+    post:
+      summary: Enviar um novo link de verificação (HU17)
+      description: "Público. Sempre 202 com a mesma mensagem (anti-enumeração). Só envia para conta de solicitante pendente, no máximo um link a cada 60 s; o novo link invalida os anteriores."
+      tags:
+        - Conta do solicitante
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '202':
+          description: Pedido aceito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+  /auth/unidades:
+    get:
+      summary: Unidades ativas para a tela de cadastro (HU17)
+      tags:
+        - Conta do solicitante
+      security: []
+      responses:
+        '200':
+          description: Unidades ativas (id e nome)
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        nome:
+                          type: string
   /unidades:
     get:
       summary: Listar unidades diagnósticas (HU11)
