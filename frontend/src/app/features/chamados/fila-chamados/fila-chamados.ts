@@ -135,6 +135,12 @@ export class FilaChamados implements OnInit {
 
   protected readonly itensPagina = computed(() => this.fila()?.itens ?? []);
 
+  protected readonly totalEstourados = computed<number>(() => {
+    this.slaService.agora();
+    const itens = this.itensPagina();
+    return itens.filter((ch) => this.obterSla(ch).situacao === 'ESTOURADO').length;
+  });
+
   /** Cartões do topo: contagem do servidor com os filtros atuais, menos o de status. */
   protected readonly indicadores = computed<Indicador[]>(() => {
     const fila = this.fila();
