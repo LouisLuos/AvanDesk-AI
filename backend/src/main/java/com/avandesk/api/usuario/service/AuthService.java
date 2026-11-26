@@ -1,12 +1,17 @@
 package com.avandesk.api.usuario.service;
 
+import com.avandesk.api.core.exception.ContaNaoVerificadaException;
 import com.avandesk.api.usuario.dto.LoginRequest;
 import com.avandesk.api.usuario.dto.LoginResponse;
 import com.avandesk.api.usuario.dto.UsuarioAutenticadoResponse;
+import com.avandesk.api.usuario.entity.StatusConta;
 import com.avandesk.api.usuario.entity.Usuario;
 import com.avandesk.api.usuario.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,14 +43,32 @@ public class AuthService {
             throw new BadCredentialsException("E-mail ou senha inválidos.");
         }
 
-        // Validação da senha contra hash BCrypt armazenado
         if (!passwordEncoder.matches(request.senha(), usuario.getSenhaHash())) {
             throw new BadCredentialsException("E-mail ou senha inválidos.");
+        }
+        if (usuario.getStatusConta() == StatusConta.PENDENTE_VERIFICACAO) {
+            throw new ContaNaoVerificadaException(
+                "Confirme o seu e-mail para entrar. Se o link expirou, peça um novo na tela de verificação.");
         }
 
         // Emissão do token JWT com claims e expiração de 1h
         String token = jwtService.gerarToken(usuario);
 
         return new LoginResponse(token, UsuarioAutenticadoResponse.de(usuario));
+    }
+
+    @Transactional(readOnly = true)
+    public UsuarioAutenticadoResponse obterUsuarioAutenticado() {
+        Authentication autenticacao = SecurityContextHolder.getContext().getAuthentication();
+        if (autenticacao == null || !autenticacao.isAuthenticated()
+            || autenticacao instanceof AnonymousAuthenticationToken) {
+            throw new BadCredentialsException("Sessão inválida ou expirada.");
+        }
+
+        Usuario usuario = usuarioRepository.findByEmail(autenticacao.getName())
+            .filter(Usuario::podeEntrar)
+            .orElseThrow(() -> new BadCredentialsException("Sessão inválida ou expirada."));
+
+        return UsuarioAutenticadoResponse.de(usuario);
     }
 }

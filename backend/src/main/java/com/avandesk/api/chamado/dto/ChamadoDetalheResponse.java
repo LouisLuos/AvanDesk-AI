@@ -4,6 +4,7 @@ import com.avandesk.api.catalogo.dto.CategoriaResponse;
 import com.avandesk.api.catalogo.dto.SistemaEquipamentoResponse;
 import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.Chamado;
+import com.avandesk.api.chamado.entity.Escalonamento;
 import com.avandesk.api.chamado.entity.EventoHistorico;
 import com.avandesk.api.chamado.entity.MotivoEspera;
 import com.avandesk.api.chamado.entity.OrigemDado;
@@ -44,14 +45,24 @@ public record ChamadoDetalheResponse(
     String causaRaiz,
     boolean possivelRecorrencia,
     OrigemDado origemDado,
+    ChamadoReferenciaResponse chamadoPrincipal,
+    List<ChamadoReferenciaResponse> chamadosMesclados,
     List<RegistroContatoResponse> registrosContato,
     List<EscalonamentoResponse> escalonamentos,
     List<EventoHistoricoResponse> historico
 ) {
 
-    /** Os contatos e os eventos já chegam em ordem de ocorrido_em; os escalonamentos vêm do chamado, em ordem de envio. */
-    public static ChamadoDetalheResponse de(Chamado chamado, List<RegistroContato> contatos,
-                                            List<EventoHistorico> eventos) {
+    /**
+     * As listas já chegam carregadas e ordenadas via consultas dedicadas (com {@code @EntityGraph} / projeção),
+     * evitando Lazy Loading e N+1 durante a montagem do DTO.
+     */
+    public static ChamadoDetalheResponse de(
+        Chamado chamado,
+        List<ChamadoReferenciaResponse> mesclados,
+        List<RegistroContato> contatos,
+        List<Escalonamento> escalonamentos,
+        List<EventoHistorico> eventos
+    ) {
         return new ChamadoDetalheResponse(
             chamado.getId(),
             chamado.getCodigo(),
@@ -80,8 +91,10 @@ public record ChamadoDetalheResponse(
             chamado.getCausaRaiz(),
             chamado.isPossivelRecorrencia(),
             chamado.getOrigemDado(),
+            ChamadoReferenciaResponse.de(chamado.getChamadoPrincipal()),
+            mesclados,
             contatos.stream().map(RegistroContatoResponse::de).toList(),
-            chamado.getEscalonamentos().stream().map(EscalonamentoResponse::de).toList(),
+            escalonamentos.stream().map(EscalonamentoResponse::de).toList(),
             eventos.stream().map(EventoHistoricoResponse::de).toList()
         );
     }

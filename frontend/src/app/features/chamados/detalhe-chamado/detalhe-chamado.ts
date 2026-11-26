@@ -6,6 +6,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
@@ -16,9 +17,12 @@ import {
   CANAIS_ORIGEM,
   CanalOrigem,
   ChamadoDetalhe,
+  ChamadoResumo,
   DirecaoContato,
   ItemSlaDetalhe,
   EscalonamentoRequest,
+  FechamentoRequest,
+  ItemVerificacao,
   MotivoEspera,
   PrioridadeChamado,
   PrioridadeRequest,
@@ -27,8 +31,17 @@ import {
   RegistroContatoRequest,
   RetornoFornecedorRequest,
   StatusRequest,
+  VerificacaoEncerramento,
 } from '../../../shared/models/chamado.model';
 import { extrairMensagensErro } from '../../../shared/utils/api-error';
+import {
+  emailValido,
+  normalizarEmail,
+  normalizarTelefone,
+  telefoneValido,
+} from '../../../shared/utils/contato';
+
+const TAMANHO_MINIMO_JUSTIFICATIVA_ENCERRAMENTO = 15;
 
 @Component({
   selector: 'app-detalhe-chamado',
@@ -97,11 +110,23 @@ export class DetalheChamado implements OnInit {
   protected readonly slaItensDinamicos = computed<ItemSlaDetalhe[]>(() => {
     const item = this.chamado();
     if (!item) return [];
-    const agora = this.slaService.agora();
+
+    const finalizado =
+      item.status === 'RESOLVIDO' ||
+      item.status === 'FECHADO' ||
+      item.status === 'CANCELADO' ||
+      item.status === 'MESCLADO';
 
     const timestampAbertura = this.slaService.parseData(item.aberto_em_iso ?? item.aberto_em);
-    const dataAbertura = isNaN(timestampAbertura) ? agora : timestampAbertura;
-    const decorridoMinutos = Math.max(0, Math.floor((agora - dataAbertura) / 60000));
+
+    // Regra de auditoria: chamados finalizados congelam no instante de encerramento/cancelamento (não leem agora());
+    // chamados ativos (inclusive estourados) seguem incrementando via signal agora() até serem resolvidos ou cancelados.
+    const timestampReferencia = finalizado
+      ? this.obterTimestampFinalizacaoAuditoria(item, timestampAbertura)
+      : this.slaService.agora();
+
+    const dataAbertura = isNaN(timestampAbertura) ? timestampReferencia : timestampAbertura;
+    const decorridoMinutos = Math.max(0, Math.floor((timestampReferencia - dataAbertura) / 60000));
 
     // 1. Triagem
     const temTriagem = Boolean(item.prioridade || item.prioridade_final || item.prioridade_sugerida);
@@ -113,8 +138,20 @@ export class DetalheChamado implements OnInit {
       triagemTexto = 'Cumprida';
       triagemProgresso = 100;
       triagemEstilo = 'bg-[#22c55e]';
+    } else if (item.status === 'CANCELADO') {
+      triagemTexto = 'Encerrada (cancelado)';
+      triagemProgresso = 0;
+      triagemEstilo = 'bg-[#94a3b8]';
+    } else if (item.status === 'MESCLADO') {
+      triagemTexto = 'Incorporada ao principal';
+      triagemProgresso = 0;
+      triagemEstilo = 'bg-[#94a3b8]';
+    } else if (item.status === 'RESOLVIDO' || item.status === 'FECHADO') {
+      triagemTexto = `Finalizado sem triagem (${this.slaService.formatarTempo(decorridoMinutos)})`;
+      triagemProgresso = 100;
+      triagemEstilo = 'bg-[#22c55e]';
     } else if (decorridoMinutos > 15) {
-      triagemTexto = `Estourada · +${decorridoMinutos - 15} min`;
+      triagemTexto = `Estourada · +${this.slaService.formatarTempo(decorridoMinutos - 15)}`;
       triagemProgresso = 100;
       triagemEstilo = 'bg-[#dc2626]';
     } else if (triagemProgresso >= 80) {
@@ -134,8 +171,20 @@ export class DetalheChamado implements OnInit {
       respTexto = 'Respondido pelo suporte';
       respProgresso = 100;
       respEstilo = 'bg-[#22c55e]';
+    } else if (item.status === 'CANCELADO') {
+      respTexto = 'Encerrada (cancelado)';
+      respProgresso = 0;
+      respEstilo = 'bg-[#94a3b8]';
+    } else if (item.status === 'MESCLADO') {
+      respTexto = 'Incorporada ao principal';
+      respProgresso = 0;
+      respEstilo = 'bg-[#94a3b8]';
+    } else if (item.status === 'RESOLVIDO' || item.status === 'FECHADO') {
+      respTexto = `Encerrado em ${this.slaService.formatarTempo(decorridoMinutos)}`;
+      respProgresso = 100;
+      respEstilo = 'bg-[#22c55e]';
     } else if (decorridoMinutos > 15) {
-      respTexto = `Estourada · +${decorridoMinutos - 15} min`;
+      respTexto = `Estourada · +${this.slaService.formatarTempo(decorridoMinutos - 15)}`;
       respProgresso = 100;
       respEstilo = 'bg-[#dc2626]';
     } else if (respProgresso >= 80) {
@@ -162,9 +211,17 @@ export class DetalheChamado implements OnInit {
     let resolBarra = Math.min(100, Math.max(5, resolProgresso));
 
     if (item.status === 'RESOLVIDO' || item.status === 'FECHADO') {
-      resolTexto = 'Cumprida com sucesso';
+      resolTexto = `Cumprida em ${this.slaService.formatarTempo(decorridoMinutos)}`;
       resolBarra = 100;
       resolEstilo = 'bg-[#22c55e]';
+    } else if (item.status === 'CANCELADO') {
+      resolTexto = `Cancelado após ${this.slaService.formatarTempo(decorridoMinutos)}`;
+      resolBarra = 0;
+      resolEstilo = 'bg-[#94a3b8]';
+    } else if (item.status === 'MESCLADO') {
+      resolTexto = 'Incorporado ao chamado principal';
+      resolBarra = 0;
+      resolEstilo = 'bg-[#94a3b8]';
     } else if (item.status === 'AGUARDANDO') {
       resolTexto = 'Pausado (aguardando retorno)';
       resolEstilo = 'bg-[#9aa2b1]';
@@ -203,6 +260,40 @@ export class DetalheChamado implements OnInit {
     ];
   });
 
+  /**
+   * Obtém o instante imutável de encerramento/cancelamento para congelar o contador de auditoria.
+   * Nunca retorna Date.now() para status finalizados.
+   */
+  private obterTimestampFinalizacaoAuditoria(item: ChamadoDetalhe, timestampAbertura: number): number {
+    if (item.status === 'RESOLVIDO' || item.status === 'FECHADO') {
+      const resolvido = this.slaService.parseData(item.resolvido_em_iso ?? item.resolvido_em);
+      if (!isNaN(resolvido)) return resolvido;
+    }
+
+    const tiposAlvo =
+      item.status === 'CANCELADO'
+        ? ['CHAMADO_CANCELADO']
+        : item.status === 'MESCLADO'
+          ? ['CHAMADO_MESCLADO']
+          : ['CHAMADO_RESOLVIDO', 'CHAMADO_FECHADO'];
+
+    const historico = item.historico ?? [];
+    for (let i = historico.length - 1; i >= 0; i--) {
+      const ev = historico[i];
+      if (tiposAlvo.includes(ev.tipo)) {
+        const ts = this.slaService.parseData(ev.ocorridoEmIso ?? ev.dataCompleta);
+        if (!isNaN(ts)) return ts;
+      }
+    }
+
+    for (let i = historico.length - 1; i >= 0; i--) {
+      const ts = this.slaService.parseData(historico[i].ocorridoEmIso ?? historico[i].dataCompleta);
+      if (!isNaN(ts)) return ts;
+    }
+
+    return isNaN(timestampAbertura) ? 0 : timestampAbertura;
+  }
+
   // Estados do Modal de Resolução (HU06)
   protected readonly modalResolucaoAberto = signal(false);
   protected readonly resolucaoTexto = signal('');
@@ -228,6 +319,38 @@ export class DetalheChamado implements OnInit {
   protected readonly podeResolver = computed(() => {
     const s = this.chamado()?.status;
     return (s === 'EM_ATENDIMENTO' || s === 'AGUARDANDO') && !this.aguardandoFornecedor();
+  });
+
+  protected readonly modalEncerramentoAberto = signal(false);
+  protected readonly carregandoVerificacao = signal(false);
+  protected readonly verificacaoEncerramento = signal<VerificacaoEncerramento | null>(null);
+  protected readonly justificativaSemCausaRaiz = signal('');
+  protected readonly errosEncerramento = signal<string[]>([]);
+  protected readonly tamanhoMinimoJustificativaEncerramento = TAMANHO_MINIMO_JUSTIFICATIVA_ENCERRAMENTO;
+
+  protected readonly podeEncerrar = computed(() => this.chamado()?.status === 'RESOLVIDO');
+
+  protected readonly faltaCausaRaiz = computed(
+    () =>
+      this.verificacaoEncerramento()?.itens.some(
+        (item) => item.codigo === 'CAUSA_RAIZ_OU_JUSTIFICATIVA' && !item.ok,
+      ) ?? false,
+  );
+
+  protected readonly itensEncerramento = computed<ItemVerificacao[]>(() => {
+    const itens = this.verificacaoEncerramento()?.itens ?? [];
+    const justificativaOk =
+      this.justificativaSemCausaRaiz().trim().length >= TAMANHO_MINIMO_JUSTIFICATIVA_ENCERRAMENTO;
+    return itens.map((item) =>
+      item.codigo === 'CAUSA_RAIZ_OU_JUSTIFICATIVA' && !item.ok && justificativaOk
+        ? { ...item, ok: true, pendencia: null }
+        : item,
+    );
+  });
+
+  protected readonly encerramentoLiberado = computed(() => {
+    const itens = this.itensEncerramento();
+    return itens.length > 0 && itens.every((item) => item.ok);
   });
 
   protected readonly resolucaoValida = computed(() => {
@@ -310,12 +433,44 @@ export class DetalheChamado implements OnInit {
   protected readonly novoContatoConteudo = signal('');
   protected readonly novoContatoOutroSolicitante = signal(false);
   protected readonly novoContatoNome = signal('');
-  protected readonly novoContatoIdentificador = signal('');
+  protected readonly novoContatoEmail = signal('');
+  protected readonly novoContatoTelefone = signal('');
   protected readonly salvandoContato = signal(false);
   protected readonly erroContato = signal<string | null>(null);
 
-  protected readonly idChamado = computed(() => this.route.snapshot.paramMap.get('id') ?? '');
+  // Estados do Modal de Mesclagem (HU03)
+  protected readonly modalMesclagemAberto = signal(false);
+  protected readonly buscaPrincipalCodigo = signal('');
+  protected readonly carregandoCandidatosMesclagem = signal(false);
+  protected readonly erroBuscaMesclagem = signal<string | null>(null);
+  protected readonly candidatosMesclagem = signal<ChamadoResumo[]>([]);
+  protected readonly chamadoPrincipalSelecionado = signal<ChamadoResumo | null>(null);
+
+  protected readonly idChamado = signal(this.route.snapshot.paramMap.get('id') ?? '');
   protected readonly usuarioLogado = computed(() => this.authService.usuario());
+
+  constructor() {
+    this.route.paramMap?.pipe(takeUntilDestroyed()).subscribe((params) => {
+      const novoId = params.get('id') ?? '';
+      if (novoId && novoId !== this.idChamado()) {
+        this.idChamado.set(novoId);
+        this.carregarDetalhes();
+      }
+    });
+  }
+
+  protected readonly podeMesclar = computed(() => {
+    const c = this.chamado();
+    if (!c) return false;
+    const statusPermitidos: StatusChamado[] = [
+      'ABERTO',
+      'EM_TRIAGEM',
+      'EM_ATENDIMENTO',
+      'AGUARDANDO',
+      'REABERTO',
+    ];
+    return statusPermitidos.includes(c.status) && !this.aguardandoFornecedor();
+  });
 
   protected readonly ehResponsavelAtual = computed(() => {
     const resp = this.chamado()?.responsavel;
@@ -481,8 +636,12 @@ export class DetalheChamado implements OnInit {
     this.novoContatoNome.set(texto);
   }
 
-  protected atualizarIdentificadorContato(texto: string): void {
-    this.novoContatoIdentificador.set(texto);
+  protected atualizarEmailContato(texto: string): void {
+    this.novoContatoEmail.set(texto);
+  }
+
+  protected atualizarTelefoneContato(texto: string): void {
+    this.novoContatoTelefone.set(texto);
   }
 
   protected limparFormularioContato(): void {
@@ -491,7 +650,8 @@ export class DetalheChamado implements OnInit {
     this.novoContatoConteudo.set('');
     this.novoContatoOutroSolicitante.set(false);
     this.novoContatoNome.set('');
-    this.novoContatoIdentificador.set('');
+    this.novoContatoEmail.set('');
+    this.novoContatoTelefone.set('');
     this.erroContato.set(null);
   }
 
@@ -524,15 +684,22 @@ export class DetalheChamado implements OnInit {
     };
 
     if (this.novoContatoOutroSolicitante()) {
-      const identificador = this.novoContatoIdentificador().trim();
-      if (!identificador) {
-        this.erroContato.set('Informe o telefone ou e-mail do interlocutor.');
-        this.toast.erro('Informe o telefone ou e-mail do interlocutor.');
+      const email = this.novoContatoEmail().trim();
+      const telefone = this.novoContatoTelefone().trim();
+      const problema = !emailValido(email)
+        ? 'Informe um e-mail válido do interlocutor.'
+        : telefone && !telefoneValido(telefone)
+          ? 'Informe o telefone do interlocutor com DDD (10 a 13 dígitos).'
+          : null;
+      if (problema) {
+        this.erroContato.set(problema);
+        this.toast.erro(problema);
         return;
       }
       payload.solicitante = {
         nome: this.novoContatoNome().trim() || undefined,
-        contato: identificador,
+        email: normalizarEmail(email),
+        ...(telefone ? { telefone: normalizarTelefone(telefone) } : {}),
       };
     }
 
@@ -807,8 +974,135 @@ export class DetalheChamado implements OnInit {
       });
   }
 
+  protected abrirModalEncerramento(): void {
+    const id = this.idChamado();
+    if (!id || !this.podeEncerrar()) return;
+
+    this.verificacaoEncerramento.set(null);
+    this.justificativaSemCausaRaiz.set('');
+    this.errosEncerramento.set([]);
+    this.modalEncerramentoAberto.set(true);
+    this.carregandoVerificacao.set(true);
+    this.chamadoService
+      .verificarEncerramento(id)
+      .pipe(finalize(() => this.carregandoVerificacao.set(false)))
+      .subscribe({
+        next: (verificacao) => this.verificacaoEncerramento.set(verificacao),
+        error: (err) => this.errosEncerramento.set(extrairMensagensErro(err)),
+      });
+  }
+
+  protected fecharModalEncerramento(): void {
+    this.modalEncerramentoAberto.set(false);
+  }
+
+  protected confirmarEncerramento(): void {
+    const id = this.idChamado();
+    if (!id || !this.encerramentoLiberado()) return;
+
+    const payload: FechamentoRequest = this.faltaCausaRaiz()
+      ? { justificativa_sem_causa_raiz: this.justificativaSemCausaRaiz().trim() }
+      : {};
+
+    this.salvando.set(true);
+    this.errosEncerramento.set([]);
+    this.chamadoService
+      .fechar(id, payload)
+      .pipe(finalize(() => this.salvando.set(false)))
+      .subscribe({
+        next: (dadosAtualizados) => {
+          this.chamado.set(dadosAtualizados);
+          this.toast.sucesso('Chamado encerrado.');
+          this.fecharModalEncerramento();
+        },
+        error: (err) => this.errosEncerramento.set(extrairMensagensErro(err)),
+      });
+  }
+
   protected acaoNaoDisponivel(acao: string, leva: string): void {
     this.toast.info(`Ação "${acao}" planejada para a ${leva}.`);
+  }
+
+  // Métodos de Mesclagem de Chamado Duplicado (HU03 / RN17)
+  protected abrirModalMesclagem(): void {
+    if (!this.podeMesclar()) {
+      this.toast.info('Este chamado não pode ser mesclado no estado atual.');
+      return;
+    }
+    this.buscaPrincipalCodigo.set('');
+    this.chamadoPrincipalSelecionado.set(null);
+    this.erroBuscaMesclagem.set(null);
+    this.modalMesclagemAberto.set(true);
+    this.buscarCandidatosMesclagem();
+  }
+
+  protected fecharModalMesclagem(): void {
+    this.modalMesclagemAberto.set(false);
+  }
+
+  protected atualizarBuscaPrincipal(codigo: string): void {
+    this.buscaPrincipalCodigo.set(codigo);
+  }
+
+  protected buscarCandidatosMesclagem(): void {
+    const idAtual = this.idChamado();
+    const codigo = this.buscaPrincipalCodigo().trim();
+    const filtros = codigo ? { codigo } : {};
+
+    this.carregandoCandidatosMesclagem.set(true);
+    this.erroBuscaMesclagem.set(null);
+
+    this.chamadoService
+      .listar(filtros, 0, 15)
+      .pipe(finalize(() => this.carregandoCandidatosMesclagem.set(false)))
+      .subscribe({
+        next: (pagina) => {
+          const elegiveis = pagina.itens.filter(
+            (c) =>
+              c.id !== idAtual &&
+              c.status !== 'FECHADO' &&
+              c.status !== 'CANCELADO' &&
+              c.status !== 'MESCLADO',
+          );
+          this.candidatosMesclagem.set(elegiveis);
+          if (elegiveis.length === 1 && codigo) {
+            this.chamadoPrincipalSelecionado.set(elegiveis[0]);
+          }
+        },
+        error: (err) => {
+          const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao buscar chamados elegíveis.';
+          this.erroBuscaMesclagem.set(msgApi);
+        },
+      });
+  }
+
+  protected selecionarPrincipalParaMesclagem(candidato: ChamadoResumo): void {
+    this.chamadoPrincipalSelecionado.set(candidato);
+  }
+
+  protected confirmarMesclagem(): void {
+    const id = this.idChamado();
+    const principal = this.chamadoPrincipalSelecionado();
+    if (!id || !principal) {
+      this.toast.erro('Selecione o chamado principal para concluir a mesclagem.');
+      return;
+    }
+
+    this.salvando.set(true);
+    this.chamadoService
+      .mesclar(id, principal.id)
+      .pipe(finalize(() => this.salvando.set(false)))
+      .subscribe({
+        next: (dadosAtualizados) => {
+          this.chamado.set(dadosAtualizados);
+          this.fecharModalMesclagem();
+          this.toast.sucesso(`Chamado mesclado ao principal ${principal.codigo} com sucesso!`);
+        },
+        error: (err) => {
+          const msgApi = extrairMensagensErro(err)[0] ?? 'Erro ao mesclar o chamado.';
+          this.toast.erro(msgApi);
+        },
+      });
   }
 
   protected rotuloStatus(status: StatusChamado): string {

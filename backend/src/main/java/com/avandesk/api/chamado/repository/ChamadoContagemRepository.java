@@ -4,6 +4,7 @@ import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.StatusChamado;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
@@ -13,6 +14,12 @@ public interface ChamadoContagemRepository {
     /** Quantos chamados de cada status atendem à consulta. Status sem chamados não aparecem. */
     Map<StatusChamado, Long> contarPorStatus(Specification<Chamado> consulta);
 
+    /** Quantos chamados ativos da consulta ultrapassaram o prazo de SLA, descontando pausas do solicitante. */
+    long contarEstourados(Specification<Chamado> consulta);
+
     /** Quantos chamados em andamento cada responsável tem (HU10). Responsáveis sem chamados não aparecem. */
     Map<UUID, Long> contarEmAndamentoPorResponsavel();
+
+    /** Quantos chamados foram abertos em cada unidade a partir de {@code desde} (HU11). Unidades sem chamados não aparecem. */
+    Map<UUID, Long> contarPorUnidadeDesde(Instant desde);
 }

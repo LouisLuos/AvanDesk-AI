@@ -5,6 +5,7 @@ import com.avandesk.api.catalogo.entity.SistemaEquipamento;
 import com.avandesk.api.catalogo.service.CategoriaService;
 import com.avandesk.api.catalogo.service.SistemaEquipamentoService;
 import com.avandesk.api.chamado.dto.ChamadoDetalheResponse;
+import com.avandesk.api.chamado.dto.ChamadoReferenciaResponse;
 import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
 import com.avandesk.api.chamado.dto.PrioridadeRequest;
@@ -13,6 +14,7 @@ import com.avandesk.api.chamado.dto.ResolucaoRequest;
 import com.avandesk.api.chamado.dto.StatusRequest;
 import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.DirecaoContato;
+import com.avandesk.api.chamado.entity.Escalonamento;
 import com.avandesk.api.chamado.entity.EventoHistorico;
 import com.avandesk.api.chamado.entity.MotivoEspera;
 import com.avandesk.api.chamado.entity.Prioridade;
@@ -21,6 +23,7 @@ import com.avandesk.api.chamado.entity.Solicitante;
 import com.avandesk.api.chamado.entity.StatusChamado;
 import com.avandesk.api.chamado.entity.TipoEvento;
 import com.avandesk.api.chamado.repository.ChamadoRepository;
+import com.avandesk.api.chamado.repository.EscalonamentoRepository;
 import com.avandesk.api.chamado.repository.RegistroContatoRepository;
 import com.avandesk.api.core.config.NexoProperties;
 import com.avandesk.api.core.exception.OperacaoNaoPermitidaException;
@@ -55,10 +58,11 @@ public class ChamadoService {
     private static final ZoneId FUSO_DO_CODIGO = ZoneId.of("America/Recife");
     private static final Duration LIMITE_INICIO_REGISTRO = Duration.ofHours(2);
     private static final Duration TOLERANCIA_RELOGIO = Duration.ofMinutes(1);
-    private static final Duration PRAZO_REABERTURA = Duration.ofDays(7);
+    public static final Duration PRAZO_REABERTURA = Duration.ofDays(7);
 
     private final ChamadoRepository chamadoRepository;
     private final RegistroContatoRepository registroContatoRepository;
+    private final EscalonamentoRepository escalonamentoRepository;
     private final EventoHistoricoService eventoHistoricoService;
     private final UnidadeService unidadeService;
     private final CategoriaService categoriaService;
@@ -82,7 +86,7 @@ public class ChamadoService {
             usuarioService.obterAnalistaAtivo(autor.getId());
         }
         Solicitante solicitante = solicitanteService.identificarOuCriar(
-            request.solicitante().nome(), request.solicitante().contato());
+            request.solicitante().nome(), request.solicitante().email(), request.solicitante().telefone());
 
 
         Instant abertoEm = Instant.now().truncatedTo(ChronoUnit.MICROS);
@@ -144,7 +148,8 @@ public class ChamadoService {
         }
         Solicitante solicitante = request.solicitante() == null
             ? chamado.getSolicitante()
-            : solicitanteService.identificarOuCriar(request.solicitante().nome(), request.solicitante().contato());
+            : solicitanteService.identificarOuCriar(
+                request.solicitante().nome(), request.solicitante().email(), request.solicitante().telefone());
         DirecaoContato direcao = request.direcao() == null ? DirecaoContato.RECEBIDO : request.direcao();
         Usuario autor = usuarioLogadoService.obterUsuarioLogado();
 
@@ -436,15 +441,16 @@ public class ChamadoService {
     }
 
     private ChamadoDetalheResponse montarDetalhe(Chamado chamado) {
-        List<RegistroContato> contatos = registroContatoRepository.findByChamadoIdOrderByOcorridoEmAsc(chamado.getId());
-        List<EventoHistorico> eventos = eventoHistoricoService.listarDoChamado(chamado.getId());
-        return ChamadoDetalheResponse.de(chamado, contatos, eventos);
+        UUID chamadoId = chamado.getId();
+        List<ChamadoReferenciaResponse> mesclados = chamadoRepository.listarMesclados(chamadoId);
+        List<RegistroContato> contatos = registroContatoRepository.findByChamadoIdOrderByOcorridoEmAsc(chamadoId);
+        List<Escalonamento> escalonamentos = escalonamentoRepository.findByChamadoIdOrderByEnviadoEmAsc(chamadoId);
+        List<EventoHistorico> eventos = eventoHistoricoService.listarDoChamado(chamadoId);
+        return ChamadoDetalheResponse.de(chamado, mesclados, contatos, escalonamentos, eventos);
     }
 
     private static void registrarPrimeiraResposta(Chamado chamado) {
-        if (chamado.getPrimeiraRespostaEm() == null) {
-            chamado.setPrimeiraRespostaEm(agora());
-        }
+        chamado.registrarPrimeiraRespostaSePendente(agora());
     }
 
     private static Instant agora() {

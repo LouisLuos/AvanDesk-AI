@@ -10,8 +10,10 @@ import java.util.UUID;
 
 public interface RegistroContatoRepository extends JpaRepository<RegistroContato, UUID> {
 
-    @EntityGraph(attributePaths = {"solicitante", "registradoPor"})
+    @EntityGraph(attributePaths = {"solicitante", "registradoPor", "chamadoOriginal"})
     List<RegistroContato> findByChamadoIdOrderByOcorridoEmAsc(UUID chamadoId);
 
     boolean existsByCanalAndIdentificadorExterno(CanalOrigem canal, String identificadorExterno);
+
+    boolean existsByChamadoId(UUID chamadoId);
 }

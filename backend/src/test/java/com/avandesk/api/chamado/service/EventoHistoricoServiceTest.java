@@ -9,6 +9,7 @@ import com.avandesk.api.usuario.entity.Usuario;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -67,8 +68,9 @@ class EventoHistoricoServiceTest {
         }
 
         @Bean
-        EventoHistoricoService eventoHistoricoService(EventoHistoricoRepository repository) {
-            return new EventoHistoricoService(repository);
+        EventoHistoricoService eventoHistoricoService(EventoHistoricoRepository repository,
+                                                      ApplicationEventPublisher publicador) {
+            return new EventoHistoricoService(repository, publicador);
         }
     }
 

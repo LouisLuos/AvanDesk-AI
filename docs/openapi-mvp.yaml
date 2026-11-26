@@ -121,7 +121,7 @@ components:
           example: TESTE
     ChamadoDetalheResponse:
       type: object
-      description: "Detalhe completo do chamado (HU02 + HU05): status, responsável, contatos, escalonamentos para fornecedor (HU07) e linha do tempo cronológica em UTC."
+      description: "Detalhe completo do chamado (HU02 + HU05): status, responsável, contatos, escalonamentos para fornecedor (HU07), mesclagens (HU03) e linha do tempo cronológica em UTC."
       properties:
         id:
           type: string
@@ -161,8 +161,16 @@ components:
             nome:
               type: string
               nullable: true
+            email:
+              type: string
+              format: email
+              nullable: true
+            telefone:
+              type: string
+              nullable: true
             contato:
               type: string
+              description: "E-mail do solicitante ou, nos cadastros antigos sem e-mail, o telefone."
         responsavel:
           type: object
           nullable: true
@@ -201,6 +209,16 @@ components:
         origem_dado:
           type: string
           enum: [REAL, TESTE, SIMULADO]
+        chamado_principal:
+          allOf:
+            - $ref: '#/components/schemas/ChamadoReferenciaResponse'
+          nullable: true
+          description: "Só no chamado MESCLADO: o chamado principal em que ele foi mesclado (HU03)."
+        chamados_mesclados:
+          type: array
+          description: "Chamados duplicados mesclados neste chamado (HU03), em ordem de abertura. Vazia quando não houve mesclagem."
+          items:
+            $ref: '#/components/schemas/ChamadoReferenciaResponse'
         registros_contato:
           type: array
           items:
@@ -226,11 +244,23 @@ components:
                   nome:
                     type: string
                     nullable: true
+                  email:
+                    type: string
+                    format: email
+                    nullable: true
+                  telefone:
+                    type: string
+                    nullable: true
                   contato:
                     type: string
               registrado_por:
                 type: string
                 nullable: true
+              chamado_original:
+                allOf:
+                  - $ref: '#/components/schemas/ChamadoReferenciaResponse'
+                nullable: true
+                description: "Chamado em que o contato foi registrado, quando ele chegou por uma mesclagem (HU03). null nos contatos do próprio chamado."
         escalonamentos:
           type: array
           description: "Escalonamentos para fornecedor (HU07), em ordem de envio. Vazia quando o chamado nunca foi escalado."
@@ -257,7 +287,7 @@ components:
                 additionalProperties: true
     ChamadoResumoResponse:
       type: object
-      description: "Uma linha da fila de chamados (HU14). Ainda sem SLA: o cálculo do prazo é de outra HU."
+      description: "Uma linha da fila de chamados (HU14)."
       properties:
         id:
           type: string
@@ -288,6 +318,11 @@ components:
         status:
           type: string
           enum: [ABERTO, EM_TRIAGEM, EM_ATENDIMENTO, AGUARDANDO, RESOLVIDO, REABERTO, FECHADO, CANCELADO, MESCLADO]
+        motivo_espera:
+          type: string
+          nullable: true
+          enum: [FORNECEDOR, SOLICITANTE, PECA_EQUIPAMENTO]
+          description: "Motivo da espera quando o status é AGUARDANDO; nulo nos outros status."
         prioridade:
           type: string
           nullable: true
@@ -308,6 +343,11 @@ components:
           type: string
           format: date-time
           example: "2026-10-29T12:00:00Z"
+        resolvido_em:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Data da resolução atual (HU06). Nula enquanto não for resolvido e de novo quando for reaberto."
         atualizado_em:
           type: string
           format: date-time
@@ -351,6 +391,11 @@ components:
             FECHADO: 0
             CANCELADO: 0
             MESCLADO: 0
+        total_estourados:
+          type: integer
+          format: int64
+          description: "Chamados em andamento que atendem aos filtros (ignorando o de status) e já passaram do prazo: 15 min sem prioridade ou em triagem, 2 h ALTA, 8 h MEDIA, 24 h BAIXA, contados da abertura e descontando a espera pelo solicitante. Os que estão aguardando o solicitante não entram."
+          example: 3
     ItemListaResponse:
       type: object
       description: "Item das listas do formulário de registro (categorias e sistemas/equipamentos)."
@@ -375,7 +420,7 @@ components:
           example: "analista1@lumen.local"
         perfil:
           type: string
-          enum: [ANALISTA_SUPORTE, LIDERANCA_TI]
+          enum: [ANALISTA_SUPORTE, LIDERANCA_TI, ADMIN, SOLICITANTE]
           example: ANALISTA_SUPORTE
     AnalistaRequest:
       type: object
@@ -427,6 +472,15 @@ components:
         total:
           type: integer
           example: 6
+    TotalPorUnidadeResponse:
+      type: object
+      properties:
+        unidade_id:
+          type: string
+          format: uuid
+        total:
+          type: integer
+          example: 12
     ResponsavelRequest:
       type: object
       required: [responsavel_id]
@@ -495,14 +549,21 @@ components:
         solicitante:
           type: object
           description: "Quem relatou. Padrão: o solicitante do chamado, que não muda."
-          required: [contato]
+          required: [email]
           properties:
             nome:
               type: string
               maxLength: 120
-            contato:
+            email:
               type: string
+              format: email
               maxLength: 254
+              description: "Obrigatório (HU16); gravado em minúsculas."
+              example: "paula.lima@lumen.com.br"
+            telefone:
+              type: string
+              maxLength: 20
+              description: "Opcional; vira E.164 (+55 quando vem sem DDI)."
               example: "+5581987650000"
         identificador_externo:
           type: string
@@ -588,6 +649,203 @@ components:
           type: boolean
           description: "true enquanto o fornecedor não respondeu."
           example: true
+    ChamadoReferenciaResponse:
+      type: object
+      description: "Referência curta a outro chamado (HU03)."
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+          example: "LUM-2026-000100"
+    MesclagemRequest:
+      type: object
+      required: [chamado_principal_id]
+      properties:
+        chamado_principal_id:
+          type: string
+          format: uuid
+          description: "Chamado principal, que recebe os contatos do duplicado. Diferente do {id} do caminho. Para achar pelo protocolo, use GET /chamados?codigo=."
+    FechamentoRequest:
+      type: object
+      properties:
+        justificativa_sem_causa_raiz:
+          type: string
+          maxLength: 500
+          description: "Só quando o chamado não tem causa raiz: por que não há causa raiz, com pelo menos 15 caracteres (HU15)."
+    ItemVerificacaoResponse:
+      type: object
+      properties:
+        codigo:
+          type: string
+          enum: [PROBLEMA_E_CATEGORIA, UNIDADE, RESPONSAVEL, CONTATO, CAUSA_RAIZ_OU_JUSTIFICATIVA, RESOLUCAO]
+        descricao:
+          type: string
+        ok:
+          type: boolean
+        pendencia:
+          type: string
+          nullable: true
+          description: "O que falta para o item ficar conforme; null quando ok."
+    VerificacaoEncerramentoResponse:
+      type: object
+      properties:
+        aprovado:
+          type: boolean
+        itens_conformes:
+          type: integer
+        total_itens:
+          type: integer
+        itens:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemVerificacaoResponse'
+    DashboardMetricasResponse:
+      type: object
+      description: "Indicadores executivos de SLA, metas de processo e comparativo entre unidades (HU08 / Seção 9.7)."
+      properties:
+        periodo:
+          type: object
+          properties:
+            inicio:
+              type: string
+              format: date-time
+            fim:
+              type: string
+              format: date-time
+            inicio_periodo_anterior:
+              type: string
+              format: date-time
+            fim_periodo_anterior:
+              type: string
+              format: date-time
+            unidade_id_filtro:
+              type: string
+              format: uuid
+              nullable: true
+        kpis:
+          type: object
+          properties:
+            chamados_abertos:
+              type: object
+              properties:
+                total_atual: { type: integer, format: int64, example: 182 }
+                total_periodo_anterior: { type: integer, format: int64, example: 168 }
+                variacao_percentual: { type: number, nullable: true, example: 8.33 }
+            tempo_resolucao:
+              type: object
+              properties:
+                mediano_segundos: { type: number, example: 10080 }
+                medio_segundos: { type: number, example: 9840 }
+                p90_segundos: { type: number, example: 16200 }
+                diferenca_mediana_segundos_anterior: { type: number, nullable: true, example: -720 }
+                diferenca_media_segundos_anterior: { type: number, nullable: true, example: -600 }
+            chamados_rastreaveis:
+              type: object
+              properties:
+                percentual: { type: number, example: 91.0 }
+                meta_inicial_percentual: { type: number, example: 90.0 }
+                dentro_da_meta: { type: boolean, example: true }
+                total_avaliados: { type: integer, format: int64, example: 100 }
+                total_conformes: { type: integer, format: int64, example: 91 }
+            dentro_da_meta_sla:
+              type: object
+              properties:
+                percentual: { type: number, example: 84.0 }
+                meta_inicial_percentual: { type: number, example: 80.0 }
+                dentro_da_meta: { type: boolean, example: true }
+                total_avaliados: { type: integer, format: int64, example: 100 }
+                total_conformes: { type: integer, format: int64, example: 84 }
+        indicadores_processo:
+          type: object
+          properties:
+            tt_medio_segundos: { type: number }
+            tpr_medio_segundos: { type: number }
+            tr_medio_segundos: { type: number }
+            tr_p90_segundos: { type: number }
+            m06_taxa_reabertura_percentual: { type: number }
+            m07_taxa_duplicidade_percentual: { type: number }
+            m07_total_duplicados: { type: integer, format: int64 }
+            m11_tempo_registro_medio_segundos: { type: number }
+            m08_percentual_divergencia_prioridade: { type: number }
+            m12_incidentes_privacidade: { type: integer, format: int64 }
+        alertas:
+          type: object
+          properties:
+            alerta_divergencia_prioridade_m08: { type: boolean }
+            alerta_tempo_registro_m11: { type: boolean }
+            alerta_critico_privacidade_m12: { type: boolean }
+        chamados_por_unidade:
+          type: array
+          items:
+            type: object
+            properties:
+              unidade_id: { type: string, format: uuid }
+              unidade_nome: { type: string }
+              unidade_identificacao: { type: string }
+              total_chamados: { type: integer, format: int64 }
+              chamados_resolvidos: { type: integer, format: int64 }
+              percentual_dentro_da_meta: { type: number }
+              tempo_medio_atendimento_segundos: { type: number }
+        chamados_por_responsavel:
+          type: array
+          description: "Distribuição de chamados em aberto (em andamento) por analista responsável (M02)."
+          items:
+            type: object
+            properties:
+              responsavel_id: { type: string, format: uuid, nullable: true }
+              responsavel_nome: { type: string }
+              total_em_aberto: { type: integer, format: int64 }
+              total_alta_prioridade: { type: integer, format: int64 }
+        sla_por_prioridade:
+          type: array
+          items:
+            type: object
+            properties:
+              prioridade: { type: string, enum: [ALTA, MEDIA, BAIXA] }
+              rotulo: { type: string }
+              meta_segundos: { type: integer, format: int64 }
+              total_avaliados: { type: integer, format: int64 }
+              total_dentro_da_meta: { type: integer, format: int64 }
+              percentual_dentro_da_meta: { type: number }
+              abaixo_da_meta_inicial: { type: boolean }
+        problemas_recorrentes:
+          type: array
+          items:
+            type: object
+            properties:
+              problema: { type: string }
+              ocorrencias: { type: integer, format: int64 }
+              ultima_ocorrencia: { type: string, format: date-time }
+              unidades_mais_afetadas:
+                type: array
+                items: { type: string }
+        tempo_em_terceiros:
+          type: array
+          items:
+            type: object
+            properties:
+              fornecedor: { type: string }
+              total_escalonamentos: { type: integer, format: int64 }
+              escalonamentos_concluidos: { type: integer, format: int64 }
+              tempo_medio_retorno_segundos: { type: number }
+        volume_por_categoria:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              nome: { type: string }
+              total_chamados: { type: integer, format: int64 }
+        volume_por_equipamento:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              nome: { type: string }
+              total_chamados: { type: integer, format: int64 }
 security:
   - bearerAuth: []
 paths:
@@ -646,6 +904,17 @@ paths:
                 message: "E-mail ou senha inválidos."
                 data: null
                 errors: null
+        '403':
+          description: Conta de solicitante ainda não verificada (HU17); só depois de a senha conferir
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 403
+                message: "Confirme o seu e-mail para entrar. Se o link expirou, peça um novo na tela de verificação."
+                data: null
+                errors: [CONTA_NAO_VERIFICADA]
   /auth/logout:
     post:
       summary: Encerrar sessão do usuário (HU09)
@@ -663,6 +932,174 @@ paths:
                 message: "Logout realizado com sucesso"
                 data: null
                 errors: null
+  /auth/registrar:
+    post:
+      summary: Criar a conta do solicitante (HU17)
+      description: "Público. Conta nasce PENDENTE_VERIFICACAO e recebe por e-mail um link válido por 24 h. Senha forte: 10 a 72 caracteres com maiúscula, minúscula, número e símbolo. Com nexo.solicitantes.restringir-dominio-email=true, só aceita os domínios permitidos."
+      tags:
+        - Conta do solicitante
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nome, email, unidade_id, senha]
+              properties:
+                nome:
+                  type: string
+                  maxLength: 120
+                  example: Mariana Alves
+                email:
+                  type: string
+                  format: email
+                  maxLength: 254
+                  example: mariana.alves@gmail.com
+                unidade_id:
+                  type: string
+                  format: uuid
+                senha:
+                  type: string
+                  minLength: 10
+                  maxLength: 72
+                  example: "Coleta#2026ok"
+      responses:
+        '201':
+          description: Conta criada e link de verificação enviado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+                      status_conta:
+                        type: string
+                        enum: [PENDENTE_VERIFICACAO, ATIVA]
+                      verificacao_expira_em:
+                        type: string
+                        format: date-time
+        '400':
+          description: Dados inválidos, senha fraca, domínio recusado ou unidade inativa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Unidade não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '409':
+          description: E-mail já cadastrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+  /auth/verificar-email:
+    post:
+      summary: Confirmar o e-mail pelo token do link (HU17)
+      description: "Público. Ativa a conta e vincula ao usuário os chamados abertos antes pela equipe com o mesmo e-mail."
+      tags:
+        - Conta do solicitante
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  maxLength: 100
+      responses:
+        '200':
+          description: E-mail confirmado
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+                      chamados_vinculados:
+                        type: integer
+        '422':
+          description: "Token recusado; errors[0] traz o motivo"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Este link expirou. Peça um novo link de verificação."
+                data: null
+                errors: [TOKEN_EXPIRADO]
+  /auth/reenviar-verificacao:
+    post:
+      summary: Enviar um novo link de verificação (HU17)
+      description: "Público. Sempre 202 com a mesma mensagem (anti-enumeração). Só envia para conta de solicitante pendente, no máximo um link a cada 60 s; o novo link invalida os anteriores."
+      tags:
+        - Conta do solicitante
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '202':
+          description: Pedido aceito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+  /auth/unidades:
+    get:
+      summary: Unidades ativas para a tela de cadastro (HU17)
+      tags:
+        - Conta do solicitante
+      security: []
+      responses:
+        '200':
+          description: Unidades ativas (id e nome)
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        nome:
+                          type: string
   /unidades:
     get:
       summary: Listar unidades diagnósticas (HU11)
@@ -994,15 +1431,21 @@ paths:
                   enum: [LIGACAO, PRESENCIAL, WHATSAPP, EMAIL]
                 solicitante:
                   type: object
-                  required: [contato]
+                  required: [email]
                   properties:
                     nome:
                       type: string
                       maxLength: 120
-                    contato:
+                    email:
                       type: string
+                      format: email
                       maxLength: 254
-                      description: "Telefone (vira E.164; +55 quando vem sem DDI) ou e-mail (gravado em minúsculas)."
+                      description: "Obrigatório (HU16): recebe o código do chamado e as mudanças de status. Gravado em minúsculas."
+                      example: "recepcao.bvg@lumen.com.br"
+                    telefone:
+                      type: string
+                      maxLength: 20
+                      description: "Opcional, complementar: vira E.164 (+55 quando vem sem DDI)."
                       example: "+5581999999999"
                 descricao:
                   type: string
@@ -1076,6 +1519,43 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/TotalPorResponsavelResponse'
+  /chamados/totais-por-unidade:
+    get:
+      summary: Contar chamados abertos por unidade nos últimos dias (HU11)
+      description: >-
+        Conta os chamados com aberto_em a partir dos últimos N dias (padrão 30, máximo 365).
+        Unidades sem chamados no período não aparecem.
+      tags:
+        - Chamados
+      parameters:
+        - in: query
+          name: dias
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+      responses:
+        '200':
+          description: Totais por unidade
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TotalPorUnidadeResponse'
+        '400':
+          description: Parâmetro 'dias' fora do intervalo permitido (1 a 365)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
   /chamados/{id}:
     get:
       summary: Consultar o Chamado, Status, Responsável e Histórico (HU02 & HU05)
@@ -1517,15 +1997,17 @@ paths:
                       data:
                         type: string
                         format: date-time
-  /chamados/{id}/vinculos:
+  /chamados/{id}/mesclar:
     post:
-      summary: Vincular Relato Duplicado (HU03)
+      summary: Mesclar Chamado Duplicado no Principal (HU03)
+      description: "O {id} é o chamado duplicado (secundário): só ABERTO, EM_TRIAGEM, EM_ATENDIMENTO, AGUARDANDO ou REABERTO, e não pode estar aguardando fornecedor. Vai para MESCLADO e aponta o principal, que pode estar em qualquer status menos FECHADO, CANCELADO e MESCLADO (RN17). Os registros de contato do secundário passam para o principal com a origem em chamado_original; o secundário fica com o responsável do principal; o principal mantém responsável e prioridade. Grava CHAMADO_MESCLADO no secundário (status_anterior, chamado_principal_id, chamado_principal_codigo, registros_contato_movidos, prioridade e a troca de responsável, quando houver) e um RELATO_VINCULADO por contato no principal (registro_contato_id, canal, chamado_mesclado_id, chamado_mesclado_codigo)."
       tags:
-        - Chamados
+        - Mesclagem
       parameters:
         - in: path
           name: id
           required: true
+          description: "Chamado duplicado (secundário)."
           schema:
             type: string
             format: uuid
@@ -1534,16 +2016,10 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                registro_contato_id:
-                  type: string
-                  format: uuid
-                motivo:
-                  type: string
+              $ref: '#/components/schemas/MesclagemRequest'
       responses:
         '200':
-          description: Relato vinculado
+          description: Chamado mesclado; devolve o detalhe do secundário, já MESCLADO, com chamado_principal e sem contatos
           content:
             application/json:
               schema:
@@ -1552,11 +2028,124 @@ paths:
                   - $ref: '#/components/schemas/ApiResponse'
                 properties:
                   data:
-                    type: object
-                    properties:
-                      id_evento:
-                        type: string
-                        format: uuid
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '400':
+          description: chamado_principal_id ausente ou que não é UUID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 400
+                message: "Erro de validação"
+                data: null
+                errors:
+                  - "Campo 'chamado_principal_id' é obrigatório."
+        '404':
+          description: Chamado ou chamado principal não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '422':
+          description: Mesmo chamado, secundário resolvido ou encerrado, principal fechado, cancelado ou mesclado, ou secundário aguardando fornecedor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Operação não permitida"
+                data: null
+                errors:
+                  - "Não é possível mesclar um chamado nele mesmo."
+  /chamados/{id}/verificacao-encerramento:
+    get:
+      summary: Conferir o checklist de rastreabilidade antes de encerrar (HU15)
+      description: "Os seis itens: problema e categoria, unidade, responsável, ao menos um contato, causa raiz (ou justificativa no encerramento) e resolução detalhada. Cada item vem com ok e, quando falta, a pendência."
+      tags:
+        - Encerramento
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Resultado do checklist
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/VerificacaoEncerramentoResponse'
+        '404':
+          description: Chamado não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+  /chamados/{id}/fechar:
+    post:
+      summary: Encerrar o chamado resolvido (HU15)
+      description: "Só a partir de RESOLVIDO e após o prazo de 7 dias para reabertura (RN20). Roda o checklist; aprovado, o chamado vai para FECHADO, grava fechado_em e o evento CHAMADO_FECHADO com status_anterior, itens_conformes, total_itens, itens_verificados e, quando usada, justificativa_sem_causa_raiz (M01)."
+      tags:
+        - Encerramento
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FechamentoRequest'
+      responses:
+        '200':
+          description: Chamado encerrado; devolve o detalhe com status FECHADO
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ChamadoDetalheResponse'
+        '400':
+          description: justificativa_sem_causa_raiz com mais de 500 caracteres
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Chamado não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '422':
+          description: Status diferente de RESOLVIDO ou itens pendentes (uma linha por pendência em errors)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+              example:
+                status_code: 422
+                message: "Operação não permitida"
+                data: null
+                errors:
+                  - "Atribua um responsável ao chamado."
+                  - "Registre ao menos um contato do solicitante."
   /chamados/{id}/prioridade:
     patch:
       summary: Definir a Prioridade do Chamado (HU04)
@@ -1782,3 +2371,54 @@ paths:
           description: Perfil diferente de Liderança de TI
         '404':
           description: Analista não encontrado
+  /dashboard/metricas:
+    get:
+      summary: Consultar indicadores executivos de SLA, alertas 9.7 e comparativo de unidades (HU08)
+      description: Restrito ao perfil LIDERANCA_TI (RN06). Sem inicio/fim, considera os últimos 30 dias.
+      tags:
+        - Dashboard
+      parameters:
+        - in: query
+          name: inicio
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: fim
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: unidade_id
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Métricas recuperadas com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    $ref: '#/components/schemas/DashboardMetricasResponse'
+        '400':
+          description: Período inválido (data inicial posterior à data final)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Token ausente ou inválido
+        '403':
+          description: Perfil diferente de Liderança de TI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'

@@ -24,11 +24,39 @@ spring:
     # Sem db/seed: dados essenciais carregados via migrations versionadas
     locations: classpath:db/migration
 
+  mail:
+    host: ${SMTP_HOST}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${SMTP_STARTTLS:true}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
 nexo:
   origem-dado: REAL
   jwt:
     secret: ${JWT_SECRET}
     expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+    cookie-secure: true
+    cookie-same-site: Lax
+    cookie-path: /api
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://nexodesk-ai-sandy.vercel.app,https://avandesk-ai.vercel.app}
   usuarios:
     # Lista separada por vírgula, ex.: lumen.local,lumendiagnosticos.com.br
     dominios-email: ${NEXO_DOMINIOS_EMAIL:lumen.local}
+  notificacoes:
+    email:
+      habilitado: ${NEXO_NOTIFICACOES_EMAIL_HABILITADO:true}
+      remetente: ${NEXO_EMAIL_REMETENTE}
+      intervalo-reenvio: ${NEXO_EMAIL_INTERVALO_REENVIO:PT1M}
+  solicitantes:
+    restringir-dominio-email: ${NEXO_SOLICITANTES_RESTRINGIR_DOMINIO_EMAIL:false}
+    dominios-permitidos: ${NEXO_SOLICITANTES_DOMINIOS_PERMITIDOS:lumen.com.br}
+    validade-token-verificacao: ${NEXO_SOLICITANTES_VALIDADE_TOKEN:PT24H}
+    intervalo-reenvio: ${NEXO_SOLICITANTES_INTERVALO_REENVIO:PT60S}
+    url-verificacao: ${NEXO_SOLICITANTES_URL_VERIFICACAO}

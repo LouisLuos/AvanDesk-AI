@@ -4,6 +4,7 @@ import com.avandesk.api.catalogo.entity.Categoria;
 import com.avandesk.api.catalogo.service.CategoriaService;
 import com.avandesk.api.catalogo.service.SistemaEquipamentoService;
 import com.avandesk.api.chamado.dto.ChamadoDetalheResponse;
+import com.avandesk.api.chamado.dto.ChamadoReferenciaResponse;
 import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
 import com.avandesk.api.chamado.dto.PrioridadeRequest;
@@ -13,6 +14,7 @@ import com.avandesk.api.chamado.dto.StatusRequest;
 import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.DirecaoContato;
+import com.avandesk.api.chamado.entity.Escalonamento;
 import com.avandesk.api.chamado.entity.EventoHistorico;
 import com.avandesk.api.chamado.entity.MotivoEspera;
 import com.avandesk.api.chamado.entity.OrigemDado;
@@ -22,6 +24,7 @@ import com.avandesk.api.chamado.entity.Solicitante;
 import com.avandesk.api.chamado.entity.StatusChamado;
 import com.avandesk.api.chamado.entity.TipoEvento;
 import com.avandesk.api.chamado.repository.ChamadoRepository;
+import com.avandesk.api.chamado.repository.EscalonamentoRepository;
 import com.avandesk.api.chamado.repository.RegistroContatoRepository;
 import com.avandesk.api.core.config.NexoProperties;
 import com.avandesk.api.core.exception.OperacaoNaoPermitidaException;
@@ -76,6 +79,9 @@ class ChamadoServiceTest {
     private RegistroContatoRepository registroContatoRepository;
 
     @Mock
+    private EscalonamentoRepository escalonamentoRepository;
+
+    @Mock
     private EventoHistoricoService eventoHistoricoService;
 
     @Mock
@@ -107,9 +113,10 @@ class ChamadoServiceTest {
 
     @BeforeEach
     void configurar() {
-        chamadoService = new ChamadoService(chamadoRepository, registroContatoRepository, eventoHistoricoService,
-            unidadeService, categoriaService, sistemaEquipamentoService, solicitanteService, usuarioLogadoService,
-            usuarioService, new NexoProperties(OrigemDado.TESTE), new SlaDomainService());
+        chamadoService = new ChamadoService(chamadoRepository, registroContatoRepository, escalonamentoRepository,
+            eventoHistoricoService, unidadeService, categoriaService, sistemaEquipamentoService,
+            solicitanteService, usuarioLogadoService, usuarioService, new NexoProperties(OrigemDado.TESTE),
+            new SlaDomainService());
         autor.setEmail("analista1@lumen.local");
     }
 
@@ -216,7 +223,7 @@ class ChamadoServiceTest {
         prepararCenarioValido(124L);
 
         ChamadoRequest requestComPrioridade = new ChamadoRequest(unidadeId, CanalOrigem.LIGACAO,
-            new SolicitanteRequest("Recepção Boa Viagem", "81999999999"), "Descrição do chamado.", categoriaId, null,
+            new SolicitanteRequest("Recepção Boa Viagem", "recepcao.bvg@lumen.local", "81999999999"), "Descrição do chamado.", categoriaId, null,
             Prioridade.ALTA, null, null);
 
         chamadoService.registrar(requestComPrioridade);
@@ -340,8 +347,21 @@ class ChamadoServiceTest {
         );
         ReflectionTestUtils.setField(evento, "id", UUID.randomUUID());
 
+        Escalonamento escalonamento = new Escalonamento();
+        escalonamento.setId(UUID.randomUUID());
+        escalonamento.setChamado(chamado);
+        escalonamento.setFornecedor("Fornecedor PACS");
+        escalonamento.setEnviadoPor(autor);
+        escalonamento.setResponsavel(autor);
+        escalonamento.setEnviadoEm(chamado.getAbertoEm().plusSeconds(60));
+        escalonamento.setOrigemDado(OrigemDado.TESTE);
+
+        ChamadoReferenciaResponse mescladoRef = new ChamadoReferenciaResponse(UUID.randomUUID(), "LUM-2026-000002");
+
         when(chamadoRepository.findDetalheById(chamadoId)).thenReturn(Optional.of(chamado));
+        when(chamadoRepository.listarMesclados(chamadoId)).thenReturn(List.of(mescladoRef));
         when(registroContatoRepository.findByChamadoIdOrderByOcorridoEmAsc(chamadoId)).thenReturn(List.of(contato));
+        when(escalonamentoRepository.findByChamadoIdOrderByEnviadoEmAsc(chamadoId)).thenReturn(List.of(escalonamento));
         when(eventoHistoricoService.listarDoChamado(chamadoId)).thenReturn(List.of(evento));
 
         ChamadoDetalheResponse detalhe = chamadoService.detalhar(chamadoId);
@@ -350,7 +370,10 @@ class ChamadoServiceTest {
         assertEquals("LUM-2026-000001", detalhe.codigo());
         assertEquals(StatusChamado.ABERTO, detalhe.status());
         assertNull(detalhe.responsavel());
+        assertEquals(List.of(mescladoRef), detalhe.chamadosMesclados());
         assertEquals(1, detalhe.registrosContato().size());
+        assertEquals(1, detalhe.escalonamentos().size());
+        assertEquals("Fornecedor PACS", detalhe.escalonamentos().getFirst().fornecedor());
         assertEquals(1, detalhe.historico().size());
         assertEquals(TipoEvento.CHAMADO_ABERTO, detalhe.historico().getFirst().tipo());
         assertEquals("Analista Dev Um", detalhe.historico().getFirst().autor());
@@ -362,7 +385,7 @@ class ChamadoServiceTest {
         when(chamadoRepository.findDetalheById(chamadoId)).thenReturn(Optional.empty());
 
         assertThrows(RecursoNaoEncontradoException.class, () -> chamadoService.detalhar(chamadoId));
-        verifyNoInteractions(registroContatoRepository, eventoHistoricoService);
+        verifyNoInteractions(registroContatoRepository, escalonamentoRepository, eventoHistoricoService);
     }
 
     // ---------- resolução, reabertura e retomada (HU06) ----------
@@ -574,7 +597,7 @@ class ChamadoServiceTest {
         when(unidadeService.obterAtivaParaNovoChamado(unidadeId)).thenReturn(unidade);
         when(categoriaService.obterAtivaParaNovoChamado(categoriaId)).thenReturn(categoria);
         when(usuarioLogadoService.obterUsuarioLogado()).thenReturn(autor);
-        when(solicitanteService.identificarOuCriar("Recepção Boa Viagem", "81999999999")).thenReturn(solicitante);
+        when(solicitanteService.identificarOuCriar("Recepção Boa Viagem", "recepcao.bvg@lumen.local", "81999999999")).thenReturn(solicitante);
         when(chamadoRepository.proximoNumeroCodigo()).thenReturn(numeroCodigo);
         when(chamadoRepository.save(any(Chamado.class))).thenAnswer(invocacao -> {
             Chamado chamado = invocacao.getArgument(0);
@@ -590,7 +613,7 @@ class ChamadoServiceTest {
 
     private ChamadoRequest request(String descricao, Instant registroIniciadoEm) {
         return new ChamadoRequest(unidadeId, CanalOrigem.LIGACAO,
-            new SolicitanteRequest("Recepção Boa Viagem", "81999999999"), descricao, categoriaId, null,
+            new SolicitanteRequest("Recepção Boa Viagem", "recepcao.bvg@lumen.local", "81999999999"), descricao, categoriaId, null,
             registroIniciadoEm, null);
     }
 

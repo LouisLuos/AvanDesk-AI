@@ -80,6 +80,21 @@ describe('FilaChamados', () => {
       expect(component['estiloStatus'](status)).toContain('bg-');
     }
   });
+
+  it('exibe tooltip no indicador Estourados explicando que cancelados e encerrados não entram na contagem', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    const trigger = el.querySelector<HTMLButtonElement>(
+      '#indicador-estourados [data-testid="info-tooltip-trigger"]',
+    );
+    expect(trigger).not.toBeNull();
+
+    trigger!.dispatchEvent(new MouseEvent('mouseenter'));
+    fixture.detectChanges();
+
+    const tooltip = el.querySelector('#indicador-estourados [role="tooltip"]');
+    expect(tooltip?.textContent).toContain('cancelados');
+    expect(tooltip?.textContent).toContain('SLA ultrapassado');
+  });
 });
 
 describe('FilaChamados integrada ao GET /chamados (HU14)', () => {
@@ -356,7 +371,7 @@ describe('FilaChamados integrada ao GET /chamados (HU14)', () => {
       EM_ATENDIMENTO: 9,
       AGUARDANDO: 4,
     };
-    responder(pagina({ totais_por_status: totais }));
+    responder(pagina({ totais_por_status: totais, total_estourados: 3 }));
 
     const valores = Object.fromEntries(component['indicadores']().map((i) => [i.id, i.valor]));
     expect(valores).toEqual({
@@ -364,12 +379,12 @@ describe('FilaChamados integrada ao GET /chamados (HU14)', () => {
       triagem: 5,
       atendimento: 9,
       aguardando: 4,
-      estourados: 0,
+      estourados: 3,
     });
-    expect(fixture.nativeElement.querySelector('#indicador-estourados').textContent).toContain('0');
+    expect(fixture.nativeElement.querySelector('#indicador-estourados').textContent).toContain('3');
   });
 
-  it('deve exibir a quantidade correta de chamados estourados no cartão', () => {
+  it('deve contar os estourados da página pelo SLA calculado no front', () => {
     configurar();
     const itemEstourado = chamado(123, {
       aberto_em: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
@@ -377,7 +392,6 @@ describe('FilaChamados integrada ao GET /chamados (HU14)', () => {
     responder(pagina({ itens: [itemEstourado] }));
 
     expect(component['totalEstourados']()).toBe(1);
-    expect(fixture.nativeElement.querySelector('#indicador-estourados').textContent).toContain('1');
   });
 
   it('deve destacar chamado sem responsável e mostrar "—" no prazo quando não há SLA', () => {

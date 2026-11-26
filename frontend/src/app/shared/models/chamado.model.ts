@@ -11,10 +11,9 @@ export const CANAIS_ORIGEM: ReadonlyArray<{ valor: CanalOrigem; rotulo: string }
 ];
 
 export interface Solicitante {
-  /** Opcional no lofi ("se informado") — omitido do payload quando vazio. */
   nome?: string;
-  /** Telefone em E.164 (+5581999999999) ou e-mail. */
-  contato: string;
+  email: string;
+  telefone?: string;
 }
 
 /** Item das listas do formulário: GET /categorias e GET /sistemas-equipamentos. */
@@ -80,6 +79,15 @@ export type TipoEventoHistorico =
   | 'ANOTACAO_ADICIONADA'
   | 'STATUS_ALTERADO';
 
+export interface ChamadoReferencia {
+  id: string;
+  codigo: string;
+}
+
+export interface MesclagemRequest {
+  chamado_principal_id: string;
+}
+
 /**
  * Contrato HTTP bruto retornado por GET /api/v1/chamados/{id} (ChamadoDetalheResponse no backend).
  */
@@ -94,6 +102,7 @@ export interface RegistroContatoApiResponse {
     contato: string;
   };
   registrado_por?: string | null;
+  chamado_original?: ChamadoReferencia | null;
 }
 
 export interface ResolucaoRequest {
@@ -171,6 +180,8 @@ export interface ChamadoDetalheApiResponse {
   possivel_recorrencia?: boolean | null;
   possivelRecorrencia?: boolean | null;
   origem_dado?: OrigemDado;
+  chamado_principal?: ChamadoReferencia | null;
+  chamados_mesclados?: ChamadoReferencia[];
   registros_contato: RegistroContatoApiResponse[];
   escalonamentos?: EscalonamentoApiResponse[];
   historico: EventoHistoricoApiResponse[];
@@ -203,6 +214,7 @@ export interface RegistroContatoDetalhe {
   solicitanteNome: string;
   solicitanteContato: string;
   registradoPor?: string | null;
+  chamadoOriginal?: ChamadoReferencia | null;
 }
 
 export interface EscalonamentoDetalhe {
@@ -285,6 +297,8 @@ export interface ChamadoDetalhe {
   causa_raiz?: string | null;
   possivel_recorrencia?: boolean | null;
   origem_dado?: OrigemDado;
+  chamado_principal?: ChamadoReferencia | null;
+  chamados_mesclados?: ChamadoReferencia[];
 }
 
 /**
@@ -329,6 +343,7 @@ export type SituacaoSla =
   | 'ESTOURADO'
   | 'PAUSADO'
   | 'CUMPRIDO'
+  | 'CANCELADO'
   | 'INCORPORADO';
 
 export interface SlaChamado {
@@ -354,6 +369,7 @@ export interface ChamadoResumo {
   categoria: ItemLista | null;
   canal_origem: CanalOrigem;
   status: StatusChamado;
+  motivo_espera?: MotivoEspera | null;
   /** Prioridade final; nula enquanto não houver triagem. */
   prioridade: PrioridadeChamado | null;
   prioridade_final?: PrioridadeChamado | null;
@@ -363,6 +379,7 @@ export interface ChamadoResumo {
   /** Nulo quando o chamado não tem responsável ("Não atribuído"). */
   responsavel: ResponsavelChamado | null;
   aberto_em: string;
+  resolvido_em?: string | null;
   /** Último evento do histórico; sem eventos, a data de abertura. */
   atualizado_em: string;
 }
@@ -395,6 +412,8 @@ export interface FilaChamados {
   total_paginas: number;
   /** Contagem com os mesmos filtros, menos o de status. Sempre traz os 9 status. */
   totais_por_status: Record<StatusChamado, number>;
+  /** Quantos chamados ativos da consulta (sem status) ultrapassaram o prazo de SLA. */
+  total_estourados?: number;
 }
 
 /** Chamados abertos por unidade numa janela de dias. Unidades sem chamados não aparecem. */
@@ -440,4 +459,30 @@ export interface PrioridadeRequest {
   impacto_operacional: number;
   prioridade_final?: PrioridadeChamado;
   justificativa_prioridade?: string | null;
+}
+
+export type CodigoItemVerificacao =
+  | 'PROBLEMA_E_CATEGORIA'
+  | 'UNIDADE'
+  | 'RESPONSAVEL'
+  | 'CONTATO'
+  | 'CAUSA_RAIZ_OU_JUSTIFICATIVA'
+  | 'RESOLUCAO';
+
+export interface ItemVerificacao {
+  codigo: CodigoItemVerificacao;
+  descricao: string;
+  ok: boolean;
+  pendencia: string | null;
+}
+
+export interface VerificacaoEncerramento {
+  aprovado: boolean;
+  itens_conformes: number;
+  total_itens: number;
+  itens: ItemVerificacao[];
+}
+
+export interface FechamentoRequest {
+  justificativa_sem_causa_raiz?: string;
 }

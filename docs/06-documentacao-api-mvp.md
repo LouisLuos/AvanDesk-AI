@@ -95,6 +95,101 @@ Encerra o contexto de segurança da requisição atual e confirma o encerramento
 }
 ```
 
+### 1.3. Conta do Solicitante: Auto-Cadastro e Verificação de E-mail (HU17)
+
+Colaboradores das unidades criam a própria conta com o perfil `SOLICITANTE`. A conta nasce `PENDENTE_VERIFICACAO` e só entra depois de confirmar o e-mail pelo link enviado. Os quatro endpoints abaixo são públicos (sem login e sem CSRF).
+
+**Acesso do perfil `SOLICITANTE`:** só `GET /api/v1/auth/me` e `POST /api/v1/auth/logout`. O resto da API interna exige `ANALISTA_SUPORTE`, `LIDERANCA_TI` ou `ADMIN` e responde `403` ao solicitante. O módulo do solicitante chega na HU18.
+
+**Política de domínio (configurável):**
+
+| Propriedade | Variável em produção | Padrão | Efeito |
+| :--- | :--- | :--- | :--- |
+| `nexo.solicitantes.restringir-dominio-email` | `NEXO_SOLICITANTES_RESTRINGIR_DOMINIO_EMAIL` | `false` | Com `true`, só aceita os domínios da lista abaixo |
+| `nexo.solicitantes.dominios-permitidos` | `NEXO_SOLICITANTES_DOMINIOS_PERMITIDOS` | `lumen.com.br` | Lista separada por vírgula, com ou sem `@` |
+| `nexo.solicitantes.validade-token-verificacao` | `NEXO_SOLICITANTES_VALIDADE_TOKEN` | `PT24H` | Validade do link |
+| `nexo.solicitantes.intervalo-reenvio` | `NEXO_SOLICITANTES_INTERVALO_REENVIO` | `PT60S` | Espera mínima entre dois links |
+| `nexo.solicitantes.url-verificacao` | `NEXO_SOLICITANTES_URL_VERIFICACAO` | `http://localhost:4200/verificar-email` | Página do front que recebe o `?token=` |
+
+#### 1.3.1. Criar Conta
+
+* **Endpoint:** `POST /api/v1/auth/registrar`
+
+```json
+{
+  "nome": "Mariana Alves",
+  "email": "mariana.alves@gmail.com",
+  "unidade_id": "a1f0c3e2-0001-4000-8000-000000000001",
+  "senha": "Coleta#2026ok"
+}
+```
+
+* `email`: formato `nome@dominio.tld`, gravado em minúsculas; sujeito à política de domínio.
+* `unidade_id`: unidade padrão, precisa existir e estar ativa (a lista vem do `GET /api/v1/auth/unidades`).
+* `senha`: 10 a 72 caracteres, com letra maiúscula, minúscula, número e símbolo. É gravada só em BCrypt.
+* O link de verificação sai por e-mail depois do commit. No banco fica só o hash SHA-256 do token (256 bits aleatórios), nunca o token.
+
+**Response `201 Created`:**
+
+```json
+{
+  "status_code": 201,
+  "message": "Conta criada. Enviamos um link de confirmação para o seu e-mail.",
+  "data": {
+    "email": "mariana.alves@gmail.com",
+    "status_conta": "PENDENTE_VERIFICACAO",
+    "verificacao_expira_em": "2026-11-27T18:00:00Z"
+  },
+  "errors": null
+}
+```
+
+| Situação | Status | Mensagem |
+| :--- | :---: | :--- |
+| Campo ausente ou e-mail fora do formato | `400` | `Campo 'email' deve ser um e-mail válido.` |
+| Senha fraca | `400` | `A senha precisa ter uma letra maiúscula, ter um símbolo (ex.: ! @ # $ %).` (lista o que falta) |
+| Domínio recusado (restrição ligada) | `400` | `Use o seu e-mail corporativo (@lumen.com.br) para criar a conta.` |
+| Unidade inativa / inexistente | `400` / `404` | `Unidade inativa não pode receber novos chamados.` / `Unidade não encontrada.` |
+| E-mail já cadastrado | `409` | `Já existe uma conta com este e-mail. Entre com ela ou peça um novo link de verificação.` |
+
+#### 1.3.2. Confirmar E-mail
+
+* **Endpoint:** `POST /api/v1/auth/verificar-email` com `{ "token": "<token do link>" }`
+
+Ativa a conta e vincula o solicitante ao usuário. Se a equipe já abriu chamados com esse e-mail, o solicitante existente passa a apontar para o usuário (`solicitantes.usuario_id`) e todos esses chamados ficam vinculados; se não, o solicitante é criado. O link só vale uma vez.
+
+```json
+{
+  "status_code": 200,
+  "message": "E-mail confirmado. A sua conta está ativa.",
+  "data": { "email": "mariana.alves@gmail.com", "chamados_vinculados": 2 },
+  "errors": null
+}
+```
+
+Recusas respondem `422`, com a mensagem em `message` e o motivo em `errors[0]`:
+
+| `errors[0]` | Quando | Mensagem |
+| :--- | :--- | :--- |
+| `TOKEN_INVALIDO` | Token que não existe | `Link de verificação inválido. Confira se copiou o endereço inteiro ou peça um novo link.` |
+| `TOKEN_UTILIZADO` | Link já usado | `Este link já foi usado e a sua conta já está confirmada. É só entrar.` |
+| `TOKEN_SUBSTITUIDO` | Um link mais novo foi enviado | `Este link foi substituído por um mais novo. Use o último e-mail que enviamos.` |
+| `TOKEN_EXPIRADO` | Passou das 24 h | `Este link expirou. Peça um novo link de verificação.` |
+
+#### 1.3.3. Reenviar o Link
+
+* **Endpoint:** `POST /api/v1/auth/reenviar-verificacao` com `{ "email": "mariana.alves@gmail.com" }`
+* Responde sempre `202 Accepted` com `"Se houver uma conta pendente com este e-mail, enviamos um novo link de confirmação."`, exista ou não a conta, para não revelar e-mails cadastrados.
+* Só envia para conta `SOLICITANTE` pendente e só se o último link tiver mais de 60 s. O novo link invalida os anteriores (`TOKEN_SUBSTITUIDO`).
+
+#### 1.3.4. Unidades para o Cadastro
+
+* **Endpoint:** `GET /api/v1/auth/unidades`: `id` e `nome` das unidades ativas, em ordem alfabética.
+
+#### 1.3.5. Login de Conta Pendente
+
+O `POST /auth/login` de uma conta `PENDENTE_VERIFICACAO` responde `403` com `"Confirme o seu e-mail para entrar. Se o link expirou, peça um novo na tela de verificação."` e `errors: ["CONTA_NAO_VERIFICADA"]`. A recusa só acontece depois de a senha conferir; senha errada continua `401` com a mensagem genérica.
+
 ---
 
 ## 2. Gestão de Unidades Diagnósticas (HU11)
@@ -260,7 +355,8 @@ Cria um novo chamado estruturado a partir de uma solicitação recebida por um d
   "canal_origem": "LIGACAO",
   "solicitante": {
     "nome": "Mariana Alves",
-    "contato": "+5581988771234"
+    "email": "mariana.alves@lumen.com.br",
+    "telefone": "+5581988771234"
   },
   "descricao": "Impressora de etiquetas da coleta parou de imprimir. Há pacientes aguardando na recepção.",
   "categoria_id": "c4e0a000-0002-4000-8000-000000000002",
@@ -271,8 +367,10 @@ Cria um novo chamado estruturado a partir de uma solicitação recebida por um d
 
 **Regras:**
 
-* Obrigatórios: `unidade_id`, `canal_origem`, `solicitante.contato`, `descricao` (10 a 2000 caracteres) e `categoria_id`.
-* `solicitante.contato`: com `@` é tratado como e-mail e gravado em minúsculas; sem `@` é telefone (10 a 13 dígitos) e convertido para E.164 (`+55` acrescentado quando ausente). Um contato já conhecido reaproveita o mesmo solicitante (`RN13`).
+* Obrigatórios: `unidade_id`, `canal_origem`, `solicitante.email`, `descricao` (10 a 2000 caracteres) e `categoria_id`.
+* `solicitante.email` (HU16): obrigatório, validado no formato de e-mail (`nome@dominio.tld`, até 254 caracteres) e gravado em minúsculas. É por ele que o solicitante é reconhecido: um e-mail já conhecido reaproveita o mesmo solicitante (`RN13`) e só completa o nome e o telefone se eles estiverem vazios, sem sobrescrever o que já existe. É para ele que vão as notificações da seção 8.1.
+* `solicitante.telefone`: opcional, complementar. Precisa ter 10 a 13 dígitos e é convertido para E.164 (`+55` acrescentado quando ausente).
+* Sem `solicitante.email`: `400` com `"Campo 'solicitante.email' é obrigatório."`. E-mail fora do formato: `400` com `"Campo 'solicitante.email' deve ser um e-mail válido."`.
 * Unidade, categoria e sistema/equipamento precisam existir (`404 Not Found` caso contrário) e estar ativos (`400 Bad Request` se inativos).
 * `registro_iniciado_em` no futuro ou de mais de 2 h antes da abertura é descartado silenciosamente (gravado como `NULL`), sem recusar o chamado.
 * O registro grava, numa única transação, o chamado, o registro de contato inicial e os eventos `CHAMADO_ABERTO` e `REGISTRO_DE_CONTATO_RECEBIDO` tendo como `autor_id` o usuário autenticado no token JWT.
@@ -301,10 +399,11 @@ Cria um novo chamado estruturado a partir de uma solicitação recebida por um d
 
 ## 5. Consultar Detalhe, Status, Responsável e Histórico do Chamado (HU02 & HU05)
 
-Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 estados do domínio), motivo de espera (quando em `AGUARDANDO`), responsável atual (`null` quando não atribuído), a última resolução registrada (HU06), registros de contato, escalonamentos para fornecedor (HU07) e linha do tempo cronológica imutável (`eventos_historico`) em UTC.
+Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 estados do domínio), motivo de espera (quando em `AGUARDANDO`), responsável atual (`null` quando não atribuído), a última resolução registrada (HU06), registros de contato, escalonamentos para fornecedor (HU07), mesclagens (HU03) e linha do tempo cronológica imutável (`eventos_historico`) em UTC.
 
 * **Resolução (HU06):** `resolucao`, `causa_raiz` e `possivel_recorrencia` trazem a última resolução registrada e continuam preenchidos se o chamado for reaberto; `resolvido_em` volta a `null` na reabertura. Cada resolução fica também no evento `CHAMADO_RESOLVIDO` do histórico.
 * **Escalonamentos (HU07):** lista em ordem de envio, vazia quando o chamado nunca foi escalado. Cada item traz `id`, `fornecedor`, `protocolo_externo`, `observacao`, `enviado_em`, `enviado_por` (nome), `responsavel` (`{id, nome}`: o responsável interno no momento do envio), `retorno`, `retorno_em`, `retorno_registrado_por` (nome) e `aberto` (`true` enquanto o fornecedor não respondeu). Exemplo na seção 12.
+* **Mesclagem (HU03):** `chamado_principal` (`{id, codigo}`) só vem preenchido no chamado `MESCLADO` e aponta o chamado em que ele foi mesclado; `chamados_mesclados` lista (`{id, codigo}`, em ordem de abertura) os duplicados mesclados neste chamado; em cada item de `registros_contato`, `chamado_original` (`{id, codigo}`) mostra de qual chamado o contato veio por mesclagem e fica `null` nos contatos registrados no próprio chamado. Detalhes na seção 13.
 
 * **Endpoint:** `GET /chamados/{id}`
 * **Autenticação:** Bearer Token (Analista de Suporte ou Liderança de TI)
@@ -336,7 +435,9 @@ Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 e
     },
     "solicitante": {
       "nome": "Mariana Alves",
-      "contato": "+5581988771234"
+      "email": "mariana.alves@lumen.com.br",
+      "telefone": "+5581988771234",
+      "contato": "mariana.alves@lumen.com.br"
     },
     "responsavel": null,
     "prioridade": null,
@@ -347,6 +448,8 @@ Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 e
     "causa_raiz": null,
     "possivel_recorrencia": false,
     "origem_dado": "TESTE",
+    "chamado_principal": null,
+    "chamados_mesclados": [],
     "registros_contato": [
       {
         "id": "8f14e45f-ceea-467a-9a38-1b2c3d4e5f60",
@@ -358,7 +461,8 @@ Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 e
           "nome": "Mariana Alves",
           "contato": "+5581988771234"
         },
-        "registrado_por": "Analista Dev Um"
+        "registrado_por": "Analista Dev Um",
+        "chamado_original": null
       }
     ],
     "escalonamentos": [],
@@ -395,7 +499,7 @@ Recupera os detalhes completos do chamado, incluindo status atual (dentre os 9 e
 
 ## 6. Listar e Buscar Chamados na Fila (HU14)
 
-Lista os chamados de forma paginada, **do mais recente para o mais antigo** (`aberto_em DESC`, com `id` para desempatar). A ordem é fixa: o cliente não escolhe o campo. Todos os filtros são opcionais e **se somam** (cada filtro informado restringe mais o resultado). A resposta também traz os totais por status para os cartões do topo da tela.
+Lista os chamados de forma paginada, **do mais recente para o mais antigo** (`aberto_em DESC`, com `id` para desempatar). A ordem é fixa: o cliente não escolhe o campo. Todos os filtros são opcionais e **se somam** (cada filtro informado restringe mais o resultado). A resposta também traz os totais por status e o total de chamados com o prazo estourado, para os cartões do topo da tela.
 
 * **Endpoint:** `GET /chamados` (ex.: `GET /chamados?meus=true&status=EM_ATENDIMENTO`)
 * **Autenticação:** Bearer Token (Analista de Suporte ou Liderança de TI)
@@ -432,9 +536,11 @@ Lista os chamados de forma paginada, **do mais recente para o mais antigo** (`ab
         "categoria": { "id": "c4e0a000-0002-4000-8000-000000000002", "nome": "Equipamento de apoio" },
         "canal_origem": "LIGACAO",
         "status": "ABERTO",
+        "motivo_espera": null,
         "prioridade": null,
         "responsavel": null,
         "aberto_em": "2026-10-29T12:00:00Z",
+        "resolvido_em": null,
         "atualizado_em": "2026-10-29T12:30:00Z"
       }
     ],
@@ -445,18 +551,24 @@ Lista os chamados de forma paginada, **do mais recente para o mais antigo** (`ab
     "totais_por_status": {
       "ABERTO": 12, "EM_TRIAGEM": 5, "EM_ATENDIMENTO": 9, "AGUARDANDO": 4, "RESOLVIDO": 1,
       "REABERTO": 0, "FECHADO": 0, "CANCELADO": 0, "MESCLADO": 0
-    }
+    },
+    "total_estourados": 3
   },
   "errors": null
 }
 ```
 
 * **`titulo`:** primeira linha da descrição, com até 80 caracteres (cortada com `…`).
+* **`motivo_espera`:** `FORNECEDOR`, `SOLICITANTE` ou `PECA_EQUIPAMENTO` quando o chamado está em `AGUARDANDO`; `null` nos outros status.
 * **`prioridade`:** prioridade final; `null` enquanto não houver triagem.
 * **`responsavel`:** `null` quando o chamado não tem responsável ("Não atribuído").
+* **`resolvido_em`:** data da resolução atual (HU06); `null` enquanto o chamado não for resolvido e de novo quando for reaberto.
 * **`atualizado_em`:** data do último evento do histórico; sem eventos, a data de abertura.
 * **`totais_por_status`:** contagem com os mesmos filtros, **menos o de status**, para os cartões continuarem mostrando todos os status. Os 9 status sempre aparecem, mesmo com zero.
-* **SLA:** ainda não vem na resposta. O cálculo de prazo é de outra HU; a tela exibe "—".
+* **`total_estourados`:** quantos chamados com os mesmos filtros (**menos o de status**) já passaram do prazo:
+  * Entram só os chamados em andamento (`ABERTO`, `EM_TRIAGEM`, `EM_ATENDIMENTO`, `AGUARDANDO` e `REABERTO`). Os que estão em `AGUARDANDO` com motivo `SOLICITANTE` ficam de fora, porque o relógio está parado.
+  * Prazo, contado a partir de `aberto_em`: 15 min sem prioridade ou em `EM_TRIAGEM`; 2 h para `ALTA`, 8 h para `MEDIA` e 24 h para `BAIXA`.
+  * Do tempo corrido sai o tempo em que o chamado esperou o solicitante: de cada `CHAMADO_AGUARDANDO` com motivo `SOLICITANTE` até o próximo evento que muda o status. Esperas por `FORNECEDOR` ou `PECA_EQUIPAMENTO` continuam contando (RN07).
 
 ### Erros
 
@@ -544,7 +656,7 @@ Move o chamado pelo ciclo de vida (diagrama v3 da seção 6 da análise de domí
 * Ao sair de `AGUARDANDO`, `motivo_espera` volta a `null`.
 * **Espera por fornecedor (HU07):** não passa por aqui. O chamado entra em `AGUARDANDO` com motivo `FORNECEDOR` só pelo escalonamento e sai só pelo registro do retorno (seção 12). Assim todo chamado que aguarda fornecedor tem um escalonamento aberto, com fornecedor e data de envio, e o tempo em terceiros (M05) não perde nenhum período. **Mudou na HU07:** antes este endpoint aceitava `FORNECEDOR`.
 * **Reabertura (RN20):** no MVP quem reabre é o analista, quando o solicitante avisa que o problema voltou. Depois de 7 dias da resolução, um novo relato vira um novo chamado. Ao reabrir, `resolvido_em` volta a `null`; a resolução anterior continua no chamado e no histórico. O responsável não muda.
-* `RESOLVIDO`, `FECHADO` e `MESCLADO` têm operação própria (seção 9, HU15 e HU03) e não são definidos por aqui.
+* `RESOLVIDO`, `FECHADO` e `MESCLADO` têm operação própria (seções 9, 15 e 13) e não são definidos por aqui.
 * Campos que não servem para a transição pedida são ignorados.
 
 ### Response: `200 OK`
@@ -572,6 +684,25 @@ Mesmo formato do `GET /chamados/{id}` (seção 5), com `"message": "Status do ch
 | Sem token | `401` | — |
 
 > **Registro com "atribuir a mim":** o `POST /chamados` (seção 4) aceita o campo opcional `"atribuir_a_mim": true`. Quem registra vira o responsável e o chamado passa por `ABERTO`, `EM_TRIAGEM` e `EM_ATENDIMENTO` na mesma operação, com os eventos `TRIAGEM_INICIADA`, `CHAMADO_ATRIBUIDO` e `CHAMADO_TRIADO`. Se quem registra não é analista ativo, responde `422`.
+
+### 8.1 Notificações por e-mail ao solicitante (HU16)
+
+Não há endpoint: os e-mails saem sozinhos depois que a transação que mudou o chamado é confirmada.
+
+| Quando | E-mail | Conteúdo |
+| :--- | :--- | :--- |
+| `POST /chamados` (seção 4) | Abertura | Código `LUM-AAAA-NNNNNN`, unidade, categoria, data de abertura, status atual e orientação |
+| O chamado termina a operação em `EM_TRIAGEM`, `EM_ATENDIMENTO`, `AGUARDANDO` ou `RESOLVIDO`, vindo de outro status (status, resolução, escalonamento ou retorno de fornecedor) | Mudança de status | Código, unidade, status anterior, novo status, data da mudança e orientação conforme o status (em `AGUARDANDO`, conforme o motivo) |
+
+* **Um e-mail por chamado em cada operação.** No registro com `atribuir_a_mim` sai só o de abertura, já com `EM_ATENDIMENTO`. Se a operação passa por mais de um status, o e-mail mostra o status do início e o do fim.
+* **Sem dados sensíveis:** o e-mail não leva a descrição do problema, notas internas nem o nome do analista (LGPD). O HTML é montado pelo Thymeleaf, que escapa todo dado vindo do banco; cada e-mail também tem uma versão em texto puro.
+* **Entrega resiliente:** na mesma transação da mudança, a notificação é gravada em `notificacoes_email` como `PENDENTE`. Depois do commit, o envio roda em outra thread (`@Async` + `@TransactionalEventListener(AFTER_COMMIT)`, pela porta `NotificacaoPort` e o adaptador `SmtpEmailAdapter`). Uma falha no SMTP **não** desfaz a mudança do chamado: a notificação fica `FALHOU`, com o erro registrado em log e na própria linha, e uma rotina tenta de novo depois de 1, 5 e 30 minutos. Na 4ª falha ela vira `ESGOTADA` e gera log de erro. Se o envio imediato nem chegar a acontecer (por exemplo, a API reiniciou), a rotina pega a notificação pendente depois de 2 minutos.
+* **Histórico:** cada envio que dá certo grava `NOTIFICACAO_ENVIADA` em `eventos_historico`, sem autor e com `dados` = `{ "notificacao_id", "canal": "EMAIL", "modelo", "status_anterior", "status_novo" }`. O endereço de e-mail não vai para o histórico. Esse evento não encerra pausas de SLA.
+* **Não recebem e-mail:** chamados `SIMULADO` e solicitantes antigos cadastrados só com telefone.
+* **Configuração:**
+  * SMTP: `spring.mail.*`, por `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_AUTH` e `SMTP_STARTTLS` em produção, com timeouts de 5 s.
+  * Notificações: `nexo.notificacoes.email.habilitado` (`NEXO_NOTIFICACOES_EMAIL_HABILITADO`), `.remetente` (`NEXO_EMAIL_REMETENTE`, obrigatório em produção) e `.intervalo-reenvio` (`NEXO_EMAIL_INTERVALO_REENVIO`, padrão `PT1M`).
+  * Em desenvolvimento, a API envia para `localhost:1025` e o Mailpit do `docker-compose` mostra os e-mails em `http://localhost:8025`.
 
 ---
 
@@ -641,7 +772,7 @@ Inclui uma nova ligação, mensagem, e-mail ou visita num chamado que já existe
   "direcao": "RECEBIDO",
   "conteudo": "Gestora da unidade avisou que a impressora voltou a falhar.",
   "ocorrido_em": "2026-11-03T13:10:00Z",
-  "solicitante": { "nome": "Paula Lima", "contato": "+5581987650000" },
+  "solicitante": { "nome": "Paula Lima", "email": "paula.lima@lumen.com.br", "telefone": "+5581987650000" },
   "identificador_externo": "wamid.HBgM..."
 }
 ```
@@ -658,7 +789,7 @@ Mínimo:
 | `conteudo` | sim | até 2000 caracteres |
 | `direcao` | não | `RECEBIDO` (padrão) ou `ENVIADO` |
 | `ocorrido_em` | não | padrão: agora; não pode estar no futuro (1 min de tolerância) nem antes do minuto da abertura |
-| `solicitante` | não | `{nome?, contato}`, mesma regra do registro (RN13); padrão: o solicitante do chamado |
+| `solicitante` | não | `{nome?, email, telefone?}`, com o e-mail obrigatório (HU16) e a mesma regra do registro (RN13); padrão: o solicitante do chamado |
 | `identificador_externo` | não | até 255 caracteres; único por canal (RN16) |
 
 **Regras:**
@@ -750,6 +881,12 @@ Cadastro, edição, desativação e reativação dos analistas de suporte (RF-02
 
 * **Endpoint:** `GET /chamados/totais-por-responsavel` (qualquer usuário autenticado)
 * **Response:** `200` com `[{ "responsavel_id": "…", "total": 6 }]`. Conta tudo o que não está `RESOLVIDO`, `FECHADO`, `CANCELADO` ou `MESCLADO`; responsáveis sem chamados não aparecem. A tela de analistas cruza com `GET /analistas` para a coluna "Chamados ativos".
+
+### Chamados abertos por unidade nos últimos dias (HU11)
+
+* **Endpoint:** `GET /chamados/totais-por-unidade?dias=30` (qualquer usuário autenticado)
+* **Query param:** `dias` (opcional, padrão `30`, entre `1` e `365`; fora do intervalo responde `400`).
+* **Response:** `200` com `[{ "unidade_id": "…", "total": 12 }]`. Conta os chamados com `aberto_em` nos últimos `dias` dias; unidades sem chamados no período não aparecem. A tela de unidades cruza com `GET /unidades` para a coluna "Chamados (30 d)".
 
 ---
 
@@ -882,7 +1019,194 @@ Mesmo formato do `GET /chamados/{id}` (seção 5), com `"message": "Retorno do f
 
 ---
 
-## 13. Evolução do Ciclo de Atendimento (HU03, HU04 — Planejados)
+## 13. Mesclar Chamado Duplicado no Principal (HU03)
 
-* **`POST /chamados/{id}/vinculos`** (`HU03`): associa um registro de contato duplicado a um chamado principal em andamento.
+Incorpora um chamado duplicado (secundário) a outro chamado que trata o mesmo incidente (principal), para que um só analista conduza o atendimento (RF-011, RN17). Ex.: vários relatos da queda do link de internet da mesma filial.
+
+* **Endpoint:** `POST /chamados/{id}/mesclar`
+* **Autenticação:** Bearer Token (Analista de Suporte ou Liderança de TI)
+* `{id}` é o chamado **duplicado** (secundário). Para achar o principal pelo protocolo, use a fila: `GET /chamados?codigo=LUM-2026-000100` (seção 6).
+
+### Request Body (`application/json`)
+
+```json
+{ "chamado_principal_id": "8d334236-f426-4a05-a66f-87e3b7b782a2" }
+```
+
+| Campo | Obrigatório | Regra |
+| :--- | :---: | :--- |
+| `chamado_principal_id` | sim | UUID do chamado principal; diferente do `{id}` |
+
+**Regras:**
+
+* **Secundário:** só `ABERTO`, `EM_TRIAGEM`, `EM_ATENDIMENTO`, `AGUARDANDO` ou `REABERTO`. Vai para `MESCLADO` e passa a apontar o principal (`chamado_principal`). Se estava em espera, `motivo_espera` volta a `null`. Se aguarda fornecedor, primeiro é preciso registrar o retorno (seção 12.2).
+* **Principal:** qualquer status, menos `FECHADO`, `CANCELADO` e `MESCLADO` (RN17). Mantém o próprio status, responsável e prioridade.
+* **Contatos:** todos os registros de contato do secundário passam para o principal, com a origem em `chamado_original`. Nada é apagado. Um contato que já tinha vindo de outra mesclagem mantém a origem antiga.
+* **Responsável:** o secundário passa a ter o responsável do principal; se o principal não tiver responsável, o secundário fica com o que tinha.
+* **Eventos:** `CHAMADO_MESCLADO` no secundário, com os `detalhes` `status_anterior`, `chamado_principal_id`, `chamado_principal_codigo`, `registros_contato_movidos`, `prioridade` (quando havia) e, quando o responsável muda, `responsavel_id`, `responsavel_nome`, `responsavel_anterior_id` e `responsavel_anterior_nome`. No principal, um `RELATO_VINCULADO` por contato recebido, com `registro_contato_id`, `canal`, `chamado_mesclado_id` e `chamado_mesclado_codigo`. Os dois alimentam a M07 (duplicidade tratada).
+* Depois da mesclagem, o secundário não recebe contatos (seção 10) nem muda de status, responsável ou prioridade.
+
+### Response: `200 OK`
+
+Mesmo formato do `GET /chamados/{id}` (seção 5), com o detalhe do **secundário**, `"message": "Chamado mesclado com sucesso"`, `status` `MESCLADO`, `registros_contato` vazio e o `CHAMADO_MESCLADO` no fim do `historico`:
+
+```json
+{
+  "status": "MESCLADO",
+  "chamado_principal": { "id": "8d334236-f426-4a05-a66f-87e3b7b782a2", "codigo": "LUM-2026-000100" },
+  "chamados_mesclados": [],
+  "registros_contato": []
+}
+```
+
+No detalhe do principal, os contatos recebidos aparecem em `registros_contato` com a origem:
+
+```json
+{
+  "chamados_mesclados": [ { "id": "a7889d44-3920-44ad-bd9f-d1ca5756f3e2", "codigo": "LUM-2026-000101" } ],
+  "registros_contato": [
+    {
+      "id": "a545bd0c-c6c4-453b-9817-b16349dfad30",
+      "canal": "WHATSAPP",
+      "direcao": "RECEBIDO",
+      "conteudo": "O link de internet da filial caiu.",
+      "ocorrido_em": "2026-11-15T13:05:12Z",
+      "solicitante": { "nome": "Recepção Derby", "contato": "+5581999990000" },
+      "registrado_por": "Analista Dev Um",
+      "chamado_original": { "id": "a7889d44-3920-44ad-bd9f-d1ca5756f3e2", "codigo": "LUM-2026-000101" }
+    }
+  ]
+}
+```
+
+### Erros
+
+| Caso | Status | `errors` / `message` |
+| :--- | :---: | :--- |
+| Sem `chamado_principal_id` | `400` | "Campo 'chamado_principal_id' é obrigatório." |
+| `chamado_principal_id` que não é UUID | `400` | — |
+| Chamado inexistente | `404` | "Chamado não encontrado." |
+| Principal inexistente | `404` | "Chamado principal não encontrado." |
+| Mesmo chamado | `422` | "Não é possível mesclar um chamado nele mesmo." |
+| Secundário resolvido ou encerrado | `422` | "Não é possível mesclar um chamado RESOLVIDO." |
+| Principal fechado, cancelado ou mesclado | `422` | "O chamado principal LUM-2026-000100 está MESCLADO e não pode receber uma mesclagem." |
+| Secundário aguardando fornecedor | `422` | "Registre o retorno do fornecedor antes de mesclar o chamado." |
+| Sem token | `401` | — |
+
+---
+
+## 14. Evolução do Ciclo de Atendimento (HU04 — Planejado)
+
 * **`PATCH /chamados/{id}/prioridade`** (`HU04`): registra a triagem estruturada pela Matriz 3D (`severidade`, `urgencia`, `impacto_operacional`).
+
+---
+
+## 15. Encerrar o Chamado com Verificação de Rastreabilidade (HU15)
+
+O encerramento só acontece depois de um checklist automático: o histórico precisa ter os seis itens de rastreabilidade (métrica M01).
+
+### 15.1. Conferir o checklist
+
+* **Endpoint:** `GET /chamados/{id}/verificacao-encerramento`
+* **Autenticação:** Bearer Token
+
+```json
+{
+  "status_code": 200,
+  "message": "Verificação de encerramento concluída",
+  "data": {
+    "aprovado": false,
+    "itens_conformes": 5,
+    "total_itens": 6,
+    "itens": [
+      { "codigo": "PROBLEMA_E_CATEGORIA", "descricao": "Problema e categoria descritos", "ok": true, "pendencia": null },
+      { "codigo": "UNIDADE", "descricao": "Unidade associada", "ok": true, "pendencia": null },
+      { "codigo": "RESPONSAVEL", "descricao": "Responsável identificado", "ok": true, "pendencia": null },
+      { "codigo": "CONTATO", "descricao": "Ao menos um contato registrado", "ok": true, "pendencia": null },
+      { "codigo": "CAUSA_RAIZ_OU_JUSTIFICATIVA", "descricao": "Causa raiz ou justificativa preenchida", "ok": false, "pendencia": "Informe a causa raiz na resolução ou justifique, com pelo menos 15 caracteres, por que não há causa raiz." },
+      { "codigo": "RESOLUCAO", "descricao": "Resolução detalhada", "ok": true, "pendencia": null }
+    ]
+  },
+  "errors": null
+}
+```
+
+**Os seis itens:**
+
+| Código | Conforme quando |
+| :--- | :--- |
+| `PROBLEMA_E_CATEGORIA` | descrição com pelo menos 10 caracteres e categoria informada |
+| `UNIDADE` | o chamado tem unidade |
+| `RESPONSAVEL` | o chamado tem responsável |
+| `CONTATO` | há ao menos um registro de contato |
+| `CAUSA_RAIZ_OU_JUSTIFICATIVA` | há causa raiz (HU06) ou, no encerramento, `justificativa_sem_causa_raiz` com pelo menos 15 caracteres |
+| `RESOLUCAO` | resolução com pelo menos 10 caracteres |
+
+### 15.2. Encerrar
+
+* **Endpoint:** `POST /chamados/{id}/fechar`
+* **Autenticação:** Bearer Token
+
+```json
+{
+  "justificativa_sem_causa_raiz": "Falha intermitente, sem causa identificada."
+}
+```
+
+**Regras:**
+
+* Só a partir de `RESOLVIDO` e após o prazo de **7 dias** para reabertura (`resolvido_em <= agora - 7 dias`, RN20). O corpo é opcional; `justificativa_sem_causa_raiz` (até 500 caracteres) só é necessária quando o chamado não tem causa raiz.
+* Roda o mesmo checklist da seção 15.1. Com algum item pendente, responde `422` e lista cada pendência em `errors`.
+* Aprovado, o chamado vai para `FECHADO`, grava `fechado_em` (UTC) e o evento `CHAMADO_FECHADO` com o resultado da verificação para a M01: `status_anterior`, `itens_conformes`, `total_itens`, `itens_verificados` e, quando usada, `justificativa_sem_causa_raiz`.
+* `FECHADO` é final: não volta a nenhum status (a reabertura é a partir de `RESOLVIDO`, seção 8).
+
+### Response: `200 OK`
+
+O detalhe atualizado do chamado (seção 5), com `status` `FECHADO`.
+
+### Erros
+
+| Situação | Status | Mensagem |
+| :--- | :---: | :--- |
+| `justificativa_sem_causa_raiz` com mais de 500 caracteres | `400` | "Campo 'justificativa_sem_causa_raiz' deve ter no máximo 500 caracteres." |
+| Chamado inexistente | `404` | "Chamado não encontrado." |
+| Status diferente de `RESOLVIDO` | `422` | "Só é possível encerrar um chamado RESOLVIDO (status atual: EM_ATENDIMENTO)." |
+| Prazo de 7 dias para reabertura ainda em aberto | `422` | "Só é possível encerrar o chamado após o prazo de 7 dias para reabertura." |
+| Itens pendentes | `422` | Uma linha por pendência em `errors`, como "Atribua um responsável ao chamado." |
+| Sem token | `401` | — |
+
+---
+
+## 16. Painel da Administração e Métricas de SLA (HU08)
+
+Fornece os indicadores executivos agregados da operação (sem exposição de dados clínicos ou anexos, respeitando a RN06) e dispara os alertas da Seção 9.7.
+
+* **Endpoint:** `GET /dashboard/metricas`
+* **Autenticação:** Bearer Token (apenas **Liderança de TI** — `@PreAuthorize("hasRole('LIDERANCA_TI')")`)
+
+### Query Parameters
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+| :--- | :--- | :---: | :--- |
+| `inicio` | `date-time` (UTC) | Não | Início da janela analisada. Padrão: 30 dias antes de `fim`. |
+| `fim` | `date-time` (UTC) | Não | Fim da janela analisada. Padrão: instante atual (`now`). |
+| `unidade_id` | `uuid` | Não | Filtra KPIs, SLA por prioridade, recorrências, terceiros, categorias e equipamentos por unidade. O comparativo `chamados_por_unidade` mantém todas as unidades ativas. |
+
+### Regras de Cálculo (Seção 9.7 e SLA)
+
+* Segregação de dados: considera estritamente registros cujo `origem_dado` coincide com `nexo.origem-dado` (`REAL` em produção, `TESTE` em desenvolvimento).
+* **TR (Tempo de Resolução líquido) e P90:** desconta o tempo em que o chamado permaneceu em `AGUARDANDO` com `motivo_espera = SOLICITANTE` (considerando na janela `LEAD()` apenas eventos que alteram o estado do relógio de SLA); esperas por `FORNECEDOR` (RN07) ou `PECA_EQUIPAMENTO` continuam contando no SLA. Expõe mediana (`P50`), média e percentil 90 (`P90`).
+* **Métricas M01–M12 consolidadas:** `M01` (rastreabilidade), `M02` (`chamados_por_responsavel` em aberto + P1), `M03` (TT, TPR, TR, P90), `M04` (SLA geral e P1/P2/P3), `M05` (`tempo_em_terceiros`), `M06` (taxa de reabertura), `M07` (taxa e volume de chamados mesclados/duplicados), `M08` (divergência de prioridade), `M11` (tempo médio de registro) e `M12` (incidentes de privacidade).
+* **Metas de referência por prioridade:** `ALTA` (P1) ≤ 2h (`7200s`), `MEDIA` (P2) ≤ 8h (`28800s`), `BAIXA` (P3) ≤ 24h (`86400s`).
+* **Alertas automáticos:**
+  * `alerta_divergencia_prioridade_m08`: `true` quando M08 > `30%`.
+  * `alerta_tempo_registro_m11`: `true` quando M11 > `60s`.
+  * `alerta_critico_privacidade_m12`: `true` quando M12 > `0` (`ANEXO_VISUALIZADO` por perfil `LIDERANCA_TI` ou marcado como violação).
+
+### Erros
+
+| Caso | Status | Descrição |
+| :--- | :---: | :--- |
+| `inicio` posterior a `fim` | `400` | `"A data inicial do filtro não pode ser posterior à data final."` |
+| Perfil diferente de Liderança de TI | `403` | `"Acesso negado para o perfil do usuário."` |
+| Sem token | `401` | — |

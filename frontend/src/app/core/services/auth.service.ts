@@ -2,7 +2,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Injectable, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, map, tap } from 'rxjs';
+import { EMPTY, Observable, catchError, map, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { ApiResponse } from '../../shared/models/api-response.model';
 import { TokenStorageService } from './token-storage.service';
@@ -21,7 +21,7 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-  access_token: string;
+  access_token?: string;
   usuario: UsuarioAutenticado;
 }
 
@@ -37,80 +37,88 @@ export class AuthService {
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly baseUrl = environment.apiUrl;
 
-  private readonly usuarioSignal = signal<UsuarioAutenticado | null>(this.carregarUsuarioInicial());
+  private readonly usuarioSignal = signal<UsuarioAutenticado | null>(null);
 
   readonly usuario = computed(() => this.usuarioSignal());
-  readonly estaAutenticado = computed(
-    () => this.usuarioSignal() !== null && this.tokenStorage.obter() !== null,
-  );
+  readonly estaAutenticado = computed(() => this.usuarioSignal() !== null);
 
-  private carregarUsuarioInicial(): UsuarioAutenticado | null {
-    if (!this.isBrowser) {
-      return null;
-    }
-    try {
-      const salvo =
-        sessionStorage.getItem(STORAGE_KEY_USER) ??
-        localStorage.getItem(STORAGE_KEY_USER) ??
-        sessionStorage.getItem(LEGACY_KEY_USER) ??
-        localStorage.getItem(LEGACY_KEY_USER);
-      if (salvo) {
-        return JSON.parse(salvo) as UsuarioAutenticado;
-      }
-    } catch {
-      // Ignora JSON corrompido no storage
-    }
-    return null;
+  /** Define o perfil autenticado apenas em memória (usado na hidratação e em testes). */
+  definirUsuario(usuario: UsuarioAutenticado | null): void {
+    this.usuarioSignal.set(usuario);
+  }
+
+  emailDeLogin(usuario: string): string {
+    return usuario.includes('@') ? usuario.toLowerCase() : `${usuario}@lumen.local`;
   }
 
   /**
-   * Realiza login na plataforma consumindo POST /api/v1/auth/login (HU09).
+   * Realiza login na plataforma consumindo POST /api/v1/auth/login (HU09 / HU26).
+   * O JWT é gerenciado pelo servidor via cookie HttpOnly; apenas o perfil fica em memória.
    */
   login(dados: LoginRequest): Observable<LoginResponse> {
-    const email = dados.usuario.includes('@')
-      ? dados.usuario
-      : `${dados.usuario}@lumen.local`;
-
     const payload = {
-      email,
+      email: this.emailDeLogin(dados.usuario),
       senha: dados.senha,
     };
 
     return this.http
-      .post<ApiResponse<LoginResponse>>(`${this.baseUrl}/auth/login`, payload)
+      .post<ApiResponse<LoginResponse>>(`${this.baseUrl}/auth/login`, payload, {
+        withCredentials: true,
+      })
       .pipe(
         map((res) => res.data as LoginResponse),
         tap((resposta) => {
-          this.salvarSessao(resposta, dados.manterConectado ?? false);
+          this.limparStorageLegado();
+          this.usuarioSignal.set(resposta.usuario);
         }),
       );
   }
 
   /**
-   * Encerra a sessão ativa limpando o token JWT e os dados do usuário no storage (HU09 / RF-021).
+   * Consulta GET /api/v1/auth/me para hidratar o perfil autenticado em memória via cookie HttpOnly.
+   */
+  carregarSessao(): Observable<UsuarioAutenticado | null> {
+    return this.http
+      .get<ApiResponse<UsuarioAutenticado>>(`${this.baseUrl}/auth/me`, {
+        withCredentials: true,
+      })
+      .pipe(
+        map((res) => res.data ?? null),
+        tap((usuario) => this.usuarioSignal.set(usuario)),
+        catchError(() => {
+          this.usuarioSignal.set(null);
+          return of(null);
+        }),
+      );
+  }
+
+  /**
+   * Encerra a sessão ativa invalidando o cookie HttpOnly no backend e limpando o estado em memória.
    */
   logout(): void {
-    this.tokenStorage.limpar();
-    if (this.isBrowser) {
-      localStorage.removeItem(STORAGE_KEY_USER);
-      sessionStorage.removeItem(STORAGE_KEY_USER);
-      localStorage.removeItem(LEGACY_KEY_USER);
-      sessionStorage.removeItem(LEGACY_KEY_USER);
-      localStorage.removeItem(LEGACY_KEY_TOKEN);
-      sessionStorage.removeItem(LEGACY_KEY_TOKEN);
-    }
-    this.usuarioSignal.set(null);
+    this.limparSessaoLocal();
+    this.http
+      .post<ApiResponse<void>>(`${this.baseUrl}/auth/logout`, {}, { withCredentials: true })
+      .pipe(catchError(() => EMPTY))
+      .subscribe();
     this.router.navigate(['/login']);
   }
 
-  private salvarSessao(resposta: LoginResponse, manterConectado: boolean): void {
-    this.tokenStorage.salvar(resposta.access_token, manterConectado);
+  /** Limpa o estado em memória e quaisquer resíduos legados no storage sem chamar o servidor. */
+  limparSessaoLocal(): void {
+    this.limparStorageLegado();
+    this.usuarioSignal.set(null);
+  }
+
+  private limparStorageLegado(): void {
+    this.tokenStorage.limpar();
     if (this.isBrowser) {
-      const storage = manterConectado ? localStorage : sessionStorage;
-      const outroStorage = manterConectado ? sessionStorage : localStorage;
-      outroStorage.removeItem(STORAGE_KEY_USER);
-      storage.setItem(STORAGE_KEY_USER, JSON.stringify(resposta.usuario));
+      globalThis.localStorage?.removeItem(STORAGE_KEY_USER);
+      globalThis.sessionStorage?.removeItem(STORAGE_KEY_USER);
+      globalThis.localStorage?.removeItem(LEGACY_KEY_USER);
+      globalThis.sessionStorage?.removeItem(LEGACY_KEY_USER);
+      globalThis.localStorage?.removeItem(LEGACY_KEY_TOKEN);
+      globalThis.sessionStorage?.removeItem(LEGACY_KEY_TOKEN);
     }
-    this.usuarioSignal.set(resposta.usuario);
   }
 }

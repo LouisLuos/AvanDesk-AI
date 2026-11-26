@@ -25,7 +25,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(OperacaoNaoPermitidaException.class)
     public ResponseEntity<ApiResponse<Void>> tratarOperacaoNaoPermitida(OperacaoNaoPermitidaException ex) {
-        return responder(HttpStatus.UNPROCESSABLE_CONTENT, "Operação não permitida", List.of(ex.getMessage()));
+        return responder(HttpStatus.UNPROCESSABLE_CONTENT, "Operação não permitida", ex.getErros());
     }
 
     @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class})
@@ -38,6 +38,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                        org.springframework.security.core.AuthenticationException.class})
     public ResponseEntity<ApiResponse<Void>> tratarAutenticacao(Exception ex) {
         return responder(HttpStatus.UNAUTHORIZED, "E-mail ou senha inválidos.", null);
+    }
+
+    @ExceptionHandler(ContaNaoVerificadaException.class)
+    public ResponseEntity<ApiResponse<Void>> tratarContaNaoVerificada(ContaNaoVerificadaException ex) {
+        return responder(HttpStatus.FORBIDDEN, ex.getMessage(), List.of("CONTA_NAO_VERIFICADA"));
+    }
+
+    @ExceptionHandler(TokenVerificacaoInvalidoException.class)
+    public ResponseEntity<ApiResponse<Void>> tratarTokenVerificacaoInvalido(TokenVerificacaoInvalidoException ex) {
+        return responder(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage(), List.of(ex.getMotivo().name()));
     }
 
     /** Recusa do @PreAuthorize: sem este handler cairia no tratamento genérico e viraria 500. */

@@ -8,6 +8,7 @@ class Vazio {}
 
 describe('AdminNav', () => {
   function renderizar() {
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [AdminNav],
       providers: [provideRouter([{ path: 'admin/unidades', component: Vazio }])],
@@ -17,16 +18,20 @@ describe('AdminNav', () => {
     return fixture;
   }
 
-  it('liga as abas de Unidades e Analistas e marca as demais como "Em breve"', () => {
+  it('liga as abas de Painel, Unidades e Analistas e marca as demais como "Em breve"', () => {
     const elemento = renderizar().nativeElement as HTMLElement;
 
-    for (const [id, rota] of [['aba-unidades', '/admin/unidades'], ['aba-analistas', '/admin/analistas']]) {
+    for (const [id, rota] of [
+      ['aba-painel', '/admin/painel'],
+      ['aba-unidades', '/admin/unidades'],
+      ['aba-analistas', '/admin/analistas'],
+    ]) {
       const aba = elemento.querySelector(`#${id}`)!;
       expect(aba.tagName).toBe('A');
       expect(aba.getAttribute('href')).toBe(rota);
     }
 
-    for (const id of ['aba-painel', 'aba-fornecedores', 'aba-categorias']) {
+    for (const id of ['aba-fornecedores', 'aba-categorias']) {
       const aba = elemento.querySelector(`#${id}`)!;
       expect(aba.tagName).toBe('SPAN');
       expect(aba.getAttribute('aria-disabled')).toBe('true');

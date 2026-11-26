@@ -12,11 +12,14 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
+import jakarta.persistence.PostLoad;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import com.avandesk.api.catalogo.entity.Categoria;
 import com.avandesk.api.catalogo.entity.SistemaEquipamento;
 import com.avandesk.api.unidade.entity.Unidade;
 import com.avandesk.api.usuario.entity.Usuario;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -109,6 +112,12 @@ public class Chamado {
     @Column(name = "primeira_resposta_em")
     private Instant primeiraRespostaEm;
 
+    public void registrarPrimeiraRespostaSePendente(Instant instante) {
+        if (this.primeiraRespostaEm == null) {
+            this.primeiraRespostaEm = instante;
+        }
+    }
+
     @Column(name = "resolvido_em")
     private Instant resolvidoEm;
 
@@ -159,4 +168,17 @@ public class Chamado {
     @OneToMany(mappedBy = "chamado")
     @OrderBy("enviadoEm ASC")
     private List<Escalonamento> escalonamentos = new ArrayList<>();
+
+    @OneToMany(mappedBy = "chamadoPrincipal")
+    @OrderBy("abertoEm ASC")
+    private List<Chamado> chamadosMesclados = new ArrayList<>();
+
+    @Transient
+    @Setter(AccessLevel.NONE)
+    private StatusChamado statusAoCarregar;
+
+    @PostLoad
+    void lembrarStatusAoCarregar() {
+        this.statusAoCarregar = this.status;
+    }
 }

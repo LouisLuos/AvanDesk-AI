@@ -6,14 +6,18 @@ import com.avandesk.api.chamado.dto.ChamadoResumoResponse;
 import com.avandesk.api.chamado.dto.FilaChamadosResponse;
 import com.avandesk.api.chamado.dto.FiltroChamados;
 import com.avandesk.api.chamado.dto.TotalPorResponsavelResponse;
+import com.avandesk.api.chamado.dto.TotalPorUnidadeResponse;
 import com.avandesk.api.chamado.entity.CanalOrigem;
 import com.avandesk.api.chamado.entity.Chamado;
+import com.avandesk.api.chamado.entity.EventoHistorico;
+import com.avandesk.api.chamado.entity.MotivoEspera;
 import com.avandesk.api.chamado.entity.OrigemDado;
 import com.avandesk.api.chamado.entity.Prioridade;
 import com.avandesk.api.chamado.entity.Solicitante;
 import com.avandesk.api.chamado.entity.StatusChamado;
 import com.avandesk.api.chamado.entity.TipoEvento;
 import com.avandesk.api.chamado.repository.ChamadoRepository;
+import com.avandesk.api.chamado.repository.EventoHistoricoRepository;
 import com.avandesk.api.chamado.repository.SolicitanteRepository;
 import com.avandesk.api.unidade.entity.Unidade;
 import com.avandesk.api.unidade.repository.UnidadeRepository;
@@ -62,6 +66,9 @@ class FilaChamadosIntegracaoTest {
 
     @Autowired
     private ChamadoRepository chamadoRepository;
+
+    @Autowired
+    private EventoHistoricoRepository eventoHistoricoRepository;
 
     @Autowired
     private UnidadeRepository unidadeRepository;
@@ -276,6 +283,61 @@ class FilaChamadosIntegracaoTest {
         });
     }
 
+    @Test
+    void deveContarChamadosEstouradosDescontandoPausasDoSolicitante() {
+        emTransacaoDesfeita(dados -> {
+            Unidade unidade = dados.unidade();
+
+            // 1. Estourado: ALTA (meta 2h) aberto há 3h sem pausa
+            dados.chamado(unidade, StatusChamado.EM_ATENDIMENTO, AGORA.minus(3, ChronoUnit.HOURS),
+                Prioridade.ALTA, CanalOrigem.LIGACAO, dados.analista1());
+
+            // 2. Não estourado: ALTA aberto há 3h, mas pausado 2h aguardando SOLICITANTE (efetivo = 1h <= 2h)
+            Chamado pausadoAntes = dados.chamado(unidade, StatusChamado.EM_ATENDIMENTO, AGORA.minus(3, ChronoUnit.HOURS),
+                Prioridade.ALTA, CanalOrigem.LIGACAO, dados.analista1());
+            eventoHistoricoRepository.save(new EventoHistorico(
+                pausadoAntes, TipoEvento.CHAMADO_AGUARDANDO, AGORA.minus(150, ChronoUnit.MINUTES),
+                dados.analista1(), Map.of("motivo_espera", "SOLICITANTE"), OrigemDado.TESTE));
+            eventoHistoricoRepository.save(new EventoHistorico(
+                pausadoAntes, TipoEvento.RETORNO_RECEBIDO, AGORA.minus(30, ChronoUnit.MINUTES),
+                dados.analista1(), Map.of("status_anterior", "AGUARDANDO"), OrigemDado.TESTE));
+
+            // 3. Estourado: EM_TRIAGEM (meta 15 min) aberto há 20 min
+            dados.chamado(unidade, StatusChamado.EM_TRIAGEM, AGORA.minus(20, ChronoUnit.MINUTES));
+
+            // 4. Não estourado: atualmente pausado em AGUARDANDO (SOLICITANTE)
+            dados.aguardando(unidade, AGORA.minus(4, ChronoUnit.HOURS), Prioridade.ALTA, dados.analista1(),
+                MotivoEspera.SOLICITANTE, AGORA.minus(1, ChronoUnit.HOURS));
+
+            // 5. Não estourado: RESOLVIDO
+            dados.resolvido(unidade, dados.analista1());
+
+            FilaChamadosResponse fila = listar(daUnidade(unidade), false, 0, 20);
+
+            assertEquals(2L, fila.totalEstourados());
+        });
+    }
+
+    @Test
+    void deveContarChamadosPorUnidadeDentroDaJanelaDeDias() {
+        emTransacaoDesfeita(dados -> {
+            Unidade unidadeComChamados = dados.unidade();
+            Unidade unidadeSemChamadosRecentes = dados.unidade();
+
+            dados.chamado(unidadeComChamados, StatusChamado.ABERTO, AGORA.minus(2, ChronoUnit.DAYS));
+            dados.chamado(unidadeComChamados, StatusChamado.EM_ATENDIMENTO, AGORA.minus(10, ChronoUnit.DAYS));
+            dados.chamado(unidadeComChamados, StatusChamado.ABERTO, AGORA.minus(45, ChronoUnit.DAYS));
+            dados.chamado(unidadeSemChamadosRecentes, StatusChamado.ABERTO, AGORA.minus(35, ChronoUnit.DAYS));
+            entityManager.flush();
+
+            Map<UUID, Long> totais = filaChamadosService.totaisPorUnidade(30).stream()
+                .collect(Collectors.toMap(TotalPorUnidadeResponse::unidadeId, TotalPorUnidadeResponse::total));
+
+            assertEquals(2L, totais.get(unidadeComChamados.getId()));
+            assertNull(totais.get(unidadeSemChamadosRecentes.getId()));
+        });
+    }
+
     // ---------- apoio ----------
 
     private FilaChamadosResponse listar(FiltroChamados filtro, boolean meus, int pagina, int tamanho) {
@@ -349,6 +411,16 @@ class FilaChamadosIntegracaoTest {
             return chamadoRepository.save(chamado);
         }
 
+        /** Aguardando já nasce com motivo e início de espera, exigidos pela constraint ck_chamados_espera. */
+        Chamado aguardando(Unidade unidade, Instant abertoEm, Prioridade prioridade, Usuario responsavel,
+                           MotivoEspera motivo, Instant esperaIniciadaEm) {
+            Chamado chamado = montar(unidade, StatusChamado.AGUARDANDO, abertoEm, prioridade,
+                CanalOrigem.LIGACAO, responsavel);
+            chamado.setMotivoEspera(motivo);
+            chamado.setEsperaIniciadaEm(esperaIniciadaEm);
+            return chamadoRepository.save(chamado);
+        }
+
         private Chamado montar(Unidade unidade, StatusChamado status, Instant abertoEm, Prioridade prioridade,
                                CanalOrigem canal, Usuario responsavel) {
             Chamado chamado = new Chamado();
@@ -372,6 +444,7 @@ class FilaChamadosIntegracaoTest {
             Solicitante novo = new Solicitante();
             novo.setNome("Solicitante de Teste da Fila");
             novo.setTelefone("+5581900000000");
+            novo.setEmail("fila." + UUID.randomUUID() + "@lumen.local");
             return solicitanteRepository.save(novo);
         }
     }

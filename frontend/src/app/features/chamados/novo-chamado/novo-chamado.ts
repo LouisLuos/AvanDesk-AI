@@ -26,7 +26,13 @@ import {
 } from '../../../shared/models/chamado.model';
 import { Unidade } from '../../../shared/models/unidade.model';
 import { extrairMensagensErro } from '../../../shared/utils/api-error';
-import { contatoValidator, normalizarContato } from '../../../shared/utils/contato';
+import {
+  emailValido,
+  emailValidator,
+  normalizarEmail,
+  normalizarTelefone,
+  telefoneValidator,
+} from '../../../shared/utils/contato';
 
 const LIMITE_DESCRICAO = 2000;
 const TAMANHO_MAXIMO_ANEXO = 10 * 1024 * 1024; // 10 MB
@@ -51,7 +57,8 @@ export interface DuplicidadeItem {
 type CampoChamado =
   | 'canalOrigem'
   | 'unidadeId'
-  | 'contato'
+  | 'email'
+  | 'telefone'
   | 'nome'
   | 'categoriaId'
   | 'sistemaId'
@@ -122,7 +129,8 @@ export class NovoChamado implements OnInit {
   protected readonly form = this.fb.nonNullable.group({
     canalOrigem: ['LIGACAO' as CanalOrigem, Validators.required],
     unidadeId: ['', Validators.required],
-    contato: ['', [Validators.required, contatoValidator]],
+    email: ['', [Validators.required, Validators.maxLength(254), emailValidator]],
+    telefone: ['', telefoneValidator],
     nome: ['', Validators.maxLength(120)],
     // Sem valor pré-selecionado: o analista escolhe, para a categoria não sair enviesada nas métricas.
     categoriaId: ['', Validators.required],
@@ -138,6 +146,8 @@ export class NovoChamado implements OnInit {
   private readonly valores = toSignal(this.form.valueChanges, {
     initialValue: this.form.getRawValue(),
   });
+
+  protected readonly emailSolicitanteValido = computed(() => emailValido(this.valores().email));
 
   private readonly valoresDebounced = toSignal(
     this.form.valueChanges.pipe(debounceTime(300)),
@@ -331,6 +341,7 @@ export class NovoChamado implements OnInit {
 
     const valor = this.form.getRawValue();
     const nome = valor.nome.trim();
+    const telefone = valor.telefone.trim();
     const vinculado = this.vinculadoId();
 
     const payload: ChamadoRequest = {
@@ -338,7 +349,8 @@ export class NovoChamado implements OnInit {
       canal_origem: valor.canalOrigem,
       solicitante: {
         ...(nome ? { nome } : {}),
-        contato: normalizarContato(valor.contato),
+        email: normalizarEmail(valor.email),
+        ...(telefone ? { telefone: normalizarTelefone(telefone) } : {}),
       },
       descricao: valor.descricao.trim(),
       categoria_id: valor.categoriaId,
@@ -371,7 +383,8 @@ export class NovoChamado implements OnInit {
     this.form.reset({
       canalOrigem: 'LIGACAO',
       unidadeId: this.unidades()[0]?.id ?? '',
-      contato: '',
+      email: '',
+      telefone: '',
       nome: '',
       categoriaId: '',
       sistemaId: '',

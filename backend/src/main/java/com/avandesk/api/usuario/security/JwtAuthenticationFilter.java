@@ -5,6 +5,7 @@ import com.avandesk.api.usuario.repository.UsuarioRepository;
 import com.avandesk.api.usuario.service.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -22,8 +23,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Filtro de autenticação JWT executado a cada requisição HTTP (HU09).
- * Intercepta o header 'Authorization: Bearer <token>', valida a assinatura e expiração,
+ * Filtro de autenticação JWT executado a cada requisição HTTP (HU09 / HU26).
+ * Extrai o token prioritariamente do cookie HttpOnly 'nexo_access_token'
+ * (mantendo fallback para o header 'Authorization: Bearer <token>'), valida a assinatura e expiração,
  * e alimenta o SecurityContextHolder do Spring Security de forma stateless.
  *
  * O token só identifica o usuário: situação, e-mail e perfil vêm do banco a cada requisição,
@@ -33,6 +35,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    public static final String COOKIE_ACCESS_TOKEN = "nexo_access_token";
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtService jwtService;
@@ -62,13 +65,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private Optional<Usuario> buscarUsuarioAtivo(String token) {
         try {
-            return usuarioRepository.findById(jwtService.obterUsuarioId(token)).filter(Usuario::isAtivo);
+            return usuarioRepository.findById(jwtService.obterUsuarioId(token)).filter(Usuario::podeEntrar);
         } catch (IllegalArgumentException tokenSemId) {
             return Optional.empty();
         }
     }
 
     private String extrairToken(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if (COOKIE_ACCESS_TOKEN.equals(cookie.getName()) && StringUtils.hasText(cookie.getValue())) {
+                    return cookie.getValue().trim();
+                }
+            }
+        }
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (StringUtils.hasText(header) && header.startsWith(BEARER_PREFIX)) {
             return header.substring(BEARER_PREFIX.length()).trim();

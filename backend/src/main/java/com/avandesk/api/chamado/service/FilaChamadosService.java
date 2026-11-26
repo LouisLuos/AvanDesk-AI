@@ -4,6 +4,7 @@ import com.avandesk.api.chamado.dto.ChamadoResumoResponse;
 import com.avandesk.api.chamado.dto.FilaChamadosResponse;
 import com.avandesk.api.chamado.dto.FiltroChamados;
 import com.avandesk.api.chamado.dto.TotalPorResponsavelResponse;
+import com.avandesk.api.chamado.dto.TotalPorUnidadeResponse;
 import com.avandesk.api.chamado.entity.Chamado;
 import com.avandesk.api.chamado.entity.StatusChamado;
 import com.avandesk.api.chamado.repository.ChamadoRepository;
@@ -16,10 +17,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +39,8 @@ public class FilaChamadosService {
 
     public static final int TAMANHO_PADRAO = 20;
     public static final int TAMANHO_MAXIMO = 100;
+    public static final int DIAS_PADRAO_UNIDADE = 30;
+    public static final int DIAS_MAXIMO_UNIDADE = 365;
 
     /** Ordem fixa: o cliente não escolhe o campo, para não ordenar por qualquer coluna. */
     private static final Sort MAIS_RECENTES_PRIMEIRO =
@@ -65,8 +70,10 @@ public class FilaChamadosService {
             .map(chamado -> ChamadoResumoResponse.de(chamado, atualizacoes.get(chamado.getId())))
             .toList();
 
+        Specification<Chamado> filtroSemStatus = ChamadoSpecification.de(filtroFinal.semStatus());
         return new FilaChamadosResponse(itens, pagina, tamanho, resultado.getTotalElements(),
-            resultado.getTotalPages(), totaisPorStatus(filtroFinal));
+            resultado.getTotalPages(), totaisPorStatus(filtroSemStatus),
+            chamadoRepository.contarEstourados(filtroSemStatus));
     }
 
     private static void validarPaginacao(int pagina, int tamanho) {
@@ -106,10 +113,22 @@ public class FilaChamadosService {
             .toList();
     }
 
+    /** Chamados abertos em cada unidade nos últimos {@code dias} dias, para a gestão de unidades (HU11). */
+    @Transactional(readOnly = true)
+    public List<TotalPorUnidadeResponse> totaisPorUnidade(int dias) {
+        if (dias < 1 || dias > DIAS_MAXIMO_UNIDADE) {
+            throw new RegraNegocioException(
+                "O parâmetro 'dias' deve estar entre 1 e %d.".formatted(DIAS_MAXIMO_UNIDADE));
+        }
+        Instant desde = Instant.now().minus(dias, ChronoUnit.DAYS);
+        return chamadoRepository.contarPorUnidadeDesde(desde).entrySet().stream()
+            .map(total -> new TotalPorUnidadeResponse(total.getKey(), total.getValue()))
+            .toList();
+    }
+
     /** Conta com os mesmos filtros, menos o de status, para os cartões continuarem mostrando todos os status. */
-    private Map<StatusChamado, Long> totaisPorStatus(FiltroChamados filtro) {
-        Map<StatusChamado, Long> contagem = chamadoRepository.contarPorStatus(
-            ChamadoSpecification.de(filtro.semStatus()));
+    private Map<StatusChamado, Long> totaisPorStatus(Specification<Chamado> filtroSemStatus) {
+        Map<StatusChamado, Long> contagem = chamadoRepository.contarPorStatus(filtroSemStatus);
         return comTodosOsStatus(contagem);
     }
 
@@ -122,6 +141,6 @@ public class FilaChamadosService {
     }
 
     private static FilaChamadosResponse paginaVazia(int pagina, int tamanho) {
-        return new FilaChamadosResponse(List.of(), pagina, tamanho, 0, 0, comTodosOsStatus(Map.of()));
+        return new FilaChamadosResponse(List.of(), pagina, tamanho, 0, 0, comTodosOsStatus(Map.of()), 0L);
     }
 }

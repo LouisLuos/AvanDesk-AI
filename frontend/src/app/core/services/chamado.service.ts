@@ -9,8 +9,10 @@ import {
   ChamadoRequest,
   ChamadoResponse,
   EscalonamentoRequest,
+  FechamentoRequest,
   FilaChamados,
   FiltrosFila,
+  MesclagemRequest,
   PrioridadeRequest,
   ResolucaoRequest,
   RegistroContatoRequest,
@@ -19,6 +21,7 @@ import {
   TAMANHO_PAGINA_FILA,
   TotalChamadosPorResponsavel,
   TotalChamadosPorUnidade,
+  VerificacaoEncerramento,
 } from '../../shared/models/chamado.model';
 import { mapearChamadoDetalhe } from '../../shared/utils/chamado-detalhe.mapper';
 
@@ -60,8 +63,6 @@ export class ChamadoService {
 
   /**
    * GET /chamados/totais-por-unidade — chamados abertos por unidade nos últimos `dias` (HU11).
-   * Ainda não existe no backend (virá do `contarPorUnidadeDesde`); até lá a requisição falha
-   * e quem chama deve tratar a contagem como indisponível.
    */
   totaisPorUnidade(dias = 30): Observable<TotalChamadosPorUnidade[]> {
     const params = new HttpParams().set('dias', dias);
@@ -208,6 +209,33 @@ export class ChamadoService {
         `${this.baseUrl}/${id}/prioridade`,
         payload,
       )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  /**
+   * POST /chamados/{id}/mesclar — incorpora o chamado duplicado ({id}) no chamado principal (HU03).
+   */
+  mesclar(id: string, chamadoPrincipalId: string): Observable<ChamadoDetalhe> {
+    const payload: MesclagemRequest = {
+      chamado_principal_id: chamadoPrincipalId,
+    };
+    return this.http
+      .post<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(
+        `${this.baseUrl}/${id}/mesclar`,
+        payload,
+      )
+      .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
+  }
+
+  verificarEncerramento(id: string): Observable<VerificacaoEncerramento> {
+    return this.http
+      .get<ApiResponse<VerificacaoEncerramento>>(`${this.baseUrl}/${id}/verificacao-encerramento`)
+      .pipe(map((res) => res.data as VerificacaoEncerramento));
+  }
+
+  fechar(id: string, payload: FechamentoRequest): Observable<ChamadoDetalhe> {
+    return this.http
+      .post<ApiResponse<ChamadoDetalheApiResponse | ChamadoDetalhe>>(`${this.baseUrl}/${id}/fechar`, payload)
       .pipe(map((res) => mapearChamadoDetalhe(res.data as ChamadoDetalheApiResponse | ChamadoDetalhe)));
   }
 }

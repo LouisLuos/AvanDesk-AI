@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title th:text="|Chamado ${codigo}: ${statusNovo}|">Status do chamado</title>
+</head>
+<body style="margin:0;padding:24px;background:#f4f5f8;font-family:Arial,Helvetica,sans-serif;color:#14161b;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+         style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e2e5ec;border-radius:12px;">
+    <tr>
+      <td style="padding:24px 28px 8px;">
+        <p style="margin:0;font-size:12px;font-weight:bold;letter-spacing:1px;color:#2d5bff;">NEXO · SUPORTE DE TI</p>
+        <h1 style="margin:12px 0 0;font-size:20px;">O status do seu chamado mudou</h1>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:8px 28px;font-size:14px;line-height:1.5;">
+        <p style="margin:0 0 16px;" th:text="${nome} != null ? |Olá, ${nome}.| : 'Olá.'">Olá.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;width:140px;">Chamado</td>
+            <td style="padding:6px 0;font-family:Consolas,monospace;font-weight:bold;color:#2d5bff;" th:text="${codigo}">LUM-0000-000000</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;">Unidade</td>
+            <td style="padding:6px 0;" th:text="${unidade}">Unidade</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;">Status anterior</td>
+            <td style="padding:6px 0;" th:text="${statusAnterior}">Em Triagem</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;">Novo status</td>
+            <td style="padding:6px 0;font-weight:bold;" th:text="${statusNovo}">Em Atendimento</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;">Atualizado em</td>
+            <td style="padding:6px 0;" th:text="${atualizadoEm}">01/01/2026 às 08:00</td>
+          </tr>
+        </table>
+        <p style="margin:20px 0 0;padding:12px 16px;background:#f9fafb;border-left:3px solid #2d5bff;"
+           th:text="${orientacao}">Orientação</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:20px 28px 24px;font-size:12px;color:#6b7280;">
+        Esta é uma mensagem automática do Nexo. Não responda a este e-mail.
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
