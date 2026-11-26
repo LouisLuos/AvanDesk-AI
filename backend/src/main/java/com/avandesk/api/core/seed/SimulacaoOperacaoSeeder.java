@@ -25,6 +25,7 @@ import com.avandesk.api.sla.domain.CalculadoraPrioridadeMatriz3D;
 import com.avandesk.api.unidade.entity.Unidade;
 import com.avandesk.api.unidade.repository.UnidadeRepository;
 import com.avandesk.api.usuario.entity.PerfilUsuario;
+import com.avandesk.api.usuario.entity.StatusConta;
 import com.avandesk.api.usuario.entity.Usuario;
 import com.avandesk.api.usuario.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
@@ -119,6 +120,7 @@ public class SimulacaoOperacaoSeeder implements ApplicationRunner {
         }
 
         List<Solicitante> solicitantes = garantirSolicitantesSimulacao();
+        garantirContaSolicitanteDemo(unidades, solicitantes);
         Random rng = new Random(SEED_FIXA);
         Instant agora = Instant.now().truncatedTo(ChronoUnit.SECONDS);
 
@@ -802,6 +804,32 @@ public class SimulacaoOperacaoSeeder implements ApplicationRunner {
             resultado.add(s);
         }
         return resultado;
+    }
+
+    /** Garante uma conta ativa de {@code SOLICITANTE} (HU17 / V12) vinculada à primeira solicitante simulada. */
+    private void garantirContaSolicitanteDemo(List<Unidade> unidades, List<Solicitante> solicitantes) {
+        if (unidades.isEmpty() || solicitantes.isEmpty()) {
+            return;
+        }
+        Solicitante principal = solicitantes.getFirst();
+        if (principal.getEmail() == null) {
+            return;
+        }
+        Usuario conta = usuarioRepository.findByEmail(principal.getEmail()).orElseGet(() -> {
+            Usuario novo = new Usuario();
+            novo.setNome(principal.getNome() != null ? principal.getNome() : "Solicitante Demo");
+            novo.setEmail(principal.getEmail());
+            novo.setSenhaHash(SENHA_DEV_HASH);
+            novo.setPerfil(PerfilUsuario.SOLICITANTE);
+            novo.setStatusConta(StatusConta.ATIVA);
+            novo.setUnidade(unidades.getFirst());
+            novo.setAtivo(true);
+            return usuarioRepository.save(novo);
+        });
+        if (principal.getUsuario() == null) {
+            principal.setUsuario(conta);
+            solicitanteRepository.save(principal);
+        }
     }
 
     // -------------------------------------------------------------------------

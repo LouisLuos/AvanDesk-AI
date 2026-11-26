@@ -22,6 +22,17 @@ Guia rápido de consulta para subir o **Nexo** com massa simulada em escala real
 
 ## 2. Passo a passo para subir a simulação
 
+### Opção A — Docker Compose completo (recomendado para apresentação local)
+
+```powershell
+# Na raiz do repositório (sobe Postgres, Mailpit, Backend com perfil demo e Frontend)
+docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+```
+
+Acesse `http://localhost:4200` (API em `http://localhost:8080`, Mailpit em `http://localhost:8025`).
+
+### Opção B — Subindo manual (Postgres no Docker + Maven/Angular locais)
+
 ### Passo 1 — Subir o PostgreSQL (na raiz do repositório)
 ```powershell
 docker compose up -d postgres
@@ -74,6 +85,7 @@ Todos os usuários de desenvolvimento/simulação usam a senha padrão **`nexo-d
 | `ANALISTA_SUPORTE` | `lucas.barbosa@lumen.local` | Analista criada pelo seeder (carga em M02) |
 | `ANALISTA_SUPORTE` | `mariana.alencar@lumen.local` | Analista criada pelo seeder (carga em M02) |
 | `ANALISTA_SUPORTE` | `thiago.santana@lumen.local` | Analista criada pelo seeder (carga em M02) |
+| **`SOLICITANTE`** | `ana.ribeiro@lumen.local` | Conta de solicitante verificada (HU17) vinculada aos chamados simulados |
 
 ---
 
@@ -128,7 +140,14 @@ A tabela `eventos_historico` possui a trigger `trg_eventos_historico_imutavel` (
 Para regenerar os 180 chamados com datas frescas (por exemplo, semanas depois antes de uma apresentação), recrie o volume local do Postgres:
 
 ```powershell
-# Na raiz do repositório
+# Na raiz do repositório (Docker completo com massa demo)
+docker compose -f docker-compose.yml -f docker-compose.demo.yml down -v
+docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+```
+
+Ou, se estiver rodando o backend via Maven:
+
+```powershell
 docker compose down -v
 docker compose up -d postgres
 ```
