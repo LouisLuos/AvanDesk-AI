@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
+import { ContaSolicitanteService } from '../../../core/services/conta-solicitante.service';
 import { Login } from './login';
 
 describe('Login Component', () => {
@@ -90,5 +91,37 @@ describe('Login Component', () => {
 
     component['entrar']();
     expect(component['erros']()).toContain('Credenciais inválidas');
+  });
+
+  it('deve levar o solicitante para a página inicial dele', () => {
+    const navegarSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    vi.spyOn(authService, 'login').mockReturnValue(
+      of({ usuario: { id: 'u-2', nome: 'Mariana Alves', email: 'mariana.alves@gmail.com', perfil: 'SOLICITANTE' } }),
+    );
+    component['form'].setValue({ usuario: 'mariana.alves@gmail.com', senha: 'Coleta#2026ok', manterConectado: false });
+
+    component['entrar']();
+
+    expect(navegarSpy).toHaveBeenCalledWith(['/solicitante']);
+  });
+
+  it('deve mandar a conta pendente para a tela de verificação com o e-mail guardado', () => {
+    const navegarSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    vi.spyOn(authService, 'login').mockReturnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 403,
+            error: { message: 'Confirme o seu e-mail para entrar.', errors: ['CONTA_NAO_VERIFICADA'] },
+          }),
+      ),
+    );
+    component['form'].setValue({ usuario: 'Mariana.Alves@Gmail.com', senha: 'Coleta#2026ok', manterConectado: false });
+
+    component['entrar']();
+
+    expect(navegarSpy).toHaveBeenCalledWith(['/verifique-seu-email']);
+    expect(TestBed.inject(ContaSolicitanteService).emailPendente()).toBe('mariana.alves@gmail.com');
+    expect(component['erros']()).toEqual([]);
   });
 });

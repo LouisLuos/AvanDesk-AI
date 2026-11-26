@@ -531,7 +531,7 @@
                 </div>
 
                 @if (novoContatoOutroSolicitante()) {
-                  <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-[#e2e5ec]">
+                  <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3 pt-2 border-t border-[#e2e5ec]">
                     <div>
                       <label for="campo-nome-contato" class="block text-[11px] font-medium text-[#4b5563] mb-1">
                         Nome do interlocutor
@@ -546,15 +546,28 @@
                       />
                     </div>
                     <div>
-                      <label for="campo-identificador-contato" class="block text-[11px] font-medium text-[#4b5563] mb-1">
-                        Telefone ou e-mail de contato <span class="text-[#dc2626]">*</span>
+                      <label for="campo-email-contato" class="block text-[11px] font-medium text-[#4b5563] mb-1">
+                        E-mail do interlocutor <span class="text-[#dc2626]">*</span>
                       </label>
                       <input
-                        id="campo-identificador-contato"
-                        type="text"
-                        [value]="novoContatoIdentificador()"
-                        (input)="atualizarIdentificadorContato($any($event.target).value)"
-                        placeholder="Ex: +55 81 99999-8888 ou juliana@lumen.com.br"
+                        id="campo-email-contato"
+                        type="email"
+                        [value]="novoContatoEmail()"
+                        (input)="atualizarEmailContato($any($event.target).value)"
+                        placeholder="Ex: juliana@lumen.com.br"
+                        class="w-full rounded-md border border-[#e2e5ec] bg-white px-2.5 py-1.5 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff]"
+                      />
+                    </div>
+                    <div>
+                      <label for="campo-telefone-contato" class="block text-[11px] font-medium text-[#4b5563] mb-1">
+                        Telefone do interlocutor
+                      </label>
+                      <input
+                        id="campo-telefone-contato"
+                        type="tel"
+                        [value]="novoContatoTelefone()"
+                        (input)="atualizarTelefoneContato($any($event.target).value)"
+                        placeholder="Ex: +55 81 99999-8888"
                         class="w-full rounded-md border border-[#e2e5ec] bg-white px-2.5 py-1.5 text-xs text-[#14161b] placeholder-[#9aa2b1] focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff]"
                       />
                     </div>

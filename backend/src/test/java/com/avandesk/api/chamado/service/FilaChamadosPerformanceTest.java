@@ -121,6 +121,7 @@ class FilaChamadosPerformanceTest {
         Solicitante solicitante = new Solicitante();
         solicitante.setNome("Solicitante de Teste de Performance");
         solicitante.setTelefone("+5581900000001");
+        solicitante.setEmail("fila.performance." + UUID.randomUUID() + "@lumen.local");
         solicitanteRepository.save(solicitante);
 
         Unidade unidade = new Unidade();

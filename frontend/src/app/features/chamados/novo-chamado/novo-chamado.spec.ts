@@ -95,7 +95,8 @@ describe('NovoChamado', () => {
   function preencher(
     valores: Partial<{
       unidadeId: string;
-      contato: string;
+      email: string;
+      telefone: string;
       nome: string;
       categoriaId: string;
       sistemaId: string;
@@ -103,7 +104,7 @@ describe('NovoChamado', () => {
     }>,
   ): void {
     component['form'].patchValue({
-      contato: '81988771234',
+      email: 'recepcao.bvg@lumen.local',
       categoriaId: 'cat-equip',
       descricao: 'Impressora de etiquetas da coleta parou de imprimir.',
       ...valores,
@@ -275,7 +276,7 @@ describe('NovoChamado', () => {
 
   it.each([
     ['unidade', { unidadeId: '' }],
-    ['contato', { contato: '' }],
+    ['e-mail', { email: '' }],
     ['categoria', { categoriaId: '' }],
     ['descrição', { descricao: '' }],
   ])('deve bloquear o envio sem %s', (_campo, valores) => {
@@ -302,31 +303,84 @@ describe('NovoChamado', () => {
 
   // ---------- payload ----------
 
-  it('deve omitir o nome vazio e enviar o telefone em E.164', () => {
+  it('deve omitir o nome vazio e enviar o telefone complementar em E.164', () => {
     abrirTela();
     responderCarga();
-    preencher({ nome: '   ', contato: '(81) 98877-1234' });
+    preencher({ nome: '   ', telefone: '(81) 98877-1234' });
 
     registrar();
 
     const body = requisicaoDeRegistro().request.body as ChamadoRequest;
     expect(body.unidade_id).toBe('u-bvg');
-    expect(body.solicitante).toEqual({ contato: '+5581988771234' });
+    expect(body.solicitante).toEqual({ email: 'recepcao.bvg@lumen.local', telefone: '+5581988771234' });
     expect(body.descricao).toBe('Impressora de etiquetas da coleta parou de imprimir.');
   });
 
   it('deve enviar o e-mail do solicitante em minúsculas, junto com o nome', () => {
     abrirTela();
     responderCarga();
-    preencher({ nome: 'Recepção Boa Viagem', contato: 'Recepcao.BVG@Lumen.Local' });
+    preencher({ nome: 'Recepção Boa Viagem', email: '  Recepcao.BVG@Lumen.Local ' });
 
     registrar();
 
     const body = requisicaoDeRegistro().request.body as ChamadoRequest;
     expect(body.solicitante).toEqual({
       nome: 'Recepção Boa Viagem',
-      contato: 'recepcao.bvg@lumen.local',
+      email: 'recepcao.bvg@lumen.local',
     });
+  });
+
+  it.each([
+    ['vazio', ''],
+    ['sem domínio completo', 'recepcao@lumen'],
+    ['sem arroba', 'recepcao.lumen.local'],
+  ])('deve manter o botão de registrar desabilitado com e-mail %s', (_caso, email) => {
+    abrirTela();
+    responderCarga();
+    preencher({ email, telefone: '81988771234' });
+    fixture.detectChanges();
+
+    const botao = fixture.nativeElement.querySelector('#btn-registrar-chamado') as HTMLButtonElement;
+    expect(botao.disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('#aviso-email-obrigatorio')).not.toBeNull();
+    registrar();
+    nenhumRegistroEnviado();
+  });
+
+  it('deve habilitar o botão de registrar quando o e-mail fica válido', () => {
+    abrirTela();
+    responderCarga();
+    preencher({ email: 'recepcao@lumen' });
+    fixture.detectChanges();
+    const botao = fixture.nativeElement.querySelector('#btn-registrar-chamado') as HTMLButtonElement;
+    expect(botao.disabled).toBe(true);
+
+    preencher({ email: 'recepcao@lumen.com.br' });
+    fixture.detectChanges();
+
+    expect(botao.disabled).toBe(false);
+    expect(fixture.nativeElement.querySelector('#aviso-email-obrigatorio')).toBeNull();
+  });
+
+  it('deve mostrar o erro do e-mail inválido ao sair do campo', () => {
+    abrirTela();
+    responderCarga();
+    preencher({ email: 'recepcao@lumen' });
+    component['form'].controls.email.markAsTouched();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('#email-ajuda').textContent).toContain('Informe um e-mail válido');
+  });
+
+  it('deve bloquear o envio com telefone sem DDD', () => {
+    abrirTela();
+    responderCarga();
+    preencher({ telefone: '9887-1234' });
+
+    registrar();
+
+    nenhumRegistroEnviado();
+    expect(component['form'].controls.telefone.hasError('telefone')).toBe(true);
   });
 
   // ---------- telemetria M11 (FE-01) ----------

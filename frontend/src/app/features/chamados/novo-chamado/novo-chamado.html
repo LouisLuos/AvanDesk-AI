@@ -116,7 +116,6 @@
           </div>
         </div>
 
-        <!-- Linha 1: Unidade e Contato -->
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <!-- Unidade -->
           <div>
@@ -159,34 +158,37 @@
             }
           </div>
 
-          <!-- Contato do Solicitante (Telefone ou E-mail) -->
           <div>
-            <label for="contato" class="mb-1.5 block text-xs font-semibold text-[#363b47]">
-              Telefone ou e-mail do solicitante <span class="text-[#dc2626]">*</span>
+            <label for="email" class="mb-1.5 block text-xs font-semibold text-[#363b47]">
+              E-mail do solicitante <span class="text-[#dc2626]">*</span>
             </label>
             <div class="relative">
               <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="m22 7-10 6L2 7" />
               </svg>
               <input
-                id="contato"
-                type="text"
-                formControlName="contato"
-                placeholder="+55 81 98877-1234 ou recepcao@lumen.local"
+                id="email"
+                type="email"
+                formControlName="email"
+                placeholder="recepcao@lumen.com.br"
                 autocomplete="off"
+                aria-describedby="email-ajuda"
                 class="h-10 w-full rounded-lg border border-[#e2e5ec] bg-white pl-9 pr-3 text-xs text-[#14161b] placeholder:text-[#9aa2b1] shadow-xs transition focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff]"
-                [class.border-[#dc2626]]="invalido('contato')"
+                [class.border-[#dc2626]]="invalido('email')"
               />
             </div>
-            @if (invalido('contato')) {
-              <p class="mt-1 text-[11px] font-medium text-[#dc2626]">Informe um telefone com DDD ou e-mail válido.</p>
+            @if (invalido('email')) {
+              <p id="email-ajuda" class="mt-1 text-[11px] font-medium text-[#dc2626]">
+                {{ form.controls.email.hasError('required') ? 'Informe o e-mail do solicitante.' : 'Informe um e-mail válido (ex.: recepcao@lumen.com.br).' }}
+              </p>
+            } @else {
+              <p id="email-ajuda" class="mt-1 text-[11px] text-[#9aa2b1]">O solicitante recebe o código e as atualizações do chamado por e-mail.</p>
             }
           </div>
         </div>
 
-        <!-- Linha 2: Nome do Solicitante e Categoria -->
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <!-- Nome do Solicitante -->
           <div>
             <label for="nome" class="mb-1.5 block text-xs font-semibold text-[#363b47]">
               Nome do solicitante
@@ -202,7 +204,33 @@
             <p class="mt-1 text-[11px] text-[#9aa2b1]">Opcional</p>
           </div>
 
-          <!-- Categoria do Problema -->
+          <div>
+            <label for="telefone" class="mb-1.5 block text-xs font-semibold text-[#363b47]">
+              Telefone do solicitante
+            </label>
+            <div class="relative">
+              <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+              </svg>
+              <input
+                id="telefone"
+                type="tel"
+                formControlName="telefone"
+                placeholder="+55 81 98877-1234"
+                autocomplete="off"
+                class="h-10 w-full rounded-lg border border-[#e2e5ec] bg-white pl-9 pr-3 text-xs text-[#14161b] placeholder:text-[#9aa2b1] shadow-xs transition focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff]"
+                [class.border-[#dc2626]]="invalido('telefone')"
+              />
+            </div>
+            @if (invalido('telefone')) {
+              <p class="mt-1 text-[11px] font-medium text-[#dc2626]">Informe o telefone com DDD (10 a 13 dígitos).</p>
+            } @else {
+              <p class="mt-1 text-[11px] text-[#9aa2b1]">Opcional</p>
+            }
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label for="categoria" class="mb-1.5 block text-xs font-semibold text-[#363b47]">
               Categoria do problema <span class="text-[#dc2626]">*</span>
@@ -242,27 +270,25 @@
               <p class="mt-1 text-[11px] font-medium text-[#dc2626]">Selecione uma categoria.</p>
             }
           </div>
-        </div>
-
-        <!-- Linha 3: Sistema ou Equipamento -->
-        <div>
-          <label for="sistema" class="mb-1.5 block text-xs font-semibold text-[#363b47]">
-            Sistema ou equipamento
-          </label>
-          <div class="relative">
-            <select
-              id="sistema"
-              formControlName="sistemaId"
-              class="h-10 w-full appearance-none rounded-lg border border-[#e2e5ec] bg-white pl-3 pr-9 text-xs text-[#14161b] shadow-xs transition focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff]"
-            >
-              <option value="">Não informado</option>
-              @for (sistema of sistemas(); track sistema.id) {
-                <option [value]="sistema.id">{{ sistema.nome }}</option>
-              }
-            </select>
-            <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="m6 9 6 6 6-6" />
-            </svg>
+          <div>
+            <label for="sistema" class="mb-1.5 block text-xs font-semibold text-[#363b47]">
+              Sistema ou equipamento
+            </label>
+            <div class="relative">
+              <select
+                id="sistema"
+                formControlName="sistemaId"
+                class="h-10 w-full appearance-none rounded-lg border border-[#e2e5ec] bg-white pl-3 pr-9 text-xs text-[#14161b] shadow-xs transition focus:border-[#2d5bff] focus:outline-none focus:ring-1 focus:ring-[#2d5bff]"
+              >
+                <option value="">Não informado</option>
+                @for (sistema of sistemas(); track sistema.id) {
+                  <option [value]="sistema.id">{{ sistema.nome }}</option>
+                }
+              </select>
+              <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa2b1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </div>
           </div>
         </div>
 
@@ -408,6 +434,11 @@
 
         <!-- Barra Inferior de Ações -->
         <div class="mt-3 flex items-center justify-end gap-3 border-t border-[#e2e5ec]/60 pt-4">
+          @if (!emailSolicitanteValido()) {
+            <p id="aviso-email-obrigatorio" class="mr-auto text-[11px] text-[#6b7280]">
+              Informe um e-mail válido do solicitante para registrar.
+            </p>
+          }
           <button
             type="button"
             id="btn-cancelar"
@@ -420,7 +451,7 @@
           <button
             type="submit"
             id="btn-registrar-chamado"
-            [disabled]="enviando()"
+            [disabled]="enviando() || !emailSolicitanteValido()"
             class="inline-flex items-center gap-2 rounded-lg bg-[#2d5bff] px-5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1e3fcc] hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5bff] focus-visible:ring-offset-2 disabled:opacity-60"
           >
             @if (enviando()) {

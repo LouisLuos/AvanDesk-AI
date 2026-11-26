@@ -1,0 +1,9 @@
+Olá, [(${nome})].
+
+Recebemos o pedido de criação da sua conta no Nexo. Para ativá-la e ver os seus chamados, confirme o seu e-mail abrindo o endereço abaixo:
+
+[(${link})]
+
+O link vale até [(${validoAte})] e só pode ser usado uma vez.
+
+Se você não pediu esta conta, ignore este e-mail. Esta é uma mensagem automática do Nexo; não responda.

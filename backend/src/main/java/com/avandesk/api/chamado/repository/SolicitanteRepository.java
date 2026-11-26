@@ -9,8 +9,4 @@ import java.util.UUID;
 public interface SolicitanteRepository extends JpaRepository<Solicitante, UUID> {
 
     Optional<Solicitante> findByEmail(String email);
-
-    Optional<Solicitante> findFirstByTelefoneAndNomeIgnoreCase(String telefone, String nome);
-
-    Optional<Solicitante> findFirstByTelefoneAndNomeIsNull(String telefone);
 }

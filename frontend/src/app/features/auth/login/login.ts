@@ -1,14 +1,17 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
+import { paginaInicialDoPerfil } from '../../../core/config/perfis';
 import { AuthService } from '../../../core/services/auth.service';
+import { ContaSolicitanteService } from '../../../core/services/conta-solicitante.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { extrairMensagensErro } from '../../../shared/utils/api-error';
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './login.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -17,6 +20,7 @@ export class Login {
   private readonly router = inject(Router);
   private readonly authService = inject(AuthService);
   private readonly toast = inject(ToastService);
+  private readonly contaService = inject(ContaSolicitanteService);
 
   protected readonly carregando = signal(false);
   protected readonly erros = signal<string[]>([]);
@@ -48,9 +52,16 @@ export class Login {
       .subscribe({
         next: (resposta) => {
           this.toast.sucesso(`Bem-vindo(a), ${resposta.usuario.nome}!`);
-          this.router.navigate(['/chamados']);
+          this.router.navigate([paginaInicialDoPerfil(resposta.usuario.perfil)]);
         },
         error: (erro) => {
+          if (erro instanceof HttpErrorResponse && erro.status === 403
+            && erro.error?.errors?.[0] === 'CONTA_NAO_VERIFICADA') {
+            this.contaService.guardarEmailPendente(this.authService.emailDeLogin(usuario.trim()));
+            this.toast.info(erro.error.message ?? 'Confirme o seu e-mail para entrar.');
+            this.router.navigate(['/verifique-seu-email']);
+            return;
+          }
           const mensagens = extrairMensagensErro(erro);
           this.erros.set(mensagens.length ? mensagens : ['Usuário ou senha incorretos.']);
         },
