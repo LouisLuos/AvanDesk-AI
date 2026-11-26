@@ -4,7 +4,11 @@ on:
   pull_request:
     branches: [develop, main]
   push:
-    branches: [develop]
+    branches: [develop, chore/QA-05-qualidade-continua]
+
+permissions:
+  contents: read
+  issues: write
 
 jobs:
   backend:
@@ -37,13 +41,41 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Build e Testes
+      - name: Build e Testes com Cobertura
         working-directory: backend
         env:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5433/avandesk_db
         run: |
           chmod +x mvnw
           ./mvnw clean verify
+
+      - name: Salvar Artefatos de Teste do Backend (XML Surefire e JaCoCo)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorios-testes-backend
+          path: |
+            backend/target/surefire-reports/*.xml
+            backend/target/site/jacoco/
+          if-no-files-found: ignore
+
+      - name: Configurar Python para Relatórios de Qualidade
+        if: always()
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Gerar Relatórios de Qualidade Automáticos (Técnico e de Negócio)
+        if: always()
+        run: python .github/scripts/gerar_relatorios_qualidade.py
+
+      - name: Publicar Relatórios de Qualidade HTML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorios-qualidade-nexo-html
+          path: target/relatorios/*.html
+          if-no-files-found: ignore
 
   frontend:
     name: Frontend — Build & Test
@@ -71,3 +103,67 @@ jobs:
       - name: Executar testes
         working-directory: frontend
         run: npm test -- --watch=false
+
+      - name: Salvar Artefatos de Teste do Frontend
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorios-testes-frontend
+          path: frontend/coverage/
+          if-no-files-found: ignore
+
+  notificar-falha:
+    name: Notificar Falha & Abrir Issue
+    needs: [backend, frontend]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Criar Issue Automática de Falha de Testes
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const runId = context.runId;
+            const repo = context.repo;
+            const commitSha = context.sha.substring(0, 7);
+            const refName = context.ref;
+            const actor = context.actor;
+            const runUrl = `https://github.com/${repo.owner}/${repo.repo}/actions/runs/${runId}`;
+
+            const issueTitle = `🚨 [QA-Auto] Falha na esteira de testes - Run #${runId} (${commitSha})`;
+            const issueBody = `## 🚨 Falha detectada no Pipeline de CI/CD
+
+            A esteira automatizada de testes do projeto **Nexo (AvanDesk-AI)** identificou falhas durante a execução das suítes de validação.
+
+            ### Detalhes da Execução
+            * **Branch / Ref:** \`${refName}\`
+            * **Autor do Commit:** @${actor}
+            * **Commit:** \`${commitSha}\`
+            * **Link direto da Execução:** [Visualizar Run #${runId} no GitHub Actions](${runUrl})
+
+            ### Ações Requeridas
+            1. Baixar os artefatos de teste anexados ao run (\`relatorios-testes-backend\` ou logs).
+            2. Identificar a asserção que quebrou no JUnit ou no Vitest.
+            3. Aplicar a correção e abrir novo commit na branch correspondente.
+
+            ---
+            *Issue aberta automaticamente pelo robô de QA & DevOps.*`;
+
+            // Tenta aplicar o label qa-auto caso exista, senão cria a issue sem quebrar
+            try {
+              await github.rest.issues.create({
+                owner: repo.owner,
+                repo: repo.repo,
+                title: issueTitle,
+                body: issueBody,
+                labels: ['qa-auto', 'bug']
+              });
+            } catch (err) {
+              console.log('Tentando criar sem labels prévias...', err);
+              await github.rest.issues.create({
+                owner: repo.owner,
+                repo: repo.repo,
+                title: issueTitle,
+                body: issueBody
+              });
+            }
