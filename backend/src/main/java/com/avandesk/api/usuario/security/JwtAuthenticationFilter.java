@@ -48,7 +48,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = extrairToken(request);
 
-        if (StringUtils.hasText(token) && jwtService.isTokenValido(token)
+        if (StringUtils.hasText(token) && jwtService.isTokenValido(token) && !jwtService.ehTicketTempoReal(token)
             && SecurityContextHolder.getContext().getAuthentication() == null) {
             buscarUsuarioAtivo(token).ifPresent(usuario -> {
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(

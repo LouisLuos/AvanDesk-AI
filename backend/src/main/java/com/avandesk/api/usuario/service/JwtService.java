@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
@@ -19,6 +20,9 @@ import java.util.UUID;
  */
 @Service
 public class JwtService {
+
+    private static final String CLAIM_USO = "uso";
+    private static final String USO_TEMPO_REAL = "tempo-real";
 
     private final SecretKey secretKey;
     private final long expirationMs;
@@ -49,6 +53,27 @@ public class JwtService {
             .expiration(Date.from(expiracao))
             .signWith(secretKey, Jwts.SIG.HS256)
             .compact();
+    }
+
+    public String gerarTicketTempoReal(Usuario usuario, Duration validade) {
+        Instant agora = Instant.now();
+
+        return Jwts.builder()
+            .subject(usuario.getId().toString())
+            .claim("id", usuario.getId().toString())
+            .claim(CLAIM_USO, USO_TEMPO_REAL)
+            .issuedAt(Date.from(agora))
+            .expiration(Date.from(agora.plus(validade)))
+            .signWith(secretKey, Jwts.SIG.HS256)
+            .compact();
+    }
+
+    public boolean ehTicketTempoReal(String token) {
+        try {
+            return USO_TEMPO_REAL.equals(extrairClaims(token).get(CLAIM_USO, String.class));
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
     }
 
     /**

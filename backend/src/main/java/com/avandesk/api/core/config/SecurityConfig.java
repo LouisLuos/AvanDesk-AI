@@ -1,6 +1,7 @@
 package com.avandesk.api.core.config;
 
 import com.avandesk.api.core.dto.ApiResponse;
+import com.avandesk.api.temporeal.config.WebSocketConfig;
 import com.avandesk.api.usuario.security.JwtAuthenticationFilter;
 import com.avandesk.api.usuario.service.JwtService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -100,7 +101,8 @@ public class SecurityConfig {
                     "/api/v1/auth/login",
                     "/api/v1/auth/logout",
                     "/auth/login",
-                    "/auth/logout"
+                    "/auth/logout",
+                    WebSocketConfig.ENDPOINT
                 ).permitAll()
                 .anyRequest().authenticated()
             )
