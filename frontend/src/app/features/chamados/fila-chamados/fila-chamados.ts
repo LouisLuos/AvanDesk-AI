@@ -1,8 +1,9 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Subscription, finalize } from 'rxjs';
+import { Subscription, debounceTime, finalize, tap } from 'rxjs';
 import { ChamadoService } from '../../../core/services/chamado.service';
+import { RealtimeChamadosService } from '../../../core/services/realtime-chamados.service';
 import { SlaService } from '../../../core/services/sla.service';
 import { UnidadeService } from '../../../core/services/unidade.service';
 import { CustomDropdown } from '../../../shared/components/custom-dropdown/custom-dropdown';
@@ -27,6 +28,8 @@ import { DatePipe } from '@angular/common';
 const SEM_PRIORIDADE = 'SEM_PRIORIDADE';
 /** Quantos botões de página aparecem ao redor da página atual. */
 const PAGINAS_VISIVEIS = 5;
+export const ATRASO_ATUALIZACAO_TEMPO_REAL_MS = 300;
+export const DURACAO_DESTAQUE_MS = 3000;
 
 type FiltroPrioridade = PrioridadeChamado | typeof SEM_PRIORIDADE | '';
 
@@ -82,7 +85,10 @@ export class FilaChamados implements OnInit {
   private readonly chamadoService = inject(ChamadoService);
   private readonly unidadeService = inject(UnidadeService);
   private readonly slaService = inject(SlaService);
+  private readonly realtime = inject(RealtimeChamadosService);
   private requisicao?: Subscription;
+  private readonly idsAtualizados = new Set<string>();
+  private temporizadorDestaque?: ReturnType<typeof setTimeout>;
   /** A busca do cabeçalho só recarrega depois do primeiro carregamento (ngOnInit). */
   private iniciado = false;
 
@@ -95,6 +101,7 @@ export class FilaChamados implements OnInit {
   protected readonly fila = signal<PaginaFila | null>(null);
   protected readonly carregando = signal(true);
   protected readonly erroCarregamento = signal<string | null>(null);
+  protected readonly destacados = signal<ReadonlySet<string>>(new Set());
 
   /** Texto digitado; só vira filtro (código exato) ao apertar Enter ou ao ser apagado. */
   protected readonly busca = signal('');
@@ -113,6 +120,15 @@ export class FilaChamados implements OnInit {
           if (this.iniciado) this.carregar();
         }
       });
+
+    this.realtime.eventos$
+      .pipe(
+        tap((evento) => this.idsAtualizados.add(evento.chamado.id)),
+        debounceTime(ATRASO_ATUALIZACAO_TEMPO_REAL_MS),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.atualizarEmTempoReal());
+    inject(DestroyRef).onDestroy(() => clearTimeout(this.temporizadorDestaque));
   }
 
 
@@ -210,6 +226,32 @@ export class FilaChamados implements OnInit {
         next: (fila) => this.fila.set(fila),
         error: (erro) => this.erroCarregamento.set(extrairMensagensErro(erro)[0]),
       });
+  }
+
+  protected destacado(id: string): boolean {
+    return this.destacados().has(id);
+  }
+
+  private atualizarEmTempoReal(): void {
+    const ids = new Set(this.idsAtualizados);
+    this.idsAtualizados.clear();
+    if (!this.iniciado) return;
+    this.requisicao?.unsubscribe();
+    this.requisicao = this.chamadoService
+      .listar(this.filtrosAtuais(), this.pagina() - 1, TAMANHO_PAGINA_FILA)
+      .subscribe({
+        next: (fila) => {
+          this.fila.set(fila);
+          this.destacar(ids);
+        },
+        error: () => undefined,
+      });
+  }
+
+  private destacar(ids: ReadonlySet<string>): void {
+    clearTimeout(this.temporizadorDestaque);
+    this.destacados.set(ids);
+    this.temporizadorDestaque = setTimeout(() => this.destacados.set(new Set()), DURACAO_DESTAQUE_MS);
   }
 
   protected atualizarFiltro<T>(alvo: { set(valor: T): void }, valor: T): void {

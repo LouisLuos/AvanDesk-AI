@@ -8,9 +8,10 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { filter, finalize } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
 import { ChamadoService } from '../../../core/services/chamado.service';
+import { RealtimeChamadosService } from '../../../core/services/realtime-chamados.service';
 import { SlaService } from '../../../core/services/sla.service';
 import { ToastService } from '../../../core/services/toast.service';
 import {
@@ -33,6 +34,7 @@ import {
   StatusRequest,
   VerificacaoEncerramento,
 } from '../../../shared/models/chamado.model';
+import { EventoTempoReal } from '../../../shared/models/tempo-real.model';
 import { extrairMensagensErro } from '../../../shared/utils/api-error';
 
 const TAMANHO_MINIMO_JUSTIFICATIVA_ENCERRAMENTO = 15;
@@ -449,6 +451,27 @@ export class DetalheChamado implements OnInit {
         this.idChamado.set(novoId);
         this.carregarDetalhes();
       }
+    });
+
+    inject(RealtimeChamadosService)
+      .eventos$.pipe(
+        filter(
+          (evento) =>
+            evento.chamado.id === this.idChamado() && evento.autor?.id !== this.usuarioLogado()?.id,
+        ),
+        takeUntilDestroyed(),
+      )
+      .subscribe((evento) => this.recarregarPorOutroAnalista(evento));
+  }
+
+  private recarregarPorOutroAnalista(evento: EventoTempoReal): void {
+    this.chamadoService.buscarPorId(evento.chamado.id).subscribe({
+      next: (dados) => {
+        this.chamado.set(dados);
+        if (!this.modalPrioridadeAberto()) this.inicializarMatriz(dados);
+        this.toast.info(`${evento.autor?.nome ?? 'Outro analista'} atualizou este chamado.`);
+      },
+      error: () => undefined,
     });
   }
 
