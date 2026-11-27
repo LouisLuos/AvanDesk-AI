@@ -5,5 +5,6 @@ export const environment = {
    * redirecionadas pelo vercel.json para o backend no Render, eliminando problemas de CORS.
    */
   apiUrl: '/api/v1',
+  wsUrl: 'wss://nexodesk-api-ru6l.onrender.com/api/v1/ws',
   useMocks: false,
 };

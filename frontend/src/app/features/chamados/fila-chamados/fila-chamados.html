@@ -196,7 +196,11 @@
               }
             } @else {
               @for (chamado of itensPagina(); track chamado.id) {
-                <tr class="transition-colors hover:bg-[#f8f9fc]">
+                <tr
+                  class="transition-colors duration-700 hover:bg-[#f8f9fc]"
+                  [class.bg-[#e8edff]]="destacado(chamado.id)"
+                  [attr.data-atualizado]="destacado(chamado.id) || null"
+                >
                   <td class="whitespace-nowrap px-3 py-3">
                     <a
                       [routerLink]="['/chamados', chamado.id]"

@@ -1,6 +1,7 @@
 package com.avandesk.api.core.config;
 
 import com.avandesk.api.core.dto.ApiResponse;
+import com.avandesk.api.temporeal.config.WebSocketConfig;
 import com.avandesk.api.usuario.entity.PerfilUsuario;
 import com.avandesk.api.usuario.security.JwtAuthenticationFilter;
 import com.avandesk.api.usuario.service.JwtService;
@@ -116,7 +117,8 @@ public class SecurityConfig {
                     "/api/v1/auth/login",
                     "/api/v1/auth/logout",
                     "/auth/login",
-                    "/auth/logout"
+                    "/auth/logout",
+                    WebSocketConfig.ENDPOINT
                 ).permitAll()
                 .requestMatchers(ROTAS_PUBLICAS_DA_CONTA.toArray(String[]::new)).permitAll()
                 .requestMatchers("/api/v1/auth/me", "/auth/me").authenticated()

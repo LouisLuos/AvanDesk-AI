@@ -2,9 +2,10 @@ import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
 import { ChamadoService } from '../../../core/services/chamado.service';
+import { RealtimeChamadosService } from '../../../core/services/realtime-chamados.service';
 import { ToastService } from '../../../core/services/toast.service';
 import {
   ChamadoDetalhe,
@@ -23,6 +24,7 @@ import {
   formatarDataHoraLocal,
   mapearChamadoDetalhe,
 } from '../../../shared/utils/chamado-detalhe.mapper';
+import { EventoTempoReal } from '../../../shared/models/tempo-real.model';
 import { DetalheChamado } from './detalhe-chamado';
 
 describe('DetalheChamado Component & Integração HU02 / HU05', () => {
@@ -1456,6 +1458,86 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
       const slaEstourado = component['slaItensDinamicos']()[1];
       expect(slaEstourado.situacaoTexto).toBe('Estourada · respondido em 1 h 30 min');
       expect(slaEstourado.estiloBarra).toBe('bg-[#dc2626]');
+    });
+  });
+
+  describe('Atualização em tempo real (HU25)', () => {
+    function emitir(evento: EventoTempoReal): void {
+      (TestBed.inject(RealtimeChamadosService) as unknown as { eventosSubject: Subject<EventoTempoReal> })
+        .eventosSubject.next(evento);
+    }
+
+    function evento(chamadoId: string, autorId: string, autorNome = 'Analista Dev Dois'): EventoTempoReal {
+      return {
+        tipo: 'CHAMADO_ATRIBUIDO',
+        chamado: {
+          id: chamadoId,
+          codigo: 'LUM-2026-000127',
+          titulo: 'Impressora de etiquetas parada na coleta',
+          unidade: { id: 'u-1', nome: 'U.03 Boa Viagem' },
+          categoria: null,
+          canal_origem: 'LIGACAO',
+          status: 'EM_ATENDIMENTO',
+          prioridade: 'ALTA',
+          responsavel: { id: autorId, nome: autorNome },
+          aberto_em: '2026-10-07T13:02:00Z',
+          atualizado_em: '2026-10-07T13:30:00Z',
+        },
+        autor: { id: autorId, nome: autorNome },
+        ocorrido_em: '2026-10-07T13:30:00Z',
+      };
+    }
+
+    beforeEach(() => {
+      TestBed.inject(AuthService).definirUsuario({
+        id: 'eu',
+        nome: 'Analista Dev Um',
+        email: 'analista1@lumen.local',
+        perfil: 'ANALISTA_SUPORTE',
+      });
+    });
+
+    it('recarrega o chamado aberto quando outro analista o altera e avisa quem foi', () => {
+      const buscar = vi
+        .spyOn(chamadoService, 'buscarPorId')
+        .mockReturnValueOnce(of(mockDetalhe))
+        .mockReturnValueOnce(of({ ...mockDetalhe, responsavel: { id: 'outro', nome: 'Analista Dev Dois' } }));
+      const toastSpy = vi.spyOn(toastService, 'info');
+      fixture = TestBed.createComponent(DetalheChamado);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+
+      emitir(evento('chm-127', 'outro'));
+      fixture.detectChanges();
+
+      expect(buscar).toHaveBeenCalledTimes(2);
+      expect(component['chamado']()?.responsavel?.nome).toBe('Analista Dev Dois');
+      expect(component['carregando']()).toBe(false);
+      expect(toastSpy).toHaveBeenCalledWith('Analista Dev Dois atualizou este chamado.');
+    });
+
+    it('ignora as próprias mudanças e as de outros chamados', () => {
+      const buscar = vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of(mockDetalhe));
+      fixture = TestBed.createComponent(DetalheChamado);
+      fixture.detectChanges();
+
+      emitir(evento('chm-127', 'eu', 'Analista Dev Um'));
+      emitir(evento('chm-999', 'outro'));
+
+      expect(buscar).toHaveBeenCalledTimes(1);
+    });
+
+    it('não sobrescreve as notas da matriz enquanto o modal de prioridade está aberto', () => {
+      vi.spyOn(chamadoService, 'buscarPorId').mockReturnValue(of({ ...mockDetalhe, severidade: 1 }));
+      fixture = TestBed.createComponent(DetalheChamado);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+      component['abrirModalPrioridade']();
+      component['selecionarSeveridade'](3);
+
+      emitir(evento('chm-127', 'outro'));
+
+      expect(component['severidade']()).toBe(3);
     });
   });
 });

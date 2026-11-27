@@ -2197,6 +2197,36 @@ paths:
                       id_evento:
                         type: string
                         format: uuid
+  /tempo-real/ticket:
+    get:
+      summary: Emitir o ticket para conectar no WebSocket de tempo real (HU25)
+      description: "JWT curto (60 s) do usuário autenticado, que só vale no CONNECT do STOMP em /api/v1/ws (header Authorization: Bearer <ticket>) e é recusado nas rotas REST. Peça um novo a cada conexão. As mensagens chegam em /topic/chamados; o formato está na seção 17 da documentação da API."
+      tags:
+        - Tempo real
+      responses:
+        '200':
+          description: Ticket emitido
+          content:
+            application/json:
+              schema:
+                type: object
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      ticket:
+                        type: string
+                      expira_em:
+                        type: string
+                        format: date-time
+        '401':
+          description: Sem sessão
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
   /analistas:
     get:
       summary: Listar analistas de suporte (HU10)

@@ -6,14 +6,16 @@ import {
 } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { Subject, of } from 'rxjs';
 import {
   ChamadoResumo,
   FilaChamados as PaginaFila,
   StatusChamado,
 } from '../../../shared/models/chamado.model';
 import { Unidade } from '../../../shared/models/unidade.model';
-import { FilaChamados } from './fila-chamados';
+import { RealtimeChamadosService } from '../../../core/services/realtime-chamados.service';
+import { EventoTempoReal } from '../../../shared/models/tempo-real.model';
+import { ATRASO_ATUALIZACAO_TEMPO_REAL_MS, DURACAO_DESTAQUE_MS, FilaChamados } from './fila-chamados';
 
 describe('FilaChamados', () => {
   let component: FilaChamados;
@@ -431,5 +433,118 @@ describe('FilaChamados integrada ao GET /chamados (HU14)', () => {
 
     expect(primeiro.cancelled).toBe(true);
     expect(filtrosEnviados(responder())).toEqual({ status: ['ABERTO'] });
+  });
+});
+
+describe('FilaChamados em tempo real (HU25)', () => {
+  let component: FilaChamados;
+  let fixture: ComponentFixture<FilaChamados>;
+  let http: HttpTestingController;
+  let eventos: Subject<EventoTempoReal>;
+
+  function resumo(numero: number, extra: Partial<ChamadoResumo> = {}): ChamadoResumo {
+    return {
+      id: `id-${numero}`,
+      codigo: `LUM-2026-${String(numero).padStart(6, '0')}`,
+      titulo: `Chamado ${numero}`,
+      unidade: { id: 'u-bvg', nome: 'U.03 Boa Viagem' },
+      categoria: null,
+      canal_origem: 'LIGACAO',
+      status: 'ABERTO',
+      prioridade: null,
+      responsavel: null,
+      aberto_em: '2026-11-26T13:00:00Z',
+      atualizado_em: '2026-11-26T13:00:00Z',
+      ...extra,
+    };
+  }
+
+  function paginaCom(...itens: ChamadoResumo[]): PaginaFila {
+    return {
+      itens,
+      pagina: 0,
+      tamanho: 20,
+      total_itens: itens.length,
+      total_paginas: 1,
+      totais_por_status: {
+        ABERTO: itens.length,
+        EM_TRIAGEM: 0,
+        EM_ATENDIMENTO: 0,
+        AGUARDANDO: 0,
+        RESOLVIDO: 0,
+        REABERTO: 0,
+        FECHADO: 0,
+        CANCELADO: 0,
+        MESCLADO: 0,
+      },
+    };
+  }
+
+  function evento(chamado: ChamadoResumo, tipo: EventoTempoReal['tipo'] = 'STATUS_ALTERADO'): EventoTempoReal {
+    return { tipo, chamado, autor: { id: 'a-2', nome: 'Analista Dev Dois' }, ocorrido_em: '2026-11-26T13:05:00Z' };
+  }
+
+  function responderFila(fila: PaginaFila): TestRequest {
+    const pedido = http.expectOne((req) => req.method === 'GET' && req.url === '/api/v1/chamados');
+    pedido.flush({ status_code: 200, message: 'ok', data: fila, errors: null });
+    fixture.detectChanges();
+    return pedido;
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    eventos = new Subject<EventoTempoReal>();
+    TestBed.configureTestingModule({
+      imports: [FilaChamados],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: RealtimeChamadosService, useValue: { eventos$: eventos.asObservable() } },
+      ],
+    });
+    http = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(FilaChamados);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+    http.expectOne((req) => req.url === '/api/v1/unidades').flush({ status_code: 200, message: 'ok', data: [], errors: null });
+    responderFila(paginaCom(resumo(1)));
+  });
+
+  afterEach(() => {
+    http.verify();
+    vi.useRealTimers();
+  });
+
+  it('junta mensagens seguidas numa recarga só da página atual, mantendo os filtros', () => {
+    component['atualizarFiltro'](component['filtroStatus'], 'ABERTO');
+    responderFila(paginaCom(resumo(1)));
+
+    eventos.next(evento(resumo(2), 'CHAMADO_CRIADO'));
+    eventos.next(evento(resumo(1)));
+    vi.advanceTimersByTime(ATRASO_ATUALIZACAO_TEMPO_REAL_MS);
+
+    const pedido = responderFila(paginaCom(resumo(2), resumo(1, { status: 'EM_TRIAGEM' })));
+    expect(pedido.request.params.getAll('status')).toEqual(['ABERTO']);
+    expect(pedido.request.params.get('page')).toBe('0');
+    expect(component['itensPagina']().map((c) => c.codigo)).toEqual(['LUM-2026-000002', 'LUM-2026-000001']);
+  });
+
+  it('recarrega sem mostrar o carregamento e destaca as linhas que mudaram por alguns segundos', () => {
+    eventos.next(evento(resumo(2), 'CHAMADO_CRIADO'));
+    vi.advanceTimersByTime(ATRASO_ATUALIZACAO_TEMPO_REAL_MS);
+
+    expect(component['carregando']()).toBe(false);
+    responderFila(paginaCom(resumo(2), resumo(1)));
+
+    const destacadas = () =>
+      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('tr[data-atualizado]')).map((tr) =>
+        tr.textContent?.includes('LUM-2026-000002'),
+      );
+    expect(destacadas()).toEqual([true]);
+
+    vi.advanceTimersByTime(DURACAO_DESTAQUE_MS);
+    fixture.detectChanges();
+    expect(destacadas()).toEqual([]);
   });
 });
