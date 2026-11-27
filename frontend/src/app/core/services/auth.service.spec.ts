@@ -68,7 +68,11 @@ describe('AuthService (HU26 — Cookies HttpOnly)', () => {
     const req = httpMock.expectOne('/api/v1/auth/login');
     expect(req.request.method).toBe('POST');
     expect(req.request.withCredentials).toBe(true);
-    expect(req.request.body).toEqual({ email: 'analista1@lumen.local', senha: '123' });
+    expect(req.request.body).toEqual({
+      email: 'analista1@lumen.local',
+      senha: '123',
+      manter_conectado: true,
+    });
 
     req.flush({
       status_code: 200,

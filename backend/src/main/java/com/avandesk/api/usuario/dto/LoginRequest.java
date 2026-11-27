@@ -10,6 +10,11 @@ public record LoginRequest(
     String email,
 
     @NotBlank(message = "A senha é obrigatória.")
-    String senha
+    String senha,
+
+    Boolean manterConectado
 ) {
+    public LoginRequest(String email, String senha) {
+        this(email, senha, false);
+    }
 }

@@ -240,6 +240,8 @@ class AuthControllerTest {
 
         String token = jwtService.gerarToken(usuario);
         when(usuarioRepository.findById(usuarioId)).thenReturn(Optional.of(usuario));
+        when(authService.autenticar(any(LoginRequest.class)))
+            .thenReturn(new LoginResponse("token-jwt-simulado", UsuarioAutenticadoResponse.de(usuario)));
 
         Cookie xsrfCookie = mockMvc.perform(get("/api/v1/auth/me")
                 .cookie(new Cookie(JwtAuthenticationFilter.COOKIE_ACCESS_TOKEN, token)))
@@ -247,6 +249,21 @@ class AuthControllerTest {
             .andReturn()
             .getResponse()
             .getCookie("XSRF-TOKEN");
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "email": "carlos@lumendiagnosticos.com.br",
+                      "senha": "senha-segura-123",
+                      "manter_conectado": true
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(header().stringValues(HttpHeaders.SET_COOKIE, hasItem(allOf(
+                containsString("nexo_access_token=token-jwt-simulado"),
+                containsString("Max-Age=604800")
+            ))));
 
         mockMvc.perform(post("/api/v1/chamados")
                 .cookie(new Cookie(JwtAuthenticationFilter.COOKIE_ACCESS_TOKEN, token), xsrfCookie)
