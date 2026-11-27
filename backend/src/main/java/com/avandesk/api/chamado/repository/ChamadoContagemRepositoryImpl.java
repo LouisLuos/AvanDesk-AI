@@ -1,6 +1,7 @@
 package com.avandesk.api.chamado.repository;
 
 import com.avandesk.api.chamado.entity.Chamado;
+import com.avandesk.api.chamado.entity.EventoHistorico;
 import com.avandesk.api.chamado.entity.MotivoEspera;
 import com.avandesk.api.chamado.entity.Prioridade;
 import com.avandesk.api.chamado.entity.StatusChamado;
@@ -10,9 +11,15 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Tuple;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.time.Duration;
@@ -223,5 +230,72 @@ class ChamadoContagemRepositoryImpl implements ChamadoContagemRepository {
             totais.put(linha.get(0, UUID.class), linha.get(1, Long.class));
         }
         return totais;
+    }
+
+    @Override
+    public Page<Chamado> listarOrdenadoPorAtualizacao(
+        Specification<Chamado> consulta, Pageable paginacao, boolean crescente
+    ) {
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+
+        CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
+        Root<Chamado> countRoot = countQuery.from(Chamado.class);
+        Predicate countCondicao = consulta.toPredicate(countRoot, countQuery, cb);
+        if (countCondicao != null) {
+            countQuery.where(countCondicao);
+        }
+        countQuery.select(cb.count(countRoot));
+        long total = entityManager.createQuery(countQuery).getSingleResult();
+        if (total == 0) {
+            return Page.empty(paginacao);
+        }
+
+        CriteriaQuery<UUID> idsQuery = cb.createQuery(UUID.class);
+        Root<Chamado> root = idsQuery.from(Chamado.class);
+        Predicate condicao = consulta.toPredicate(root, idsQuery, cb);
+        if (condicao != null) {
+            idsQuery.where(condicao);
+        }
+
+        Subquery<Instant> ultimoEvento = idsQuery.subquery(Instant.class);
+        Root<EventoHistorico> evRoot = ultimoEvento.from(EventoHistorico.class);
+        ultimoEvento.select(cb.greatest(evRoot.<Instant>get("ocorridoEm")))
+            .where(cb.equal(evRoot.get("chamado").get("id"), root.get("id")));
+
+        Expression<Instant> atualizadoEm = cb.coalesce(ultimoEvento, root.get("abertoEm"));
+        idsQuery.select(root.get("id"))
+            .orderBy(
+                crescente ? cb.asc(atualizadoEm) : cb.desc(atualizadoEm),
+                crescente ? cb.asc(root.get("id")) : cb.desc(root.get("id"))
+            );
+
+        List<UUID> idsPagina = entityManager.createQuery(idsQuery)
+            .setFirstResult((int) paginacao.getOffset())
+            .setMaxResults(paginacao.getPageSize())
+            .getResultList();
+
+        if (idsPagina.isEmpty()) {
+            return new PageImpl<>(List.of(), paginacao, total);
+        }
+
+        CriteriaQuery<Chamado> dadosQuery = cb.createQuery(Chamado.class);
+        Root<Chamado> dadosRoot = dadosQuery.from(Chamado.class);
+        dadosRoot.fetch("unidade", JoinType.LEFT);
+        dadosRoot.fetch("categoria", JoinType.LEFT);
+        dadosRoot.fetch("responsavel", JoinType.LEFT);
+        dadosQuery.select(dadosRoot).where(dadosRoot.get("id").in(idsPagina));
+
+        Map<UUID, Chamado> porId = new HashMap<>();
+        for (Chamado chamado : entityManager.createQuery(dadosQuery).getResultList()) {
+            porId.put(chamado.getId(), chamado);
+        }
+        List<Chamado> ordenados = new ArrayList<>(idsPagina.size());
+        for (UUID id : idsPagina) {
+            Chamado c = porId.get(id);
+            if (c != null) {
+                ordenados.add(c);
+            }
+        }
+        return new PageImpl<>(ordenados, paginacao, total);
     }
 }

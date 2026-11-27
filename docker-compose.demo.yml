@@ -1,0 +1,9 @@
+# =======================================================
+# Override Docker Compose para apresentação com massa demo
+# Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+# =======================================================
+services:
+  backend:
+    environment:
+      SPRING_PROFILES_ACTIVE: demo

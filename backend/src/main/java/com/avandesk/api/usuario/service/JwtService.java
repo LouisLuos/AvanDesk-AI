@@ -36,8 +36,15 @@ public class JwtService {
      * Emite um token JWT stateless com claims de identificação, perfil e validade configurada (RNF-007).
      */
     public String gerarToken(Usuario usuario) {
+        return gerarToken(usuario, expirationMs);
+    }
+
+    /**
+     * Emite um token JWT stateless com validade explícita em milissegundos.
+     */
+    public String gerarToken(Usuario usuario, long validadeMs) {
         Instant agora = Instant.now();
-        Instant expiracao = agora.plusMillis(expirationMs);
+        Instant expiracao = agora.plusMillis(validadeMs);
 
         return Jwts.builder()
             .subject(usuario.getId().toString())

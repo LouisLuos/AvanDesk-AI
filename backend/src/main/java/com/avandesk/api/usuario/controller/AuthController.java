@@ -39,6 +39,9 @@ public class AuthController {
     @Value("${nexo.jwt.expiration-ms:3600000}")
     private long expirationMs;
 
+    @Value("${nexo.jwt.remember-me-expiration-ms:604800000}")
+    private long rememberMeExpirationMs;
+
     @Value("${nexo.jwt.cookie-secure:false}")
     private boolean cookieSecure;
 
@@ -52,7 +55,10 @@ public class AuthController {
     @Operation(summary = "Autentica um usuário e emite o JWT em cookie HttpOnly")
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse response = authService.autenticar(request);
-        ResponseCookie cookie = construirCookieSessao(response.accessToken(), Duration.ofMillis(expirationMs));
+        Duration validadeCookie = Boolean.TRUE.equals(request.manterConectado())
+            ? Duration.ofMillis(rememberMeExpirationMs)
+            : Duration.ofSeconds(-1);
+        ResponseCookie cookie = construirCookieSessao(response.accessToken(), validadeCookie);
         return ResponseEntity.ok()
             .header(HttpHeaders.SET_COOKIE, cookie.toString())
             .body(ApiResponse.sucesso(HttpStatus.OK, "Autenticação realizada com sucesso", response));

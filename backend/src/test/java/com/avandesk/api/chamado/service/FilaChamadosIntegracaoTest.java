@@ -338,6 +338,40 @@ class FilaChamadosIntegracaoTest {
         });
     }
 
+    @Test
+    void deveOrdenarFilaPorUltimaAtualizacaoDescAscEPadrao() {
+        emTransacaoDesfeita(dados -> {
+            Unidade unidade = dados.unidade();
+            Chamado antigoAtualizado = dados.chamado(unidade, StatusChamado.ABERTO, AGORA.minus(5, ChronoUnit.DAYS));
+            Chamado recenteSemEvento = dados.chamado(unidade, StatusChamado.ABERTO, AGORA.minus(1, ChronoUnit.DAYS));
+
+            var ev = new com.avandesk.api.chamado.entity.EventoHistorico(
+                antigoAtualizado,
+                com.avandesk.api.chamado.entity.TipoEvento.ANOTACAO_ADICIONADA,
+                AGORA.minus(1, ChronoUnit.HOURS),
+                null,
+                Map.of(),
+                OrigemDado.TESTE
+            );
+            entityManager.persist(ev);
+            entityManager.flush();
+
+            var filtro = daUnidade(unidade);
+            assertEquals(
+                List.of(recenteSemEvento.getCodigo(), antigoAtualizado.getCodigo()),
+                codigos(filaChamadosService.listar(filtro, false, 0, 20, com.avandesk.api.chamado.dto.OrdenacaoFila.PADRAO))
+            );
+            assertEquals(
+                List.of(antigoAtualizado.getCodigo(), recenteSemEvento.getCodigo()),
+                codigos(filaChamadosService.listar(filtro, false, 0, 20, com.avandesk.api.chamado.dto.OrdenacaoFila.ATUALIZADO_DESC))
+            );
+            assertEquals(
+                List.of(recenteSemEvento.getCodigo(), antigoAtualizado.getCodigo()),
+                codigos(filaChamadosService.listar(filtro, false, 0, 20, com.avandesk.api.chamado.dto.OrdenacaoFila.ATUALIZADO_ASC))
+            );
+        });
+    }
+
     // ---------- apoio ----------
 
     private FilaChamadosResponse listar(FiltroChamados filtro, boolean meus, int pagina, int tamanho) {

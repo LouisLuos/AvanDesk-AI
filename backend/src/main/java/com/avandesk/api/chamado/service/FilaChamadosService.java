@@ -3,6 +3,7 @@ package com.avandesk.api.chamado.service;
 import com.avandesk.api.chamado.dto.ChamadoResumoResponse;
 import com.avandesk.api.chamado.dto.FilaChamadosResponse;
 import com.avandesk.api.chamado.dto.FiltroChamados;
+import com.avandesk.api.chamado.dto.OrdenacaoFila;
 import com.avandesk.api.chamado.dto.TotalPorResponsavelResponse;
 import com.avandesk.api.chamado.dto.TotalPorUnidadeResponse;
 import com.avandesk.api.chamado.entity.Chamado;
@@ -57,14 +58,28 @@ public class FilaChamadosService {
      */
     @Transactional(readOnly = true)
     public FilaChamadosResponse listar(FiltroChamados filtro, boolean meus, int pagina, int tamanho) {
+        return listar(filtro, meus, pagina, tamanho, OrdenacaoFila.PADRAO);
+    }
+
+    @Transactional(readOnly = true)
+    public FilaChamadosResponse listar(
+        FiltroChamados filtro, boolean meus, int pagina, int tamanho, OrdenacaoFila ordenacao
+    ) {
         validarPaginacao(pagina, tamanho);
         FiltroChamados filtroFinal = meus ? comResponsavelLogado(filtro) : filtro;
         if (filtroFinal == null) {
             return paginaVazia(pagina, tamanho);
         }
 
-        Page<Chamado> resultado = chamadoRepository.findAll(
-            ChamadoSpecification.de(filtroFinal), PageRequest.of(pagina, tamanho, MAIS_RECENTES_PRIMEIRO));
+        Specification<Chamado> spec = ChamadoSpecification.de(filtroFinal);
+        OrdenacaoFila ordem = ordenacao == null ? OrdenacaoFila.PADRAO : ordenacao;
+        Page<Chamado> resultado = switch (ordem) {
+            case PADRAO -> chamadoRepository.findAll(spec, PageRequest.of(pagina, tamanho, MAIS_RECENTES_PRIMEIRO));
+            case ATUALIZADO_DESC ->
+                chamadoRepository.listarOrdenadoPorAtualizacao(spec, PageRequest.of(pagina, tamanho), false);
+            case ATUALIZADO_ASC ->
+                chamadoRepository.listarOrdenadoPorAtualizacao(spec, PageRequest.of(pagina, tamanho), true);
+        };
         Map<UUID, Instant> atualizacoes = ultimasAtualizacoes(resultado.getContent());
         List<ChamadoResumoResponse> itens = resultado.getContent().stream()
             .map(chamado -> ChamadoResumoResponse.de(chamado, atualizacoes.get(chamado.getId())))

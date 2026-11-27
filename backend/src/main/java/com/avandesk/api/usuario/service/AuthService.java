@@ -8,6 +8,7 @@ import com.avandesk.api.usuario.entity.StatusConta;
 import com.avandesk.api.usuario.entity.Usuario;
 import com.avandesk.api.usuario.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
@@ -30,6 +31,12 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
+    @Value("${nexo.jwt.expiration-ms:3600000}")
+    private long expirationMs = 3600000L;
+
+    @Value("${nexo.jwt.remember-me-expiration-ms:604800000}")
+    private long rememberMeExpirationMs = 604800000L;
+
     @Transactional(readOnly = true)
     public LoginResponse autenticar(LoginRequest request) {
         String emailNormalizado = request.email().trim().toLowerCase(Locale.ROOT);
@@ -51,8 +58,9 @@ public class AuthService {
                 "Confirme o seu e-mail para entrar. Se o link expirou, peça um novo na tela de verificação.");
         }
 
-        // Emissão do token JWT com claims e expiração de 1h
-        String token = jwtService.gerarToken(usuario);
+        // Emissão do token JWT (1h padrão ou 7 dias com "Manter conectado")
+        long validadeMs = Boolean.TRUE.equals(request.manterConectado()) ? rememberMeExpirationMs : expirationMs;
+        String token = jwtService.gerarToken(usuario, validadeMs);
 
         return new LoginResponse(token, UsuarioAutenticadoResponse.de(usuario));
     }

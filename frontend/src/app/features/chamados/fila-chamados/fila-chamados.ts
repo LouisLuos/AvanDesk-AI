@@ -13,6 +13,7 @@ import {
   ChamadoResumo,
   FilaChamados as PaginaFila,
   FiltrosFila,
+  OrdenacaoFila,
   PRIORIDADES_CHAMADO,
   PrioridadeChamado,
   STATUS_CHAMADO,
@@ -122,6 +123,7 @@ export class FilaChamados implements OnInit {
   protected readonly filtroCanal = signal<CanalOrigem | ''>('');
   protected readonly somenteMeus = signal(false);
   protected readonly somenteSemResponsavel = signal(false);
+  protected readonly ordenacaoAtualizado = signal<OrdenacaoFila | null>(null);
   /** Página exibida, começando em 1 (a API começa em 0). */
   protected readonly pagina = signal(1);
 
@@ -196,7 +198,8 @@ export class FilaChamados implements OnInit {
       !!this.filtroPrioridade() ||
       !!this.filtroCanal() ||
       this.somenteMeus() ||
-      this.somenteSemResponsavel(),
+      this.somenteSemResponsavel() ||
+      !!this.ordenacaoAtualizado(),
   );
 
   ngOnInit(): void {
@@ -251,6 +254,16 @@ export class FilaChamados implements OnInit {
     this.carregar();
   }
 
+  /** Alterna a ordenação da coluna Atualizado em 3 cliques: padrão -> maior p/ menor -> menor p/ maior -> padrão. */
+  protected alternarOrdenacaoAtualizado(): void {
+    const atual = this.ordenacaoAtualizado();
+    const proximo: OrdenacaoFila | null =
+      atual === null ? 'ATUALIZADO_DESC' : atual === 'ATUALIZADO_DESC' ? 'ATUALIZADO_ASC' : null;
+    this.ordenacaoAtualizado.set(proximo);
+    this.pagina.set(1);
+    this.carregar();
+  }
+
   protected limparFiltros(): void {
     this.busca.set('');
     this.codigoBuscado.set('');
@@ -260,6 +273,7 @@ export class FilaChamados implements OnInit {
     this.filtroCanal.set('');
     this.somenteMeus.set(false);
     this.somenteSemResponsavel.set(false);
+    this.ordenacaoAtualizado.set(null);
     this.pagina.set(1);
     this.carregar();
   }
@@ -282,6 +296,7 @@ export class FilaChamados implements OnInit {
       meus: this.somenteMeus(),
       sem_responsavel: this.somenteSemResponsavel(),
       codigo: this.codigoBuscado() || undefined,
+      ordenacao: this.ordenacaoAtualizado() ?? undefined,
     };
   }
 

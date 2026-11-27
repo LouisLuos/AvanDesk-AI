@@ -387,6 +387,9 @@ export interface ChamadoResumo {
 /** Itens por página da fila (HU14). */
 export const TAMANHO_PAGINA_FILA = 20;
 
+/** Ordenação opcional da fila de chamados (HU14). */
+export type OrdenacaoFila = 'ATUALIZADO_DESC' | 'ATUALIZADO_ASC';
+
 /** Filtros da fila (GET /chamados). Todos opcionais; os informados se somam. */
 export interface FiltrosFila {
   status?: StatusChamado[];
@@ -400,6 +403,7 @@ export interface FiltrosFila {
   meus?: boolean;
   /** Código exato (LUM-AAAA-NNNNNN), sem diferenciar maiúsculas. */
   codigo?: string;
+  ordenacao?: OrdenacaoFila;
 }
 
 /** Página da fila, do mais recente para o mais antigo (GET /chamados). */
