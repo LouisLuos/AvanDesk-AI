@@ -162,15 +162,31 @@ export class DetalheChamado implements OnInit {
     }
 
     // 2. Primeira resposta
-    const temPrimeiraResposta = Boolean(item.primeira_resposta_em);
+    const temPrimeiraResposta = Boolean(item.primeira_resposta_em || item.primeira_resposta_em_iso);
     let respTexto = 'Aguardando 1ª ação';
     let respProgresso = Math.min(100, Math.max(10, Math.round((decorridoMinutos / 15) * 100)));
     let respEstilo = 'bg-[#9aa2b1]';
 
     if (temPrimeiraResposta) {
-      respTexto = 'Respondido pelo suporte';
-      respProgresso = 100;
-      respEstilo = 'bg-[#22c55e]';
+      const tsResposta = this.slaService.parseData(item.primeira_resposta_em_iso ?? item.primeira_resposta_em);
+      if (!isNaN(tsResposta) && !isNaN(timestampAbertura)) {
+        const minutosResposta = Math.max(0, Math.floor((tsResposta - dataAbertura) / 60000));
+        respProgresso = 100;
+        if (minutosResposta <= 15) {
+          respTexto =
+            minutosResposta === 0
+              ? 'Cumprida em < 1 min'
+              : `Cumprida em ${this.slaService.formatarTempo(minutosResposta)}`;
+          respEstilo = 'bg-[#22c55e]';
+        } else {
+          respTexto = `Estourada · respondido em ${this.slaService.formatarTempo(minutosResposta)}`;
+          respEstilo = 'bg-[#dc2626]';
+        }
+      } else {
+        respTexto = 'Respondido pelo suporte';
+        respProgresso = 100;
+        respEstilo = 'bg-[#22c55e]';
+      }
     } else if (item.status === 'CANCELADO') {
       respTexto = 'Encerrada (cancelado)';
       respProgresso = 0;
