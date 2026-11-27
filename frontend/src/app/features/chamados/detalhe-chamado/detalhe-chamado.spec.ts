@@ -1431,5 +1431,31 @@ describe('DetalheChamado Component & Integração HU02 / HU05', () => {
       expect(estouradoAntes).toBe('Estourado · +2 h');
       expect(estouradoDepois).toBe('Estourado · +4 h');
     });
+
+    it('deve marcar Primeira resposta como cumprida ou estourada conforme o tempo real até primeira_resposta_em_iso', () => {
+      const baseAbertura = '2026-11-19T10:00:00Z';
+
+      component['chamado'].set({
+        ...mockDetalhe,
+        status: 'EM_ATENDIMENTO',
+        aberto_em_iso: baseAbertura,
+        primeira_resposta_em: '10:12',
+        primeira_resposta_em_iso: '2026-11-19T10:12:00Z',
+      });
+      const slaNoPrazo = component['slaItensDinamicos']()[1];
+      expect(slaNoPrazo.situacaoTexto).toBe('Cumprida em 12 min');
+      expect(slaNoPrazo.estiloBarra).toBe('bg-[#22c55e]');
+
+      component['chamado'].set({
+        ...mockDetalhe,
+        status: 'EM_ATENDIMENTO',
+        aberto_em_iso: baseAbertura,
+        primeira_resposta_em: '11:30',
+        primeira_resposta_em_iso: '2026-11-19T11:30:00Z',
+      });
+      const slaEstourado = component['slaItensDinamicos']()[1];
+      expect(slaEstourado.situacaoTexto).toBe('Estourada · respondido em 1 h 30 min');
+      expect(slaEstourado.estiloBarra).toBe('bg-[#dc2626]');
+    });
   });
 });
