@@ -81,6 +81,9 @@ class SimulacaoOperacaoSeederIntegracaoTest {
                 assertEquals(180L, chamadoRepository.countByOrigemDado(origemTeste));
                 assertTrue(unidadeRepository.findByAtivoOrderByNomeAsc(true).size() >= 14);
                 assertTrue(usuarioRepository.findByPerfilAndAtivoOrderByNomeAsc(PerfilUsuario.ANALISTA_SUPORTE, true).size() >= 7);
+                assertTrue(usuarioRepository.findByEmail("ana.ribeiro@lumen.local")
+                    .filter(u -> u.getPerfil() == PerfilUsuario.SOLICITANTE && u.podeEntrar() && u.getUnidade() != null)
+                    .isPresent());
             } else {
                 assertEquals(0, primeiraExecucao);
             }
