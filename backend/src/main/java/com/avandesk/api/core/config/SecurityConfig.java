@@ -78,11 +78,19 @@ public class SecurityConfig {
                 .anyMatch(c -> JwtAuthenticationFilter.COOKIE_ACCESS_TOKEN.equals(c.getName()));
         };
 
+        CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        csrfTokenRepository.setCookiePath("/");
+
+        CsrfTokenRequestAttributeHandler csrfRequestHandler = new CsrfTokenRequestAttributeHandler();
+        // Desabilita o carregamento deferred do Spring Security 6+ para emitir o cookie XSRF-TOKEN
+        // já no login e nas requisições GET, evitando 403 falso na primeira mutação do analista.
+        csrfRequestHandler.setCsrfRequestAttributeName(null);
+
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                .csrfTokenRepository(csrfTokenRepository)
+                .csrfTokenRequestHandler(csrfRequestHandler)
                 .requireCsrfProtectionMatcher(csrfMatcher)
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
