@@ -5,6 +5,7 @@ import com.avandesk.api.chamado.dto.ChamadoRequest;
 import com.avandesk.api.chamado.dto.ChamadoResponse;
 import com.avandesk.api.chamado.dto.FilaChamadosResponse;
 import com.avandesk.api.chamado.dto.FiltroChamados;
+import com.avandesk.api.chamado.dto.OrdenacaoFila;
 import com.avandesk.api.chamado.dto.PrioridadeRequest;
 import com.avandesk.api.chamado.dto.RegistroContatoRequest;
 import com.avandesk.api.chamado.dto.ResolucaoRequest;
@@ -74,11 +75,14 @@ public class ChamadoController {
         @RequestParam(name = "sem_responsavel", defaultValue = "false") boolean semResponsavel,
         @RequestParam(name = "sem_prioridade", defaultValue = "false") boolean semPrioridade,
         @RequestParam(name = "meus", defaultValue = "false") boolean meus,
-        @RequestParam(name = "codigo", required = false) String codigo
+        @RequestParam(name = "codigo", required = false) String codigo,
+        @RequestParam(name = "ordenacao", defaultValue = "PADRAO") OrdenacaoFila ordenacao
     ) {
         FiltroChamados filtro = new FiltroChamados(
             status, unidadeId, prioridade, canalOrigem, responsavelId, semResponsavel, semPrioridade, codigo);
-        FilaChamadosResponse fila = filaChamadosService.listar(filtro, meus, pagina, tamanho);
+        FilaChamadosResponse fila = ordenacao == OrdenacaoFila.PADRAO
+            ? filaChamadosService.listar(filtro, meus, pagina, tamanho)
+            : filaChamadosService.listar(filtro, meus, pagina, tamanho, ordenacao);
         return ResponseEntity.ok(ApiResponse.sucesso(HttpStatus.OK, "Chamados recuperados com sucesso", fila));
     }
 

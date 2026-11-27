@@ -432,4 +432,24 @@ describe('FilaChamados integrada ao GET /chamados (HU14)', () => {
     expect(primeiro.cancelled).toBe(true);
     expect(filtrosEnviados(responder())).toEqual({ status: ['ABERTO'] });
   });
+
+  it('deve alternar ordenação de Atualizado em 3 cliques: maior->menor, menor->maior e padrão', () => {
+    configurar();
+    responder();
+
+    const botao = (fixture.nativeElement as HTMLElement).querySelector('#btn-ordenar-atualizado') as HTMLButtonElement;
+    expect(botao).toBeTruthy();
+
+    botao.click();
+    expect(filtrosEnviados(responder())).toEqual({ ordenacao: ['ATUALIZADO_DESC'] });
+    expect(component['ordenacaoAtualizado']()).toBe('ATUALIZADO_DESC');
+
+    botao.click();
+    expect(filtrosEnviados(responder())).toEqual({ ordenacao: ['ATUALIZADO_ASC'] });
+    expect(component['ordenacaoAtualizado']()).toBe('ATUALIZADO_ASC');
+
+    botao.click();
+    expect(filtrosEnviados(responder())).toEqual({});
+    expect(component['ordenacaoAtualizado']()).toBeNull();
+  });
 });

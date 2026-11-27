@@ -175,7 +175,54 @@
               <th scope="col" class="px-2 py-3.5 font-semibold">Prioridade</th>
               <th scope="col" class="px-2 py-3.5 font-semibold">Prazo (SLA)</th>
               <th scope="col" class="px-2 py-3.5 font-semibold">Responsável</th>
-              <th scope="col" class="px-3 py-3.5 font-semibold">Atualizado</th>
+              <th
+                scope="col"
+                class="px-3 py-3.5 font-semibold"
+                [attr.aria-sort]="
+                  ordenacaoAtualizado() === 'ATUALIZADO_DESC'
+                    ? 'descending'
+                    : ordenacaoAtualizado() === 'ATUALIZADO_ASC'
+                      ? 'ascending'
+                      : 'none'
+                "
+              >
+                <button
+                  type="button"
+                  id="btn-ordenar-atualizado"
+                  (click)="alternarOrdenacaoAtualizado()"
+                  [attr.aria-label]="
+                    ordenacaoAtualizado() === 'ATUALIZADO_DESC'
+                      ? 'Ordenado por atualizado do maior para o menor. Clique para ordenar do menor para o maior.'
+                      : ordenacaoAtualizado() === 'ATUALIZADO_ASC'
+                        ? 'Ordenado por atualizado do menor para o maior. Clique para voltar à ordem padrão.'
+                        : 'Ordenar por atualizado do maior para o menor.'
+                  "
+                  class="inline-flex cursor-pointer items-center gap-1 uppercase tracking-wider transition hover:text-[#14161b] focus:outline-none focus:text-[#2d5bff]"
+                  [class.text-[#2d5bff]]="ordenacaoAtualizado() !== null"
+                >
+                  <span>Atualizado</span>
+                  @switch (ordenacaoAtualizado()) {
+                    @case ('ATUALIZADO_DESC') {
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 5v14" />
+                        <path d="m19 12-7 7-7-7" />
+                      </svg>
+                    }
+                    @case ('ATUALIZADO_ASC') {
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 19V5" />
+                        <path d="m5 12 7-7 7 7" />
+                      </svg>
+                    }
+                    @default {
+                      <svg class="h-3.5 w-3.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="m7 15 5 5 5-5" />
+                        <path d="m7 9 5-5 5 5" />
+                      </svg>
+                    }
+                  }
+                </button>
+              </th>
               <th scope="col" class="px-3 py-3.5 font-semibold">Criado Em</th>
             </tr>
           </thead>
@@ -192,6 +239,7 @@
                   <td class="px-2 py-4"><span class="block h-3 w-28 animate-pulse rounded bg-[#e2e5ec]"></span></td>
                   <td class="px-2 py-4"><span class="block h-3 w-24 animate-pulse rounded bg-[#e2e5ec]"></span></td>
                   <td class="px-3 py-4"><span class="block h-3 w-14 animate-pulse rounded bg-[#e2e5ec]"></span></td>
+                  <td class="px-3 py-4"><span class="block h-3 w-20 animate-pulse rounded bg-[#e2e5ec]"></span></td>
                 </tr>
               }
             } @else {
@@ -279,7 +327,7 @@
                   <td class="whitespace-nowrap px-3 py-3 text-[#6b7280]">
                     <time [attr.datetime]="chamado.atualizado_em">{{ tempoRelativo(chamado.atualizado_em) }}</time>
                   </td>
-                  <td class="whitespace-nowrap px-3 py-3 text-[#6b7280]">>
+                  <td class="whitespace-nowrap px-3 py-3 text-[#6b7280]">
                     <time [attr.datetime]="chamado.aberto_em">{{ chamado.aberto_em | date:'dd/MM/yyyy HH:mm' }}
                     </time>
                   </td>
