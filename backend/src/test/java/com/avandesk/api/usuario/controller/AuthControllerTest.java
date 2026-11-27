@@ -27,10 +27,12 @@ import java.util.UUID;
 
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -75,12 +77,15 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(payload))
             .andExpect(status().isOk())
-            .andExpect(header().string(HttpHeaders.SET_COOKIE, allOf(
+            .andExpect(header().stringValues(HttpHeaders.SET_COOKIE, hasItem(allOf(
                 containsString("nexo_access_token=token-jwt-simulado"),
                 containsString("HttpOnly"),
                 containsString("SameSite=Lax"),
                 containsString("Path=/api")
-            )))
+            ))))
+            .andExpect(cookie().exists("XSRF-TOKEN"))
+            .andExpect(cookie().httpOnly("XSRF-TOKEN", false))
+            .andExpect(cookie().path("XSRF-TOKEN", "/"))
             .andExpect(jsonPath("$.status_code").value(200))
             .andExpect(jsonPath("$.message").value("Autenticação realizada com sucesso"))
             .andExpect(jsonPath("$.data.access_token").doesNotExist())
@@ -154,13 +159,13 @@ class AuthControllerTest {
     void deveRealizarLogoutERetornar200() throws Exception {
         mockMvc.perform(post("/api/v1/auth/logout"))
             .andExpect(status().isOk())
-            .andExpect(header().string(HttpHeaders.SET_COOKIE, allOf(
+            .andExpect(header().stringValues(HttpHeaders.SET_COOKIE, hasItem(allOf(
                 containsString("nexo_access_token="),
                 containsString("Max-Age=0"),
                 containsString("HttpOnly"),
                 containsString("SameSite=Lax"),
                 containsString("Path=/api")
-            )))
+            ))))
             .andExpect(jsonPath("$.status_code").value(200))
             .andExpect(jsonPath("$.message").value("Logout realizado com sucesso"));
     }
@@ -183,6 +188,9 @@ class AuthControllerTest {
         mockMvc.perform(get("/api/v1/auth/me")
                 .cookie(new Cookie(JwtAuthenticationFilter.COOKIE_ACCESS_TOKEN, token)))
             .andExpect(status().isOk())
+            .andExpect(cookie().exists("XSRF-TOKEN"))
+            .andExpect(cookie().httpOnly("XSRF-TOKEN", false))
+            .andExpect(cookie().path("XSRF-TOKEN", "/"))
             .andExpect(jsonPath("$.status_code").value(200))
             .andExpect(jsonPath("$.data.id").value(usuarioId.toString()))
             .andExpect(jsonPath("$.data.email").value("carlos@lumendiagnosticos.com.br"))
@@ -217,5 +225,34 @@ class AuthControllerTest {
                 .content("{}"))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.status_code").value(403));
+    }
+
+    @Test
+    @DisplayName("HU26: Primeira mutação com cookie HttpOnly e X-XSRF-TOKEN válido deve passar pela validação CSRF")
+    void devePermitirPrimeiraMutacaoQuandoCookieEHeaderCsrfForemEnviados() throws Exception {
+        UUID usuarioId = UUID.randomUUID();
+        Usuario usuario = new Usuario();
+        usuario.setId(usuarioId);
+        usuario.setNome("Carlos Analista");
+        usuario.setEmail("carlos@lumendiagnosticos.com.br");
+        usuario.setPerfil(PerfilUsuario.ANALISTA_SUPORTE);
+        usuario.setAtivo(true);
+
+        String token = jwtService.gerarToken(usuario);
+        when(usuarioRepository.findById(usuarioId)).thenReturn(Optional.of(usuario));
+
+        Cookie xsrfCookie = mockMvc.perform(get("/api/v1/auth/me")
+                .cookie(new Cookie(JwtAuthenticationFilter.COOKIE_ACCESS_TOKEN, token)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getCookie("XSRF-TOKEN");
+
+        mockMvc.perform(post("/api/v1/chamados")
+                .cookie(new Cookie(JwtAuthenticationFilter.COOKIE_ACCESS_TOKEN, token), xsrfCookie)
+                .header("X-XSRF-TOKEN", xsrfCookie.getValue())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().isNotFound());
     }
 }
