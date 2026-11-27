@@ -870,9 +870,13 @@ paths:
                 senha:
                   type: string
                   example: nexo-dev-2026
+                manter_conectado:
+                  type: boolean
+                  default: false
+                  description: Quando true, emite cookie persistente e JWT de 7 dias; caso contrário, cookie de sessão com JWT de 1 hora.
       responses:
         '200':
-          description: Login realizado com sucesso
+          description: Login realizado com sucesso (emite cookies nexo_access_token HttpOnly e XSRF-TOKEN)
           content:
             application/json:
               schema:
@@ -883,8 +887,6 @@ paths:
                   data:
                     type: object
                     properties:
-                      access_token:
-                        type: string
                       usuario:
                         $ref: '#/components/schemas/UsuarioResponse'
         '400':

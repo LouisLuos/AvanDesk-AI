@@ -2,7 +2,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Injectable, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { EMPTY, Observable, catchError, map, of, tap } from 'rxjs';
+import { EMPTY, Observable, catchError, finalize, map, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { ApiResponse } from '../../shared/models/api-response.model';
 import { TokenStorageService } from './token-storage.service';
@@ -59,6 +59,7 @@ export class AuthService {
     const payload = {
       email: this.emailDeLogin(dados.usuario),
       senha: dados.senha,
+      manter_conectado: Boolean(dados.manterConectado),
     };
 
     return this.http
@@ -99,9 +100,11 @@ export class AuthService {
     this.limparSessaoLocal();
     this.http
       .post<ApiResponse<void>>(`${this.baseUrl}/auth/logout`, {}, { withCredentials: true })
-      .pipe(catchError(() => EMPTY))
+      .pipe(
+        catchError(() => EMPTY),
+        finalize(() => this.router.navigate(['/login'])),
+      )
       .subscribe();
-    this.router.navigate(['/login']);
   }
 
   /** Limpa o estado em memória e quaisquer resíduos legados no storage sem chamar o servidor. */
