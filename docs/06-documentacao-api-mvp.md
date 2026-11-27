@@ -30,7 +30,7 @@ A API utiliza arquitetura **Stateless** (`SessionCreationPolicy.STATELESS`) com 
 
 ### 1.1. Autenticar no Sistema (Login)
 
-Autentica um analista de suporte ou liderança de TI com e-mail institucional e senha (validada via `BCrypt`), devolvendo o token JWT e os dados do usuário autenticado.
+Autentica um usuário (`ANALISTA_SUPORTE`, `LIDERANCA_TI`, `ADMIN` ou `SOLICITANTE`) com e-mail e senha (validada via `BCrypt`), emitindo o JWT no cookie `HttpOnly` `nexo_access_token` (`Path=/api`, `SameSite=Lax`) e o cookie `XSRF-TOKEN` (`Path=/`, `HttpOnly=false`) para proteção CSRF nas mutações.
 
 * **Endpoint:** `POST /auth/login` (também responde em `/api/v1/auth/login`)
 * **Autenticação:** Nenhuma (Pública)
@@ -40,18 +40,22 @@ Autentica um analista de suporte ou liderança de TI com e-mail institucional e 
 ```json
 {
   "email": "analista1@lumen.local",
-  "senha": "nexo-dev-2026"
+  "senha": "nexo-dev-2026",
+  "manter_conectado": false
 }
 ```
 
+* `manter_conectado` *(opcional, padrão `false`)*: quando `true`, emite JWT e cookie persistente com validade de **7 dias** (`Max-Age=604800`); quando `false`, emite cookie de **sessão** (expira ao fechar o navegador) com JWT válido por 1 hora.
+
 #### Response: `200 OK`
+
+Retorna `Set-Cookie` com `nexo_access_token` (`HttpOnly`) e `XSRF-TOKEN`. O `access_token` não é exposto no corpo JSON.
 
 ```json
 {
   "status_code": 200,
   "message": "Autenticação realizada com sucesso",
   "data": {
-    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "usuario": {
       "id": "00000000-0000-0000-0000-0000000000a1",
       "nome": "Analista Dev Um",
